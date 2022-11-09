@@ -216,7 +216,7 @@ for num_annot, x in enumerate(annotators):
 
     Annot_detect = np.zeros((1,nDetect)) # Array of 0 and 1 with length = number of detections of annotator 'x' -> 1 if the annotation matches with one annot_ref annotation
     Ref_detect = np.zeros((1, L)) # Array of 0 and 1 with length = number of detections of annotator annot_ref -> 1 if the annotation matches with one annotatator 'x' annotation
-    idx_common_det= np.zeros((1,nDetect))
+    # idx_common_det= np.zeros((1,nDetect))
     # Initialize loop for each annotator
     b = 0
     for j in range(0,L):
