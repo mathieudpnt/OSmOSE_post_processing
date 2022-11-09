@@ -8,7 +8,7 @@ import pytz
 import os
 import wave
 import contextlib
-import easygui  
+import easygui  # to install : conda install -c conda-forge easygui
 import calendar
 #%%
 
