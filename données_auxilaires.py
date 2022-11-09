@@ -171,15 +171,14 @@ labels = df1['annotation'].unique()
 
 print('annotators : ',annotators,'\nlabels :', labels)
 
-#%%
-label = 'Odontocete whistles'
-annotator = 'mdupon'
+#%%# Compute a dataframe containing the number of annotations per annotator and per label
 
-df2 = df_1annot_1label(df1, annotator, label)
-print("Il y a", df2.shape[0], "annotations de", label, "par l'annotateur", annotator)
+# label = 'Odontocete whistles'
+# annotator = 'jbeesa'
 
-#%%
-# Compute a dataframe containing the number of annotations per annotator and per label
+# df2 = df_1annot_1label(df1, annotator, label)
+# print("Il y a", df2.shape[0], "annotations de", label, "par l'annotateur", annotator)
+
 counter_label = df1.groupby('annotation')['annotator'].apply(Counter).unstack(fill_value=0)
 print(counter_label)
 
