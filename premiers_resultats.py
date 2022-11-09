@@ -38,7 +38,7 @@ def df_1annot_1label(df0, annotator, label):
     df3 = df2.reset_index(drop=True) #reset the indexes of row after sorting the df
     df3['start_datetime'] = pd.to_datetime(df3.start_datetime, format='%d/%m/%Y %H:%M:%S%tz')
     df3['end_datetime'] = pd.to_datetime(df3.end_datetime, format='%d/%m/%Y %H:%M:%S%tz')
-    print(len(df3),'/',len(df1),'kept annotations')
+    print(label, ' : ', len(df3),'/',len(df1),'kept annotations')
     return df3
 
 
@@ -77,17 +77,20 @@ def CreatVec_datetime_det(df_results, annotator, label_test):
     end_det_ref = [calendar.timegm(L.timetuple()) for L in det_annot_ref_label['end_datetime']]
     return beg_det_ref, end_det_ref
 #%% Path file
-# FilePath = 'L:/acoustock/Bioacoustique/DATASETS/CETIROISE/ANALYSE/220926/CETIROISE_HF 17072022.csv'
-FilePath = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 2/IROISE/335556632/analysis/C2D1/Aplose results APOCADO_IROISE_C2D1.csv'
-TimestampPath = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 2/IROISE/335556632/analysis/C2D1/timestamp.csv'
-WavPath = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 2/IROISE/335556632/wav'
+FilePath = 'L:/acoustock/Bioacoustique/DATASETS/CETIROISE/ANALYSE/220926/CETIROISE_HF 17072022.csv'
+
+
+# FilePath = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 2/IROISE/335556632/analysis/C2D1/Aplose results APOCADO_IROISE_C2D1.csv'
+# TimestampPath = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 2/IROISE/335556632/analysis/C2D1/timestamp.csv'
+# WavPath = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 2/IROISE/335556632/wav'
+
 tz_data ='Europe/Paris'
 
 #%% User input
 date_begin = pytz.timezone(tz_data).localize(pd.to_datetime(easygui.enterbox("datetime begin ? (dd MM yyyy HH mm ss) :"), format='%Y %m %d %H %M %S'))
 date_end =   pytz.timezone(tz_data).localize(pd.to_datetime(easygui.enterbox("datetime end ? (dd MM yyyy HH mm ss) :"), format='%Y %m %d %H %M %S'))
 
-ts = get_duration(TimestampPath, WavPath, tz_data)  
+# ts = get_duration(TimestampPath, WavPath, tz_data)  
 #%%
 duration_h = (date_end-date_begin).total_seconds()/3600
 duration_min = duration_h * 60
@@ -136,11 +139,11 @@ ax.yaxis.grid(color='gray', linestyle='dashed')
 ax.tick_params(labelsize=25)
 plt.legend(loc=2, prop={'size': 30});
 
-#%%
+
 label_ref = easygui.buttonbox('Select a reference label', '', labels)
 
 if len(annotators)>1:
-    label_ref = easygui.buttonbox('Select a  reference label', '', annotators)
+    annot_ref = easygui.buttonbox('Select a  reference annotator', '', annotators)
 elif len(annotators==1):
     annot_ref = annotators[0]
 
@@ -183,7 +186,7 @@ for num_annot, x in enumerate(annotators):
     True_det.append(np.sum(Annot_detect))
     False_alarm.append(nDetect-np.sum(Annot_detect))
     Missed_det.append(L - np.sum(Ref_detect))
-    print("Comparaison entre l'annotateur", annot_ref, "et l'annotateur", x)
+    print("\nComparaison entre l'annotateur", annot_ref, "et l'annotateur", x)
     print('Nombre de détections en commun :', np.sum(Annot_detect))
     print("Nombre de détections manquées par l'autre annotateur :", Missed_det[num_annot])
     print("Nombre de détections que l'autre annotateur a, mais pas vous :", False_alarm[num_annot])
@@ -193,7 +196,7 @@ for num_annot, x in enumerate(annotators):
 label_ref = easygui.buttonbox('Select a label', 'Plot label', labels)
 
 if len(annotators)>1:
-    label_ref = easygui.buttonbox('Select a label', 'Plot label', annotators)
+    annot_ref = easygui.buttonbox('Select a label', 'Plot label', annotators)
 elif len(annotators==1):
     annot_ref = annotators[0]
 
@@ -214,7 +217,7 @@ ax.set_yticks(y_pos, bars);
 ax.tick_params(labelsize=20)
 ax.set_ylabel("taux d'annotation / 10min", fontsize = 20)
 ax.tick_params(axis='y')
-fig.suptitle(label_ref + date_begin.strftime(' - %d/%m/%y UTC%z'), fontsize = 24);
+fig.suptitle(annot_ref +' '+ label_ref + date_begin.strftime(' - %d/%m/%y UTC%z'), fontsize = 24);
 
 ax.xaxis.set_major_locator(mdates.HourLocator(interval=2))
 ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M', tz=pytz.timezone(tz_data)))
@@ -224,10 +227,11 @@ ax.grid(color='k', linestyle='-', linewidth=0.2, axis='both')
 #%% Multilabel plot
 
 if len(annotators)>1:
-    annotator_ref = easygui.buttonbox('Select a label', 'Plot label', annotators)
+    annotator_ref = easygui.buttonbox('Select an annotator', 'Plot label', annotators)
 elif len(annotators==1):
     annotator_ref = annotators[0]
 
+selected_labels = labels[0:3]
 
 res = 10
 time_slice = 60*res #10 min
@@ -238,12 +242,12 @@ y_pos = np.linspace(0,n_annot_max, num=len(bars))
 
 locator = mdates.HourLocator(interval=2)
 
-fig, ax = plt.subplots(nrows = 3, figsize=(30,20))
+fig, ax = plt.subplots(nrows = len(selected_labels), figsize=(30,20))
 
 plt.setp(ax, xlim=(date_begin,date_end))
 fig.suptitle('Annotations de '+annotator_ref +' du' + date_begin.strftime(' %d/%m/%y UTC%z'), fontsize = 24, y=0.93)
 
-for i, L in enumerate(labels[0:3]):    
+for i, L in enumerate(selected_labels):    
     annot_whistlesM = df_1annot_1label(df1, annotator_ref, L)  
     df_timestamp_beg = annot_whistlesM['start_datetime']
     t_dt=pd.to_datetime(df_timestamp_beg, format="%Y-%m-%dT%H:%M:%S.%f%z")
