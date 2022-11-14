@@ -50,10 +50,8 @@ def hour_rounder(t):
 #Get Duration of files in timestamp.csv file
 def get_duration(timestamp_file, wav_path, TimeZ):
     ts = pd.read_csv(timestamp_file, delimiter=',', header=None, names=['name', 'timestamp'])
-
     ts['timestamp'] = pd.to_datetime(ts['timestamp'], format='%Y-%m-%dT%H:%M:%S.%fZ') #from str to naïve datetime
     ts['timestamp'] = [pytz.timezone(TimeZ).localize(y) for x,y in enumerate(ts['timestamp'])] #add timezone
-
     wavname = [os.path.join(wav_path, y) for x,y in enumerate(ts['name'])]
     list_duration=[]
     for x,y in enumerate(wavname):
@@ -62,7 +60,6 @@ def get_duration(timestamp_file, wav_path, TimeZ):
             rate = f.getframerate()
             duration = frames / float(rate)
             list_duration.append(duration)
-            
     ts['duration'] = list_duration
     return ts
 
@@ -76,9 +73,23 @@ def CreatVec_datetime_det(df_results, annotator, label_test):
     beg_det_ref = [calendar.timegm(L.timetuple()) for L in det_annot_ref_label['start_datetime']]
     end_det_ref = [calendar.timegm(L.timetuple()) for L in det_annot_ref_label['end_datetime']]
     return beg_det_ref, end_det_ref
-#%% Path file
-FilePath = 'L:/acoustock/Bioacoustique/DATASETS/CETIROISE/ANALYSE/220926/CETIROISE_HF 17072022.csv'
 
+#returns the bins for a user-specified bin resolution used for an annotation plot
+def res_timebin_plot(date_begin, date_end, duration_min):
+    res_min = easygui.enterbox("résolution temporelle bin ? (min) :")
+    if res_min.isnumeric() == False :
+        print('Not an integer')
+    else: 
+        res_min = int(res_min)
+        if duration_min%res_min == 0:
+            date_list = [date_begin + dt.timedelta(minutes=res_min*x) for x in range(duration_min//res_min)] # 24*60 = 144*10 min in 24h
+            return (res_min, date_list)
+        else: print('\n\n /!\ duration_min/res_min is not an integer')
+#%% Path file + TZ
+
+FilePath = 'L:/acoustock/Bioacoustique/DATASETS/CETIROISE/ANALYSE/220926/CETIROISE_HF 17072022.csv'
+TimestampPath = 'L:/acoustock/Bioacoustique/DATASETS/CETIROISE/DATA/B_Sud Fosse Ouessant/Phase_1/Sylence/2022-07-17/timestamp.csv'
+WavPath = 'L:/acoustock/Bioacoustique/DATASETS/CETIROISE/DATA/B_Sud Fosse Ouessant/Phase_1/Sylence/2022-07-17'
 
 # FilePath = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 2/IROISE/335556632/analysis/C2D1/Aplose results APOCADO_IROISE_C2D1.csv'
 # TimestampPath = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 2/IROISE/335556632/analysis/C2D1/timestamp.csv'
@@ -90,7 +101,11 @@ tz_data ='Europe/Paris'
 date_begin = pytz.timezone(tz_data).localize(pd.to_datetime(easygui.enterbox("datetime begin ? (dd MM yyyy HH mm ss) :"), format='%Y %m %d %H %M %S'))
 date_end =   pytz.timezone(tz_data).localize(pd.to_datetime(easygui.enterbox("datetime end ? (dd MM yyyy HH mm ss) :"), format='%Y %m %d %H %M %S'))
 
-# ts = get_duration(TimestampPath, WavPath, tz_data)  
+ts = get_duration(TimestampPath, WavPath, tz_data)  
+
+test_ts = [(y > date_begin) & (y < date_end) for x,y in enumerate(ts['timestamp'])]
+if sum(test_ts) == 0: print('Aucun fichier compris entre', str(date_begin), 'et', str(date_end))
+else : print(sum(test_ts), '/', len(ts), 'fichiers compris entre', str(date_begin), 'et', str(date_end))
 #%%
 duration_h = (date_end-date_begin).total_seconds()/3600
 duration_min = duration_h * 60
@@ -103,13 +118,7 @@ if duration_min.is_integer() == True:
     duration_min = int(duration_min)
 else: print('duration_min is not an integer')
 
-#%%
 df1 = sorting_annot_boxes(FilePath, tz_data, date_begin, date_end)
-
-res_min = 10
-if duration_min%res_min == 0:
-    date_list = [date_begin + dt.timedelta(minutes=res_min*x) for x in range(duration_min//res_min)] # 24*60 = 144*10 min in 24h
-else: print('\n\n /!\ duration_min/res_min is not an integer')
 
 time_bin = max(df1['end_time'])
 print("\ntime_bin : ", time_bin, "s")
@@ -120,10 +129,7 @@ print('\nannotators :\n',annotators.reset_index(drop=True).to_string())
 labels = df1['annotation'].drop_duplicates()
 print('\nlabels :\n',labels.reset_index(drop=True).to_string())
 
-
-
-#%%
-# Plot annotations of each annotator
+#%% Plot annotations of each annotator
 counter_label = df1.groupby('annotation')['annotator'].apply(Counter).unstack(fill_value=0)
 print(counter_label)
 
@@ -199,13 +205,12 @@ if len(annotators)>1:
     annot_ref = easygui.buttonbox('Select a label', 'Plot label', annotators)
 elif len(annotators==1):
     annot_ref = annotators[0]
-
-
+    
+res_min, date_list = res_timebin_plot(date_begin, date_end, duration_min)    
 time_slice = 60*res_min #10 min
 n_annot_max = time_slice/time_bin #nb of annoted time_bin max per time_slice
 
 df_1a1l = df_1annot_1label(df1, annot_ref, label_ref)
-
 
 fig,ax = plt.subplots(figsize=(20,9))
 
@@ -215,9 +220,9 @@ bars = range(0,110,10) #from 0 to 100 step 10
 y_pos = np.linspace(0,n_annot_max, num=len(bars))
 ax.set_yticks(y_pos, bars);
 ax.tick_params(labelsize=20)
-ax.set_ylabel("taux d'annotation / 10min", fontsize = 20)
+ax.set_ylabel("taux d'annotation / "+str(res_min)+" min", fontsize = 20)
 ax.tick_params(axis='y')
-fig.suptitle(annot_ref +' '+ label_ref + date_begin.strftime(' - %d/%m/%y UTC%z'), fontsize = 24);
+fig.suptitle(annot_ref +' '+ label_ref + date_begin.strftime(' - %d/%m/%y UTC%z'), fontsize = 24, y=0.95);
 
 ax.xaxis.set_major_locator(mdates.HourLocator(interval=2))
 ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M', tz=pytz.timezone(tz_data)))
@@ -227,14 +232,15 @@ ax.grid(color='k', linestyle='-', linewidth=0.2, axis='both')
 #%% Multilabel plot
 
 if len(annotators)>1:
-    annotator_ref = easygui.buttonbox('Select an annotator', 'Plot label', annotators)
+    annotator_ref = easygui.buttonbox('Select an annotator', 'Multilabel plot', annotators)
 elif len(annotators==1):
     annotator_ref = annotators[0]
 
-selected_labels = labels[0:3]
+selected_labels = labels[0:3] #TODO : checkbox to select desired labels to plot ?
 
-res = 10
-time_slice = 60*res #10 min
+res_min, date_list = res_timebin_plot(date_begin, date_end, duration_min)    
+
+time_slice = 60*res_min #10 min
 n_annot_max = time_slice/time_bin #n of annoted time_bin max per time_slice
 
 bars = range(0,110,10) #from 0 to 100 step 10
@@ -242,10 +248,11 @@ y_pos = np.linspace(0,n_annot_max, num=len(bars))
 
 locator = mdates.HourLocator(interval=2)
 
+
 fig, ax = plt.subplots(nrows = len(selected_labels), figsize=(30,20))
 
 plt.setp(ax, xlim=(date_begin,date_end))
-fig.suptitle('Annotations de '+annotator_ref +' du' + date_begin.strftime(' %d/%m/%y UTC%z'), fontsize = 24, y=0.93)
+fig.suptitle('Annotations de '+annotator_ref +' du' + date_begin.strftime(' %d/%m/%y UTC%z'), fontsize = 24, y=0.95)
 
 for i, L in enumerate(selected_labels):    
     annot_whistlesM = df_1annot_1label(df1, annotator_ref, L)  
@@ -264,6 +271,6 @@ for i, L in enumerate(selected_labels):
     ax[i].grid(color='k', linestyle='-', linewidth=0.2)
     ax[i].set_xlim(date_begin, date_end)
 
-    ax[i].set_ylabel("taux d'annotation / "+str(res)+" min", fontsize = 20)
+    ax[i].set_ylabel("taux d'annotation / "+str(res_min)+" min", fontsize = 20)
     ax[i].tick_params(axis='y')
     ax[i].grid(color='k', linestyle='-', linewidth=0.2, axis='both')

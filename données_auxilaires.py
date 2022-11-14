@@ -7,9 +7,15 @@ import matplotlib.dates as mdates
 import calendar
 from scipy.signal import savgol_filter
 import pytz
+import easygui  # to install : conda install -c conda-forge easygui
+import os
+import contextlib
+import wave
+
 
 import pickle
 import statistics
+import math 
 
 from astral.sun import sun
 import astral
@@ -53,20 +59,15 @@ def time_det(call_type, annotation,wavFile):
             UT.append(unixT)
     return UT
 
-# Return a Dataframe df with the annotations of 1 annotator and 1 label
+# From a DataFrame, returns a Dataframe df with the annotations of 1 annotator and 1 label
 def df_1annot_1label(df0, annotator, label):
     df1= df0.loc[df0['annotator'] == annotator]
     df2 = df1.loc[df1['annotation'] == label]
     df3 = df2.reset_index(drop=True) #reset the indexes of row after sorting the df
     df3['start_datetime'] = pd.to_datetime(df3.start_datetime, format='%d/%m/%Y %H:%M:%S%tz')
     df3['end_datetime'] = pd.to_datetime(df3.end_datetime, format='%d/%m/%Y %H:%M:%S%tz')
+    print(label, ' : ', len(df3),'/',len(df1),'kept annotations')
     return df3
-
-#secondary y axis for tide charts
-def annot_secondyaxis(x):
-    return (x/n_annot_max)*h_max
-def annot_secondyaxis2(x):
-    return (x/h_max)*n_annot_max
 
 # Returns 2 lists containing the start and end datetime of each annotations of one label & one annotator
 def CreatVec_datetime_det(df_results, annotator, label_test):
@@ -79,8 +80,9 @@ def CreatVec_datetime_det(df_results, annotator, label_test):
     end_det_ref = [calendar.timegm(L.timetuple()) for L in det_annot_ref_label['end_datetime']]
     return beg_det_ref, end_det_ref
 
-def sorting_annot_boxes(FileDet, tz):
-    df = pd.read_csv(FilePath1)
+# From an Aplose results csv, returns a DataFrame without the Aplose box annotations
+def sorting_annot_boxes(FileDet, tz, date_begin, date_end):
+    df = pd.read_csv(FileDet)
     max_freq = max(df['end_frequency'])
     max_time = max(df['end_time'])
     df2 = df.loc[(df['start_time'] == 0) & (df['end_time'] == max_time) & (df['end_frequency'] == max_freq)] #deletion of boxes
@@ -91,11 +93,30 @@ def sorting_annot_boxes(FileDet, tz):
     
     df4['start_datetime'] = [y.tz_convert(tz) for x,y in enumerate(df4['start_datetime'])] #converting to desired tz
     df4['end_datetime'] = [y.tz_convert(tz) for x,y in enumerate(df4['end_datetime'])] #converting to desired tz
+    
+    df5 = df4[(df4['start_datetime']>=date_begin) & (df4['start_datetime']<=date_end)] #select data within [date_begin;date_end]
 
-    return (df4)
+    print(len(df5),'/',len(df4),'kept annotations')
+    return (df5)
 
+#Get Duration of files in timestamp.csv file
+def get_duration(timestamp_file, wav_path, TimeZ):
+    ts = pd.read_csv(timestamp_file, delimiter=',', header=None, names=['name', 'timestamp'])
+    ts['timestamp'] = pd.to_datetime(ts['timestamp'], format='%Y-%m-%dT%H:%M:%S.%fZ') #from str to naïve datetime
+    ts['timestamp'] = [pytz.timezone(TimeZ).localize(y) for x,y in enumerate(ts['timestamp'])] #add timezone
+    wavname = [os.path.join(wav_path, y) for x,y in enumerate(ts['name'])]
+    list_duration=[]
+    for x,y in enumerate(wavname):
+        with contextlib.closing(wave.open(y,'r')) as f:
+            frames = f.getnframes()
+            rate = f.getframerate()
+            duration = frames / float(rate)
+            list_duration.append(duration)
+    ts['duration'] = list_duration
+    return ts
+    
+# Rounds to nearest hour by adding a timedelta hour if minute >= 30
 def hour_rounder(t):
-    # Rounds to nearest hour by adding a timedelta hour if minute >= 30
     return (t.replace(second=0, microsecond=0, minute=0, hour=t.hour)+dt.timedelta(hours=t.minute//30))
 
 def plot_tides(data_path, date_begin, date_end, tz):
@@ -127,63 +148,85 @@ def read_pkl(pkl_filename):
     time_welch.sort()
     datetime_welch = [(dt.datetime.strptime(x, "%Y-%m-%d %H:%M:%S")) for x in time_welch]
     return welch, datetime_welch
+
+#returns the bins for a user-specified bin resolution used for an annotation plot
+def res_timebin_plot(date_begin, date_end, duration_min):
+    res_min = easygui.enterbox("résolution temporelle bin ? (min) :")
+    if res_min.isnumeric() == False :
+        print('Not an integer')
+    else: 
+        res_min = int(res_min)
+        if duration_min%res_min == 0:
+            date_list = [date_begin + dt.timedelta(minutes=res_min*x) for x in range(duration_min//res_min)] # 24*60 = 144*10 min in 24h
+            return (res_min, date_list)
+        else: print('\n\n /!\ duration_min/res_min is not an integer')
 #%%TO DO LIST
 
+#plot sun/night : plotté les annot/detec sur un seul x / jour + rendre la fonction + user-friendly + vérifier les TZ
+
+###################################################################################################################################################
+###################################################################################################################################################
+###################################################################################################################################################
+#DONE
+#Loader timestamps.csv pour avoir la durée de la campagne et de chaque fichiers OU si pas de timestamp.csv demander suer date début et fin campagane
 #créer fonction pour automatiser creation timebin, user choisi taille des bins
 
-#Loader timestamps.csv pour avoir la durée de la campagne et de chaque fichiers OU si pas de timestamp.csv demander suer date début et fin campagane
 
-#plot sun/night : plotté les annot/detec sur un seul x / jour + rendre la fonction + user-friendly + vérifier les TZ
+#%% Path file + TZ
+
+# FilePath = 'L:/acoustock/Bioacoustique/DATASETS/CETIROISE/ANALYSE/220926/CETIROISE_HF 17072022.csv'
+# TimestampPath = 'L:/acoustock/Bioacoustique/DATASETS/CETIROISE/DATA/B_Sud Fosse Ouessant/Phase_1/Sylence/2022-07-17/timestamp.csv'
+# WavPath = 'L:/acoustock/Bioacoustique/DATASETS/CETIROISE/DATA/B_Sud Fosse Ouessant/Phase_1/Sylence/2022-07-17'
+
+FilePath = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 2/IROISE/335556632/analysis/C2D1/Aplose results APOCADO_IROISE_C2D1.csv'
+TimestampPath = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 2/IROISE/335556632/analysis/C2D1/timestamp.csv'
+WavPath = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 2/IROISE/335556632/wav'
+
+tz_data ='Europe/Paris'
+
+# file_maree = 'L:/acoustock/Bioacoustique/DATASETS/CETIROISE/maregraphie/152_2022.csv'
+file_maree = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/maregraphie/6305_2022.csv'
+pkl_filename = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 2/IROISE/335556632/analysis/C2D1/complete_welch.pkl'
+
+
+#%% User input
+date_begin = pytz.timezone(tz_data).localize(pd.to_datetime(easygui.enterbox("datetime begin ? (yyyy MM dd HH mm ss) :"), format='%Y %m %d %H %M %S'))
+date_end =   pytz.timezone(tz_data).localize(pd.to_datetime(easygui.enterbox("datetime end ? (yyyy MM dd HH mm ss) :"), format='%Y %m %d %H %M %S'))
+
+ts = get_duration(TimestampPath, WavPath, tz_data)  
+
+test_ts = [(y > date_begin) & (y < date_end) for x,y in enumerate(ts['timestamp'])]
+if sum(test_ts) == 0: print('Aucun fichier compris entre', str(date_begin), 'et', str(date_end))
+else : print(sum(test_ts), '/', len(ts), 'fichiers compris entre', str(date_begin), 'et', str(date_end))
 #%%
-# FilePath1 = 'L:/acoustock/Bioacoustique/DATASETS/CETIROISE/ANALYSE/220926/CETIROISE_HF 17072022.csv'
-FilePath1 = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 2/IROISE/336363566/analysis/C2D1/APOCADO_IROISE_C2D1 - results.csv'
+duration_h = (date_end-date_begin).total_seconds()/3600
+duration_min = duration_h * 60
+if duration_h.is_integer() == True:
+    duration_h = int(duration_h)
+    print('duration : ', duration_h, 'h')
+else: print('duration_h is not an integer')
 
-tz_data = 'Europe/Paris'
+if duration_min.is_integer() == True:
+    duration_min = int(duration_min)
+else: print('duration_min is not an integer')
 
-df1 = sorting_annot_boxes(FilePath1, tz_data)
+df1 = sorting_annot_boxes(FilePath, tz_data, date_begin, date_end)
 
-date_begin = df1['start_datetime'][0]
-date_end = df1['end_datetime'][len(df1)-1]
-
-print('first start_datetime : ', date_begin)
-print('last start_datetime : ', date_end)
-
-date_begin_rounded = hour_rounder(date_begin)
-date_end_rounded = hour_rounder(date_end)
-
-date_list = [date_begin_rounded + dt.timedelta(minutes=10*x) for x in range(145)] # 24*60 = 144*10 min in 24h
-
-print('first start_datetime rounded : ', date_begin_rounded)
-print('last start_datetime rounded : ', date_end_rounded)
-
-#%%
 time_bin = max(df1['end_time'])
+print("\ntime_bin : ", time_bin, "s")
 
-print("time_bin : ", time_bin, "s")
-#%%
-duration = date_end_rounded - date_begin_rounded
-duration_h = duration.total_seconds()/3600
-print('duration : ', duration_h, 'h')
+annotators = df1['annotator'].drop_duplicates()
+print('\nannotators :\n',annotators.reset_index(drop=True).to_string())
 
-#%%
-annotators = df1['annotator'].unique()
-labels = df1['annotation'].unique()
+labels = df1['annotation'].drop_duplicates()
+print('\nlabels :\n',labels.reset_index(drop=True).to_string())
 
-print('annotators : ',annotators,'\nlabels :', labels)
 
-#%%# Compute a dataframe containing the number of annotations per annotator and per label
-
-# label = 'Odontocete whistles'
-# annotator = 'jbeesa'
-
-# df2 = df_1annot_1label(df1, annotator, label)
-# print("Il y a", df2.shape[0], "annotations de", label, "par l'annotateur", annotator)
-
+#%% Plot annotations of each annotator
 counter_label = df1.groupby('annotation')['annotator'].apply(Counter).unstack(fill_value=0)
 print(counter_label)
 
-#%%
-# Plot annotations of each annotator
+
 fig, ax = plt.subplots(figsize=(30,15))
 ax = counter_label.plot(kind='bar', ax=ax)
 plt.ylabel('Number of annotated calls', fontsize=30 )
@@ -195,9 +238,15 @@ ax.yaxis.grid(color='gray', linestyle='dashed')
 ax.tick_params(labelsize=25)
 plt.legend(loc=2, prop={'size': 30});
 
-#%%
-annot_ref = 'mdupon'
-label_ref = 'Odontocete whistles'
+
+label_ref = easygui.buttonbox('Select a reference label', '', labels)
+
+if len(annotators)>1:
+    annot_ref = easygui.buttonbox('Select a  reference annotator', '', annotators)
+elif len(annotators==1):
+    annot_ref = annotators[0]
+
+
 True_det = []
 #Detect_rate = []
 False_alarm = []
@@ -216,7 +265,7 @@ for num_annot, x in enumerate(annotators):
 
     Annot_detect = np.zeros((1,nDetect)) # Array of 0 and 1 with length = number of detections of annotator 'x' -> 1 if the annotation matches with one annot_ref annotation
     Ref_detect = np.zeros((1, L)) # Array of 0 and 1 with length = number of detections of annotator annot_ref -> 1 if the annotation matches with one annotatator 'x' annotation
-    # idx_common_det= np.zeros((1,nDetect))
+    idx_common_det= np.zeros((1,nDetect))
     # Initialize loop for each annotator
     b = 0
     for j in range(0,L):
@@ -236,42 +285,32 @@ for num_annot, x in enumerate(annotators):
     True_det.append(np.sum(Annot_detect))
     False_alarm.append(nDetect-np.sum(Annot_detect))
     Missed_det.append(L - np.sum(Ref_detect))
-    print("Comparaison entre l'annotateur", annot_ref, "et l'annotateur", x)
+    print("\nComparaison entre l'annotateur", annot_ref, "et l'annotateur", x)
     print('Nombre de détections en commun :', np.sum(Annot_detect))
     print("Nombre de détections manquées par l'autre annotateur :", Missed_det[num_annot])
     print("Nombre de détections que l'autre annotateur a, mais pas vous :", False_alarm[num_annot])
 
 #%% Single plot vs tide
-file_maree = 'L:/acoustock/Bioacoustique/DATASETS/CETIROISE/maregraphie/152_2022.csv'
-tz_tides = tz_data
+dt_maree, h_maree, h_max = plot_tides(file_maree, date_begin, date_end, tz_data)
 
-(dt_maree, h_maree, h_max) = plot_tides(file_maree, date_begin_rounded, date_end_rounded, tz_tides)
+label_ref = easygui.buttonbox('Select a label', 'Plot label', labels)
 
-# fig, ax = plt.subplots(figsize=(16,4))
-# plt.plot(dt_maree, h_maree)
-# plt.setp(ax, ylim=(0,1.2*h_max));
-# locator = mdates.HourLocator(interval=2)
-# ax.xaxis.set_major_locator(locator)
-# ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M', tz=pytz.timezone(tz_tides)))
-# ax.grid(color='k', linestyle='-', linewidth=0.2, axis='both')
-# fig.suptitle('Hauteur d\'eau du ' + date_begin_rounded.strftime(' %d/%m/%y UTC%z'), fontsize = 12)
+if len(annotators)>1:
+    annot_ref = easygui.buttonbox('Select a label', 'Plot label', annotators)
+elif len(annotators==1):
+    annot_ref = annotators[0]
 
-annotator = 'mdupon'
-label = 'Odontocete clics'
-(dt_maree, h_maree, h_max) = plot_tides(file_maree, date_begin_rounded, date_end_rounded, tz_data)
 
-res = 10 #nb minutes
-time_slice = 60*res #10 min
+res_min, date_list = res_timebin_plot(date_begin, date_end, duration_min)    
+time_slice = 60*res_min #10 min
 n_annot_max = time_slice/time_bin #nb of annoted time_bin max per time_slice
 
-df_1a1l = df_1annot_1label(df1, annotator, label)
-tz_inf = df_1a1l['start_datetime'].iloc[0].tzinfo
-
+df_1a1l = df_1annot_1label(df1, annot_ref, label_ref)
 
 fig,ax = plt.subplots(figsize=(20,9))
 ax2 = ax.twinx()
 
-ax.hist(df_1a1l['start_datetime'], bins=date_list, color='coral'); #histo annotation
+data_hist = ax.hist(df_1a1l['start_datetime'], bins=date_list, color='coral'); #histo annotation
 ax2.plot(dt_maree,h_maree, color='royalblue') #plot marée
 
 bars = range(0,110,10) #from 0 to 100 step 10
@@ -279,48 +318,56 @@ y_pos = np.linspace(0,n_annot_max, num=len(bars))
 ax.set_yticks(y_pos, bars);
 ax.tick_params(labelsize=20)
 ax2.tick_params(labelsize=20)
-ax.set_ylabel("taux d'annotation / 10min", fontsize = 20, color='coral')
+ax.set_ylabel("taux d'annotation / "+str(res_min)+" min", fontsize = 20, color='coral')
+
 ax.tick_params(colors='coral',axis='y')
 ax2.set_ylabel("hauteur d'eau (m)", fontsize = 20, color='royalblue')
 ax2.tick_params(colors='royalblue',axis='y')
-fig.suptitle(label + date_begin_rounded.strftime(' - %d/%m/%y UTC%z'), fontsize = 24);
+fig.suptitle(annot_ref +' '+ label_ref + date_begin.strftime(' - %d/%m/%y UTC%z'), fontsize = 24, y=0.95);
 
 ax.xaxis.set_major_locator(mdates.HourLocator(interval=2))
-ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M', tz=tz_inf))
-plt.xlim(date_begin_rounded, date_end_rounded)
+ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M', tz=pytz.timezone(tz_data)))
+plt.xlim(date_begin, date_end)
 ax.grid(color='k', linestyle='-', linewidth=0.2, axis='both')
 
-#%%
-#Multilabel plot vs tides
-annotator = 'mdupon';
-file_maree = 'L:/acoustock/Bioacoustique/DATASETS/CETIROISE/maregraphie/152_2022.csv'
-tz_tides = tz_data
+#%% Multilabel plot vs tides
+dt_maree, h_maree, h_max = plot_tides(file_maree, date_begin, date_end, tz_data)
 
+if len(annotators)>1:
+    annot_ref = easygui.buttonbox('Select a label', 'Plot label', annotators)
+elif len(annotators==1):
+    annot_ref = annotators[0]
 
-(dt_maree, h_maree, h_max) = plot_tides(file_maree, date_begin_rounded, date_end_rounded, tz_tides)
+selected_labels = labels[0:3] #TODO : checkbox to select desired labels to plot ?
 
-res = 10
-time_slice = 60*res #10 min
-n_annot_max = time_slice/time_bin #n of annoted time_bin max per time_slice
+res_min, date_list = res_timebin_plot(date_begin, date_end, duration_min)    
+time_slice = 60*res_min #10 min
+n_annot_max = time_slice/time_bin #nb of annoted time_bin max per time_slice
 
 bars = range(0,110,10) #from 0 to 100 step 10
 y_pos = np.linspace(0,n_annot_max, num=len(bars))
 
 locator = mdates.HourLocator(interval=2)
 
-fig, ax = plt.subplots(nrows = 3, figsize=(30,20))
+fig, ax = plt.subplots(nrows = len(selected_labels), figsize=(30,20))
 
 plt.setp(ax, xlim=(date_begin,date_end))
-fig.suptitle('Annotations de '+annotator +' du' + date_begin_rounded.strftime(' %d/%m/%y UTC%z'), fontsize = 24, y=0.93)
+fig.suptitle('Annotations de '+annot_ref +' du' + date_begin.strftime(' %d/%m/%y UTC%z'), fontsize = 24, y=0.95)
 
-for i, L in enumerate(labels[0:3]):
+x_hist=[]
+y_hist=[]
+for i, L in enumerate(selected_labels):
     ax2 = ax[i].twinx()
     
-    annot_whistlesM = df_1annot_1label(df1, annotator, L)  
+    annot_whistlesM = df_1annot_1label(df1, annot_ref, L)  
     df_timestamp_beg = annot_whistlesM['start_datetime']
     t_dt=pd.to_datetime(df_timestamp_beg, format="%Y-%m-%dT%H:%M:%S.%f%z")
     
-    ax[i].hist(t_dt, date_list, color='tab:red') 
+    n1, n2, obj = ax[i].hist(t_dt, date_list, color='tab:red') 
+    x_hist.append(n1)
+    y_hist.append(n2)
+    
+    
 
     ax[i].xaxis.set_major_locator(locator)
     ax[i].xaxis.set_major_formatter(mdates.DateFormatter('%H:%M', tz=pytz.timezone(tz_data)))
@@ -330,9 +377,9 @@ for i, L in enumerate(labels[0:3]):
     ax[i].set_yticks(y_pos)
     ax[i].set_yticklabels(bars)
     ax[i].grid(color='k', linestyle='-', linewidth=0.2)
-    ax[i].set_xlim(date_begin_rounded, date_end_rounded)
+    ax[i].set_xlim(date_begin, date_end)
 
-    ax[i].set_ylabel("taux d'annotation / "+str(res)+" min", fontsize = 20, color='tab:red')
+    ax[i].set_ylabel("taux d'annotation / "+str(res_min)+" min", fontsize = 20, color='tab:red')
     ax[i].tick_params(colors='tab:red', axis='y')
     ax[i].grid(color='k', linestyle='-', linewidth=0.2, axis='both')
     
@@ -341,22 +388,106 @@ for i, L in enumerate(labels[0:3]):
     ax2.tick_params(colors='royalblue',axis='y')
 
 #%% Noise
-pkl_filename = 'C:/Users/dupontma2/Downloads/complete_welch.pkl'
-(welch, time_welch) = read_pkl(pkl_filename)
+def read_pkl(pkl_filename):
+    with open(pkl_filename, 'rb') as f:
+        pkl = pickle.load(f)
+
+    welch = pkl[0]
+    time_welch = pkl[1]
+    # On trie les welch, car ils ne sont pas rangés dans l'odre dans le fichier pkl
+    a = np.argsort(time_welch)
+    #np.take_along_axis(welch, a, axis=1)
+    welch = welch[a]
+    time_welch.sort()
+    datetime_welch = [(dt.datetime.strptime(x, "%Y-%m-%d %H:%M:%S.%f")) for x in time_welch]
+    # datetime_welch = [(dt.datetime.strptime(x, "%Y-%m-%d %H:%M:%S")) for x in time_welch]
+    return welch, datetime_welch
+
+def plot_noise(tz_data, date_begin, date_end, pkl_filename):
+    pkl_filename = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 2/IROISE/335556632/analysis/C2D1/complete_welch.pkl'
+    welch, time_welch = read_pkl(pkl_filename)
+    time_welch = [pytz.timezone(tz_data).localize(y) for x,y in enumerate(time_welch)] #add timezone
+    df_welch = pd.DataFrame()
+    df_welch['welch'] = welch
+    df_welch['time'] = time_welch
+    df_welch[(df_welch['time']>= date_begin) & (df_welch['time']<= date_end)]
+    welch_dB = [10*np.log(SPL/10e-12) for SPL in df_welch['welch']]
+    average_SPL = [statistics.mean(W) for W in welch_dB]
+    average_SPL_f = savgol_filter(average_SPL, 201, 2)
+    df_welch['SPL_av'] = average_SPL_f
+    return df_welch
+    
+    
+#%%
+# pkl_filename = 'C:/Users/dupontma2/Downloads/complete_welch.pkl'
+df_w = plot_noise(tz_data, date_begin, date_end, pkl_filename)
+
+label_ref = easygui.buttonbox('Select a label', 'Plot label', labels)
+
+if len(annotators)>1:
+    annot_ref = easygui.buttonbox('Select a label', 'Plot label', annotators)
+elif len(annotators==1):
+    annot_ref = annotators[0]
+
+
+res_min, date_list = res_timebin_plot(date_begin, date_end, duration_min)    
+time_slice = 60*res_min #10 min
+n_annot_max = time_slice/time_bin #nb of annoted time_bin max per time_slice
+
+df_1a1l = df_1annot_1label(df1, annot_ref, label_ref)
+
+fig,ax = plt.subplots(figsize=(20,9))
+ax2 = ax.twinx()
+
+ax.hist(df_1a1l['start_datetime'], bins=date_list, color='coral'); #histo annotation
+ax2.plot(df_w['time'], df_w['SPL_av'], color='royalblue') #plot noise
+
+bars = range(0,110,10) #from 0 to 100 step 10
+y_pos = np.linspace(0,n_annot_max, num=len(bars))
+ax.set_yticks(y_pos, bars);
+ax.tick_params(labelsize=20)
+ax2.tick_params(labelsize=20)
+ax.set_ylabel("taux d'annotation / "+str(res_min)+" min", fontsize = 20, color='coral')
+
+ax.tick_params(colors='coral',axis='y')
+ax2.set_ylabel("average SPL (dB)", fontsize = 20, color='royalblue')
+ax2.tick_params(colors='royalblue',axis='y')
+fig.suptitle(annot_ref +' '+ label_ref + date_begin.strftime(' - %d/%m/%y UTC%z'), fontsize = 24, y=0.95);
+
+ax.xaxis.set_major_locator(mdates.HourLocator(interval=2))
+ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M', tz=pytz.timezone(tz_data)))
+plt.xlim(date_begin, date_end)
+ax.grid(color='k', linestyle='-', linewidth=0.2, axis='both')
+
+
+#%%
+
+# pkl_filename = 'C:/Users/dupontma2/Downloads/complete_welch.pkl'
+pkl_filename = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 2/IROISE/335556632/analysis/C2D1/complete_welch.pkl'
+
+welch, time_welch = read_pkl(pkl_filename)
+
 welch_dB = [10*np.log(SPL/10e-10) for SPL in welch]
 average_SPL = [statistics.mean(W) for W in welch_dB]
 
 average_SPL_f = savgol_filter(average_SPL, 131, 2) # window size 131, polynomial order 2
-#average_SPL_dB = [20*math.log(average_SPL[i]/10e-5, 10) for i in range(0,len(SPL))]
+
+average_SPL_dB = [20*math.log(average_SPL[i]/10e-5, 10) for i in range(0,len(average_SPL))]
 
 # fig, ax = plt.subplots(figsize=(20,5))
 # plt.plot(time_welch, average_SPL)
-# plt.plot(time_welch, dB_SPL_f)
+# # plt.plot(time_welch, average_SPL_f)
 # locator = mdates.HourLocator(interval=2)
 # ax.xaxis.set_major_locator(locator)
 # ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
 # ax.grid(color='k', linestyle='-', linewidth=0.2)
+#%%
+fig, ax = plt.subplots(nrows = 1, figsize=(30,20))
+ax.plot(time_welch, average_SPL)
+ax.plot(time_welch, average_SPL_f)
+ax.plot(time_welch, average_SPL_dB)
 
+#%%
 annotator = 'mdupon'
 
 res = 10
@@ -368,10 +499,12 @@ y_pos = np.linspace(0,n_annot_max, num=len(bars))
 
 locator = mdates.HourLocator(interval=2)
 
+#%%
+
 fig, ax = plt.subplots(nrows = 3, figsize=(30,20))
 
 plt.setp(ax, xlim=(date_begin,date_end))
-fig.suptitle('Annotations de '+annotator +' du' + date_begin_rounded.strftime(' %d/%m/%y UTC%z'), fontsize = 24, y=0.93)
+fig.suptitle('Annotations de '+annotator +' du' + date_begin.strftime(' %d/%m/%y UTC%z'), fontsize = 24, y=0.93)
 
 for i, L in enumerate(labels[0:3]):
     ax2 = ax[i].twinx()
@@ -390,7 +523,7 @@ for i, L in enumerate(labels[0:3]):
     ax[i].set_yticks(y_pos)
     ax[i].set_yticklabels(bars)
     ax[i].grid(color='k', linestyle='-', linewidth=0.2)
-    ax[i].set_xlim(date_begin_rounded, date_end_rounded)
+    ax[i].set_xlim(date_begin, date_end)
 
     ax[i].set_ylabel("taux d'annotation / "+str(res)+" min", fontsize = 20, color='tab:red')
     ax[i].tick_params(colors='tab:red', axis='y')
