@@ -135,20 +135,6 @@ def plot_tides(data_path, date_begin, date_end, tz):
     h_max = max(hauteur2)
     return (dt_maree, hauteur2, h_max)
 
-def read_pkl(pkl_filename):
-    with open(pkl_filename, 'rb') as f:
-        pkl = pickle.load(f)
-
-    welch = pkl[0]
-    time_welch = pkl[1]
-    # On trie les welch, car ils ne sont pas rangés dans l'odre dans le fichier pkl
-    a = np.argsort(time_welch)
-    #np.take_along_axis(welch, a, axis=1)
-    welch = welch[a]
-    time_welch.sort()
-    datetime_welch = [(dt.datetime.strptime(x, "%Y-%m-%d %H:%M:%S")) for x in time_welch]
-    return welch, datetime_welch
-
 #returns the bins for a user-specified bin resolution used for an annotation plot
 def res_timebin_plot(date_begin, date_end, duration_min):
     res_min = easygui.enterbox("résolution temporelle bin ? (min) :")
@@ -172,21 +158,27 @@ def res_timebin_plot(date_begin, date_end, duration_min):
 #créer fonction pour automatiser creation timebin, user choisi taille des bins
 
 
-#%% Path file + TZ
+#%% Source data
 
 # FilePath = 'L:/acoustock/Bioacoustique/DATASETS/CETIROISE/ANALYSE/220926/CETIROISE_HF 17072022.csv'
 # TimestampPath = 'L:/acoustock/Bioacoustique/DATASETS/CETIROISE/DATA/B_Sud Fosse Ouessant/Phase_1/Sylence/2022-07-17/timestamp.csv'
 # WavPath = 'L:/acoustock/Bioacoustique/DATASETS/CETIROISE/DATA/B_Sud Fosse Ouessant/Phase_1/Sylence/2022-07-17'
 
-FilePath = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 2/IROISE/335556632/analysis/C2D1/Aplose results APOCADO_IROISE_C2D1.csv'
-TimestampPath = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 2/IROISE/335556632/analysis/C2D1/timestamp.csv'
-WavPath = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 2/IROISE/335556632/wav'
+# FilePath = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 2/IROISE/335556632/analysis/C2D1/Aplose results APOCADO_IROISE_C2D1.csv'
+# TimestampPath = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 2/IROISE/335556632/analysis/C2D1/timestamp.csv'
+# WavPath = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 2/IROISE/335556632/wav'
+
+FilePath = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 3/IROISE/335556632/analysis/PG Binary C3D5 - Results/23-11_090454/PG2Aplose table.csv'
+TimestampPath = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 3/IROISE/335556632/wav/C3D5/timestamp_PG.csv'
+WavPath = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 3/IROISE/335556632/wav/C3D5'
 
 tz_data ='Europe/Paris'
 
 # file_maree = 'L:/acoustock/Bioacoustique/DATASETS/CETIROISE/maregraphie/152_2022.csv'
 file_maree = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/maregraphie/6305_2022.csv'
-pkl_filename = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 2/IROISE/335556632/analysis/C2D1/complete_welch.pkl'
+
+# pkl_filename = 'C:/Users/dupontma2/Downloads/complete_welch.pkl'
+# pkl_filename = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 2/IROISE/335556632/analysis/C2D1/complete_welch.pkl'
 
 
 #%% User input
@@ -211,6 +203,7 @@ if duration_min.is_integer() == True:
 else: print('duration_min is not an integer')
 
 df1 = sorting_annot_boxes(FilePath, tz_data, date_begin, date_end)
+pd.read_csv(FilePath)
 
 time_bin = max(df1['end_time'])
 print("\ntime_bin : ", time_bin, "s")
@@ -411,7 +404,7 @@ def plot_noise(tz_data, date_begin, date_end, pkl_filename):
     df_welch['welch'] = welch
     df_welch['time'] = time_welch
     df_welch[(df_welch['time']>= date_begin) & (df_welch['time']<= date_end)]
-    welch_dB = [10*np.log(SPL/10e-12) for SPL in df_welch['welch']]
+    welch_dB = [10*np.log(SPL) for SPL in df_welch['welch']]
     average_SPL = [statistics.mean(W) for W in welch_dB]
     average_SPL_f = savgol_filter(average_SPL, 201, 2)
     df_welch['SPL_av'] = average_SPL_f
@@ -419,7 +412,6 @@ def plot_noise(tz_data, date_begin, date_end, pkl_filename):
     
     
 #%%
-# pkl_filename = 'C:/Users/dupontma2/Downloads/complete_welch.pkl'
 df_w = plot_noise(tz_data, date_begin, date_end, pkl_filename)
 
 label_ref = easygui.buttonbox('Select a label', 'Plot label', labels)
@@ -459,79 +451,6 @@ ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M', tz=pytz.timezone(tz_d
 plt.xlim(date_begin, date_end)
 ax.grid(color='k', linestyle='-', linewidth=0.2, axis='both')
 
-
-#%%
-
-# pkl_filename = 'C:/Users/dupontma2/Downloads/complete_welch.pkl'
-pkl_filename = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 2/IROISE/335556632/analysis/C2D1/complete_welch.pkl'
-
-welch, time_welch = read_pkl(pkl_filename)
-
-welch_dB = [10*np.log(SPL/10e-10) for SPL in welch]
-average_SPL = [statistics.mean(W) for W in welch_dB]
-
-average_SPL_f = savgol_filter(average_SPL, 131, 2) # window size 131, polynomial order 2
-
-average_SPL_dB = [20*math.log(average_SPL[i]/10e-5, 10) for i in range(0,len(average_SPL))]
-
-# fig, ax = plt.subplots(figsize=(20,5))
-# plt.plot(time_welch, average_SPL)
-# # plt.plot(time_welch, average_SPL_f)
-# locator = mdates.HourLocator(interval=2)
-# ax.xaxis.set_major_locator(locator)
-# ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
-# ax.grid(color='k', linestyle='-', linewidth=0.2)
-#%%
-fig, ax = plt.subplots(nrows = 1, figsize=(30,20))
-ax.plot(time_welch, average_SPL)
-ax.plot(time_welch, average_SPL_f)
-ax.plot(time_welch, average_SPL_dB)
-
-#%%
-annotator = 'mdupon'
-
-res = 10
-time_slice = 60*res #10 min
-n_annot_max = time_slice/time_bin #n of annoted time_bin max per time_slice
-
-bars = range(0,110,10) #from 0 to 100 step 10
-y_pos = np.linspace(0,n_annot_max, num=len(bars))
-
-locator = mdates.HourLocator(interval=2)
-
-#%%
-
-fig, ax = plt.subplots(nrows = 3, figsize=(30,20))
-
-plt.setp(ax, xlim=(date_begin,date_end))
-fig.suptitle('Annotations de '+annotator +' du' + date_begin.strftime(' %d/%m/%y UTC%z'), fontsize = 24, y=0.93)
-
-for i, L in enumerate(labels[0:3]):
-    ax2 = ax[i].twinx()
-    
-    annot_whistlesM = df_1annot_1label(df1, annotator, L)  
-    df_timestamp_beg = annot_whistlesM['start_datetime']
-    t_dt=pd.to_datetime(df_timestamp_beg, format="%Y-%m-%dT%H:%M:%S.%f%z")
-    
-    ax[i].hist(t_dt, date_list, color='tab:red') 
-
-    ax[i].xaxis.set_major_locator(locator)
-    ax[i].xaxis.set_major_formatter(mdates.DateFormatter('%H:%M', tz=pytz.timezone(tz_data)))
-
-    ax[i].set_title(L, fontsize = 20)
-    ax[i].tick_params(labelsize=20)
-    ax[i].set_yticks(y_pos)
-    ax[i].set_yticklabels(bars)
-    ax[i].grid(color='k', linestyle='-', linewidth=0.2)
-    ax[i].set_xlim(date_begin, date_end)
-
-    ax[i].set_ylabel("taux d'annotation / "+str(res)+" min", fontsize = 20, color='tab:red')
-    ax[i].tick_params(colors='tab:red', axis='y')
-    ax[i].grid(color='k', linestyle='-', linewidth=0.2, axis='both')
-    
-    ax2.plot(time_welch, average_SPL_f, color='tab:green') #plot noise
-    ax2.set_ylabel("Noise (dB)", fontsize = 20, color='tab:green')
-    ax2.tick_params(colors='tab:green',axis='y')
 
 #%%
 # Fonction qui permet d'obtenir l'heure de lever et de coucher du soleil selon la position GPS
@@ -616,5 +535,5 @@ plt.plot(x_data,hour_sunset, color='k')
 plt.scatter(Day_det,Hour_det)
 locator = mdates.DayLocator(interval=7)
 ax.xaxis.set_major_locator(locator)
-ax.xaxis.set_major_formatter(mdates.DateFormatter('%D'))
+ax.xaxis.set_major_formatter(mdates.DateFormatter('%D', tz=pytz.timezone(tz_data)))
 ax.grid(color='k', linestyle='-', linewidth=0.2)

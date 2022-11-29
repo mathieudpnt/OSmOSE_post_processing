@@ -87,19 +87,19 @@ def res_timebin_plot(date_begin, date_end, duration_min):
         else: print('\n\n /!\ duration_min/res_min is not an integer')
 #%% Path file + TZ
 
-FilePath = 'L:/acoustock/Bioacoustique/DATASETS/CETIROISE/ANALYSE/220926/CETIROISE_HF 17072022.csv'
-TimestampPath = 'L:/acoustock/Bioacoustique/DATASETS/CETIROISE/DATA/B_Sud Fosse Ouessant/Phase_1/Sylence/2022-07-17/timestamp.csv'
-WavPath = 'L:/acoustock/Bioacoustique/DATASETS/CETIROISE/DATA/B_Sud Fosse Ouessant/Phase_1/Sylence/2022-07-17'
+# FilePath = 'L:/acoustock/Bioacoustique/DATASETS/CETIROISE/ANALYSE/220926/CETIROISE_HF 17072022.csv'
+# TimestampPath = 'L:/acoustock/Bioacoustique/DATASETS/CETIROISE/DATA/B_Sud Fosse Ouessant/Phase_1/Sylence/2022-07-17/timestamp.csv'
+# WavPath = 'L:/acoustock/Bioacoustique/DATASETS/CETIROISE/DATA/B_Sud Fosse Ouessant/Phase_1/Sylence/2022-07-17'
 
-# FilePath = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 2/IROISE/335556632/analysis/C2D1/Aplose results APOCADO_IROISE_C2D1.csv'
-# TimestampPath = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 2/IROISE/335556632/analysis/C2D1/timestamp.csv'
-# WavPath = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 2/IROISE/335556632/wav'
+FilePath = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 2/IROISE/335556632/analysis/C2D1/Aplose results APOCADO_IROISE_C2D1.csv'
+TimestampPath = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 2/IROISE/335556632/analysis/C2D1/timestamp.csv'
+WavPath = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 2/IROISE/335556632/wav'
 
 tz_data ='Europe/Paris'
 
 #%% User input
-date_begin = pytz.timezone(tz_data).localize(pd.to_datetime(easygui.enterbox("datetime begin ? (dd MM yyyy HH mm ss) :"), format='%Y %m %d %H %M %S'))
-date_end =   pytz.timezone(tz_data).localize(pd.to_datetime(easygui.enterbox("datetime end ? (dd MM yyyy HH mm ss) :"), format='%Y %m %d %H %M %S'))
+date_begin = pytz.timezone(tz_data).localize(pd.to_datetime(easygui.enterbox("datetime begin ? (dd MM yyyy HH mm ss) :"), format='%d %m %Y %H %M %S'))
+date_end =   pytz.timezone(tz_data).localize(pd.to_datetime(easygui.enterbox("datetime end ? (dd MM yyyy HH mm ss) :"), format='%d %m %Y %H %M %S'))
 
 ts = get_duration(TimestampPath, WavPath, tz_data)  
 
@@ -236,7 +236,7 @@ if len(annotators)>1:
 elif len(annotators==1):
     annotator_ref = annotators[0]
 
-selected_labels = labels[0:3] #TODO : checkbox to select desired labels to plot ?
+selected_labels = labels[0:4] #TODO : checkbox to select desired labels to plot ?
 
 res_min, date_list = res_timebin_plot(date_begin, date_end, duration_min)    
 
