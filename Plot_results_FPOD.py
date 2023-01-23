@@ -70,13 +70,18 @@ def suntime_hour(date_beg, date_end, timeZ, lat,lon,tz):
 
 
 
-#%%
+# =============================================================================
+# #%% User input
+
+# =============================================================================
 
 fileName_FPOD = 'C://Users/torterma/Documents/Projets_OFB/CETIROISE/Analyses/Annotation/POINT_G_Delphinidés_minute_positive.csv'
 raw_results = pd.read_csv(fileName_FPOD)
 # tmin and tmax for the plot  
 tmin = dt.datetime(2022,5,9,0,0,0)
 tmax = dt.datetime(2022,8,27,0,0,0)
+
+
 
 
 t_detections=pd.to_datetime(raw_results['Date heure'], format="%d/%m/%Y %H:%M") 
