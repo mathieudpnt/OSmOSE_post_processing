@@ -1,16 +1,10 @@
 # -*- coding: utf-8 -*-
 """
 Created on Thu Nov  3 16:44:38 2022
-
+This scripts allows to plot histograms and diel pattern Figures
 @author: torterma
 """
 
-# -*- coding: utf-8 -*-
-"""
-Created on Thu Nov  3 11:58:22 2022
-
-@author: torterma
-"""
 
 
 import pandas as pd
@@ -134,28 +128,32 @@ def clean_PG_FA_fct(results, tz_info):
 # =============================================================================
 # =============================================================================
 # # %% User input
-fileName_Results = 'C:/Users/torterma/Documents/Projets_OFB/CETIROISE/Analyses/Annotation/HF_220725_POINT_E/CETIROISE_POINT_E_20220725_results.csv'
-#fileName_Results = 'L:/acoustock/Bioacoustique/DATASETS/CETIROISE/DATA/A_Nord Fosse Ouessant/POINT_A_Delphinidés_minute_positive_PHASE_1_et_2.csv_APLOSE.csv'
-#fileName_Results ='C:/Users/torterma/Documents/Projets_OFB/CETIROISE/Analyses/Annotation/HF_220717_POINT_B/CETIROISE_HF 17072022_Results_final.csv'
+#fileName_Results = 'C:/Users/torterma/Documents/Projets_OFB/CETIROISE/Analyses/Annotation/HF_220725_POINT_E/CETIROISE_POINT_E_20220725_results.csv'
+#fileName_Results = 'L:/acoustock/Bioacoustique/DATASETS/CETIROISE/ANALYSE/FPOD/PHASE_1_2/POINT_G_Marsouins_minute_positive_PHASE_1_et_2.csv_APLOSE.csv'
+fileName_Results ='C:/Users/torterma/Documents/Projets_OFB/CETIROISE/Analyses/PAMGuard/POINT_D_PHASE_1/PG_rawdata_220509_220827.csv'
+#fileName_Results = 'L:/acoustock/Bioacoustique/DATASETS/CETIROISE/ANALYSE/PAMGUARD_threshold_7/PHASE_1_POINT_B/Binary/PG_rawdata_220510_220823.csv'
 # Time zone of the plot
 tz_info = 'Europe/Paris'
 # tmin and tmax for the plot  
-tmin = dt.datetime(2022,7,25,0,0,0).astimezone(gettz(tz_info))
-tmax = dt.datetime(2022,7,26,0,0,0).astimezone(gettz(tz_info))
+tmin = dt.datetime(2022,5,10,0,0,0).astimezone(gettz(tz_info))
+tmax = dt.datetime(2022,8,27,0,0,0).astimezone(gettz(tz_info))
 # Size of the desired time bin duration for the following Figures (in sec)"
-bin_size_det = 10
+bin_size_det = 60
 # Size of the representation time bin duration for the following Figures 
 # 1 if days and 24 if hours 24*6 if 10 minutes
-bin_size_rep = 24*6
+bin_size_rep = 1
+# Number max of bin_size_det in bin_size_rep
+max_y = 60*24
 # Set clean_PG_FA to True if you want to remove the FA that occur at the begining of each file
-clean_PG_FA = False
+clean_PG_FA = True
+
 
 # =============================================================================
 # =============================================================================
 # =============================================================================
 
 # Read result csv
-results_raw = pd.read_csv(fileName_Results)
+#results_raw = pd.read_csv(fileName_Results)
 results = pd.read_csv(fileName_Results)
 
 # Read and print label
@@ -202,32 +200,33 @@ dt_start_round_sorted.sort()
 
 fig, ax = plt.subplots(figsize=(20,10))
 
-bars = ('0', '10', '20','30', '40', '50','60', '70', '80', '90', '100')
-y_pos = np.linspace(0,60, num=11)
+#bars = ('0', '10', '20','30', '40', '50','60', '70', '80', '90', '100')
+#y_pos = np.linspace(0, max_y, num=11)
 
 ax.set_xlim([tmin, tmax])
 ax.hist(dt_start_round_sorted, bins = (tmax-tmin).days*bin_size_rep, range = (tmin, tmax))
 ax.grid(color='k', linestyle='-', linewidth=0.2)
-locator = mdates.HourLocator(interval=1, tz = pytz.timezone(tz_info))
+#locator = mdates.MonthLocator(interval=1, tz = pytz.timezone(tz_info))
+locator = mdates.DayLocator(bymonthday=(1,15), tz = pytz.timezone(tz_info))
 ax.xaxis.set_major_locator(locator)
-ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M', tz = pytz.timezone(tz_info)))
+ax.xaxis.set_major_formatter(mdates.DateFormatter('%d %B', tz = pytz.timezone(tz_info)))
 #ax.set_title('Détections PamGuard' , fontsize = 28)
 #ax.set_title("Label " + str(output_lb) + "\n Annotateur " + str(output_an), fontsize = 28)
-ax.tick_params(labelsize=20)
-ax.set_xlabel('Heure locale', fontsize = 20) 
-ax.set_ylabel('Pourcentage de détections positives', fontsize = 20) 
+ax.tick_params(labelsize=28)
+ax.set_xlabel('Date', fontsize = 28) 
+ax.set_ylabel('Nombre de minutes positives par jour', fontsize = 28) 
 plt.xticks(rotation=45, ha="right")
+ax.set_ylim([0, 60*24])
 
-
-ax.set_yticks(y_pos)
-ax.set_yticklabels(bars)
+#ax.set_yticks(y_pos)
+#ax.set_yticklabels(bars)
 
 
 #%%
 
 #%% Sun
 date_beg = '2022-05-10'
-date_end = '2022-08-23'
+date_end = '2022-08-27'
 
 x_data = np.arange(date_beg,date_end,dtype="M8[D]")
 
@@ -246,7 +245,7 @@ Hour_det = [x.tm_hour + x.tm_min/60 for x in t_detections_struc_time]
 lat = "48°31′N"
 lon = "5°7'W"
 # A MODIFIER : nom du jeu de données
-dataset_name = 'CETIROISE_POINT_B'
+
 # Nautical dawn and dusk start when the sun is 12° below the horizon
 astral.Depression = 12
 # Calcul des heures de lever et coucher du soleil à la position du jeu de données
@@ -258,44 +257,21 @@ ax.set_xlim([x_data[0], x_data[-1]])
 plt.plot(x_data,hour_sunrise, color='k')
 plt.plot(x_data,hour_sunset, color='k')
 plt.scatter(Day_det,Hour_det)
+ax.set_ylim([0, 24.99])
 plt.xticks(rotation=45, ha="right")
-locator = mdates.DayLocator(interval=7)
+locator = mdates.DayLocator(interval=15)
 ax.xaxis.set_major_locator(locator)
-ax.xaxis.set_major_formatter(mdates.DateFormatter('%D'))
+ax.xaxis.set_major_formatter(mdates.DateFormatter('%d/%m'))
 ax.grid(color='k', linestyle='-', linewidth=0.2)
+ax.tick_params(labelsize=28)
+ax.set_ylabel('Heure locale (Brest)', fontsize = 28) 
+ax.set_xlabel('Date', fontsize = 28) 
+ax.set_title('Point G', fontsize = 40)
 
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+#%% 
 
 # counter_label.plot.pie(subplots=True,figsize=(30, 10), autopct='%.1f')
 
