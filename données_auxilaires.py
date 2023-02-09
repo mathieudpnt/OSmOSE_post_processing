@@ -154,7 +154,7 @@ def res_timebin_plot(date_begin, date_end, duration_min):
 ###################################################################################################################################################
 ###################################################################################################################################################
 #DONE
-#Loader timestamps.csv pour avoir la durée de la campagne et de chaque fichiers OU si pas de timestamp.csv demander suer date début et fin campagane
+#Loader timestamps.csv pour avoir la durée de la campagne et de chaque fichiers OU si pas de timestamp.csv demander suer date début et fin campagne
 #créer fonction pour automatiser creation timebin, user choisi taille des bins
 
 

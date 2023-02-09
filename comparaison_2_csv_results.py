@@ -87,15 +87,16 @@ def res_timebin_plot(date_begin, date_end, duration_min):
 # FilePath2 = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 3/IROISE/336363566/analysis/C3D5/Results/24-11_165233/PG2Aplose table.csv'
 
 # C2D2 - 08/07/22 12:00 au 11/07/22 08:00 ST séparés de 500m
-FilePath1 = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 2/IROISE/335556632/analysis/C2D2/Results/29-11_122724/PG2Aplose table.csv'
-FilePath2 = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 2/IROISE/336363566/analysis/C2D2/Results/29-11_100634/PG2Aplose table.csv'
-
-# WavPath = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 2/IROISE/335556632/wav'
-# TimestampPath = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 2/IROISE/335556632/wav/timestamp_PG - C2D2.csv'
+# FilePath1 = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 2/IROISE/335556632/analysis/C2D2/Results/29-11_122724/PG2Aplose table.csv'
+# FilePath2 = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 2/IROISE/336363566/analysis/C2D2/Results/29-11_100634/PG2Aplose table.csv'
 
 #C2D1 - 07/07/22 00:00 au 08/07 00:00 ST séparés de 500m
 # FilePath1 = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 2/IROISE/335556632/analysis/C2D1/Results/18-10_111429 whistles/PG2Aplose table.csv'
 # FilePath2 = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 2/IROISE/336363566/analysis/C2D1/Results/18-10_164453/PG2Aplose table.csv'
+
+FilePath1 = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 2/IROISE/335556632/analysis/C2D1_070722/Aplose results APOCADO_IROISE_C2D1_070722.csv'
+FilePath2 = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 2/IROISE/335556632/analysis/C2D1_070722/PG Binary/PG_formatteddata_220707_220708_10s.csv'
+
 
 tz_data = 'Europe/Paris'
 #%% User input

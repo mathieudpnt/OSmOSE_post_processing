@@ -1,12 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Thu Nov  3 16:44:38 2022
-This scripts allows to plot histograms and diel pattern Figures
-@author: torterma
-"""
-
-
-
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -21,15 +12,10 @@ import pytz
 from dateutil.tz import gettz # pip install python-dateutil
 from astral.sun import sun
 import astral
-
-from easygui import *
-
-
-
-
+import easygui
 
 #%% Functions used in the following code
-# Return a Datafram with the annotations of 1 annotator and 1 label
+# Return a Dataframe with the annotations of 1 annotator and 1 label
 
 def df_annot_label(df, annotator, label):
     df_OneAnnot=df.loc[df['annotator'] == annotator]
@@ -127,25 +113,27 @@ def clean_PG_FA_fct(results, tz_info):
 # =============================================================================
 # =============================================================================
 # =============================================================================
-# # %% User input
-#fileName_Results = 'C:/Users/torterma/Documents/Projets_OFB/CETIROISE/Analyses/Annotation/HF_220725_POINT_E/CETIROISE_POINT_E_20220725_results.csv'
+
+#%% User input
 #fileName_Results = 'L:/acoustock/Bioacoustique/DATASETS/CETIROISE/ANALYSE/FPOD/PHASE_1_2/POINT_G_Marsouins_minute_positive_PHASE_1_et_2.csv_APLOSE.csv'
-fileName_Results ='C:/Users/torterma/Documents/Projets_OFB/CETIROISE/Analyses/PAMGuard/POINT_D_PHASE_1/PG_rawdata_220509_220827.csv'
+# fileName_Results ='C:/Users/torterma/Documents/Projets_OFB/CETIROISE/Analyses/PAMGuard/POINT_D_PHASE_1/PG_rawdata_220509_220827.csv'
 #fileName_Results = 'L:/acoustock/Bioacoustique/DATASETS/CETIROISE/ANALYSE/PAMGUARD_threshold_7/PHASE_1_POINT_B/Binary/PG_rawdata_220510_220823.csv'
+fileName_Results = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO\PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 2/IROISE/335556632/analysis/C2D1_070722/PG Binary/PG_rawdata_220706_220707.csv'
+
 # Time zone of the plot
 tz_info = 'Europe/Paris'
 # tmin and tmax for the plot  
-tmin = dt.datetime(2022,5,10,0,0,0).astimezone(gettz(tz_info))
-tmax = dt.datetime(2022,8,27,0,0,0).astimezone(gettz(tz_info))
+tmin = dt.datetime(2022,7,7,0,0,0).astimezone(gettz(tz_info))
+tmax = dt.datetime(2022,7,8,0,0,0).astimezone(gettz(tz_info))
 # Size of the desired time bin duration for the following Figures (in sec)"
 bin_size_det = 60
 # Size of the representation time bin duration for the following Figures 
 # 1 if days and 24 if hours 24*6 if 10 minutes
-bin_size_rep = 1
+bin_size_rep = 24
 # Number max of bin_size_det in bin_size_rep
 max_y = 60*24
 # Set clean_PG_FA to True if you want to remove the FA that occur at the begining of each file
-clean_PG_FA = True
+clean_PG_FA = False
 
 
 # =============================================================================
@@ -162,7 +150,7 @@ list_labels = np.ndarray.tolist(list_labels)
 list_annotators = np.unique(results['annotator'])
 annotators = np.ndarray.tolist(list_annotators)
 print("List of label (detectors) : ", list_labels)
-# 1- Ask user which label they wa&nt to plot and from whick 'detector' or 'annotator'
+# 1- Ask user which label they want to plot and from which 'detector' or 'annotator'
 # easygui multchoicebox
 # Select annotator from list
 if len(list_annotators)>1:
@@ -225,8 +213,8 @@ ax.set_ylim([0, 60*24])
 #%%
 
 #%% Sun
-date_beg = '2022-05-10'
-date_end = '2022-08-27'
+date_beg = '2022-07-07'
+date_end = '2022-07-08'
 
 x_data = np.arange(date_beg,date_end,dtype="M8[D]")
 
@@ -242,8 +230,8 @@ Hour_det = [x.tm_hour + x.tm_min/60 for x in t_detections_struc_time]
 
 
 # A MODIFIER : coordonnées géographiques
-lat = "48°31′N"
-lon = "5°7'W"
+lat = "48°4′N"
+lon = "4°46'W"
 # A MODIFIER : nom du jeu de données
 
 # Nautical dawn and dusk start when the sun is 12° below the horizon
