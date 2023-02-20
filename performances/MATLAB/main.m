@@ -5,7 +5,7 @@ clear;clc
 % TZ = '+02:00';
 TZ = 'Europe/Paris'; %TimeZone
 
-addpath(genpath('.\utilities'));
+addpath(genpath(fullfile(fileparts(fileparts(pwd)), 'utilities')))
 
 %info written on Aplose csv file
 infoAplose.annotator = "PAMGuard";

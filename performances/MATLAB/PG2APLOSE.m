@@ -6,7 +6,7 @@ start = now;
 infoAplose = infoAp;
 
 %Add path with matlab functions from PG website
-addpath(genpath('.\utilities'));
+% addpath(genpath(fullfile(fileparts(fileparts(pwd)), 'utilities')))
 
 %wav folder
 % folder_data_wav = uigetdir('','Select folder contening wav files');
