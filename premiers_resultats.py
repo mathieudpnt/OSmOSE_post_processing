@@ -75,7 +75,7 @@ ax.hist(df_1annot_1label['start_datetime'], bins=time_vector); #histo
 
 bars = range(0,110,10) #from 0 to 100 step 10
 y_pos = np.linspace(0,n_annot_max, num=len(bars))
-ax.set_yticks(y_pos, bars);10
+ax.set_yticks(y_pos, bars);
 ax.tick_params(axis='x', rotation= 60);
 ax.tick_params(labelsize=20)
 ax.set_ylabel("% de détections positives ("+str(res_min)+"min)", fontsize = 20)
