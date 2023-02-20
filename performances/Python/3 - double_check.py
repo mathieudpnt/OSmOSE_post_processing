@@ -8,8 +8,7 @@ import numpy as np
 import time
 import datetime as dt
 import pandas as pd
-sys.path.append('U:/Documents/Git/spyder_scripts')
-from def_func import read_header, extract_datetime, sorting_annot_boxes, t_rounder, oneday_per_month, export2Raven, get_wav_info, n_random_hour, pick_datetimes
+from post_processing_detections.utilities.def_func import read_header, extract_datetime, from_str2dt, from_str2ts, t_rounder, get_wav_info
 
 #%% LOAD DATA - User inputs
 

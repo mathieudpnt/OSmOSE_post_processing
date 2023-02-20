@@ -10,8 +10,8 @@ import sys
 import numpy as np
 import time
 import easygui
-sys.path.append('U:/Documents/Git/spyder_scripts')
-from def_func import read_header, extract_datetime, from_str2dt, from_str2ts, sorting_annot_boxes, t_rounder
+from post_processing_detections.utilities.def_func import read_header, extract_datetime, from_str2dt, from_str2ts, t_rounder, get_wav_info
+
 
 #%% LOAD DATA - User inputs
 

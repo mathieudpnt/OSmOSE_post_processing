@@ -9,10 +9,8 @@ import numpy as np
 import easygui
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+from post_processing_detections.utilities.def_func import read_header, extract_datetime, sorting_annot_boxes, t_rounder
 
-current_path = os.path.abspath(__file__)
-os.chdir(os.path.dirname(current_path))
-from def_func import read_header, extract_datetime, sorting_annot_boxes, t_rounder
 #%% User inputs
 
 tz_data = 'Europe/Paris'
