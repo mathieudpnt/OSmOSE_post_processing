@@ -6,11 +6,10 @@ import glob
 from tkinter import filedialog
 from tkinter import Tk
 import pandas as pd
-import sys
 import numpy as np
 import time
 import easygui
-from post_processing_detections.utilities.def_func import read_header, extract_datetime, from_str2dt, from_str2ts, t_rounder, get_wav_info
+from post_processing_detections.utilities.def_func import read_header, extract_datetime, from_str2dt, from_str2ts, t_rounder, get_wav_info, sorting_annot_boxes
 
 
 #%% LOAD DATA - User inputs

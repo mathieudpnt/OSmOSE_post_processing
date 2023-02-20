@@ -237,6 +237,8 @@ def pick_datetimes(time_vector_ts, time_vector_str, vec, selected_dates, selecte
             timedeltas.append(dt.timedelta(minutes=int(i[:-1])).total_seconds())
         elif i.endswith('s'):
             timedeltas.append(dt.timedelta(seconds=int(i[:-1])).total_seconds())
+        elif i.endswith('d'):
+            timedeltas.append(dt.timedelta(days=int(i[:-1])).total_seconds())
         else:
             print('incorrect duration format')
             return

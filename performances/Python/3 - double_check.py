@@ -8,7 +8,7 @@ import numpy as np
 import time
 import datetime as dt
 import pandas as pd
-from post_processing_detections.utilities.def_func import read_header, extract_datetime, from_str2dt, from_str2ts, t_rounder, get_wav_info
+from post_processing_detections.utilities.def_func import read_header, extract_datetime, from_str2dt, from_str2ts, t_rounder, get_wav_info, sorting_annot_boxes, pick_datetimes, export2Raven
 
 #%% LOAD DATA - User inputs
 
@@ -109,7 +109,7 @@ selected_time_vector = []
 #     if round(sum(selected_PG_vec)/len(selected_time_vector),3) > 0.75*round(sum(PG_vec)/len(time_vector),3) and round(sum(selected_PG_vec)/len(selected_time_vector),3) < 1.25*round(sum(PG_vec)/len(time_vector),3):
 #         break
 
-selected_datetimes,  selected_durations = ['07/07/2022 00:00:00', '07/07/2022 15:00:00'], ['1h','30m']
+selected_datetimes,  selected_durations = ['07/07/2022 00:00:00'], ['1d']
 selected_time_vector, selected_time_vector_str, selected_PG_vec, selected_dates = pick_datetimes(time_vector, time_vector_str, PG_vec, selected_datetimes, selected_durations, tz_data)
 
 
