@@ -6,7 +6,6 @@ import glob
 from tkinter import filedialog
 from tkinter import Tk
 import pandas as pd
-import sys
 import numpy as np
 import time
 import easygui
@@ -18,7 +17,8 @@ from post_processing_detections.utilities.def_func import read_header, extract_d
 print('\nLoading data...', end='')
 
 tz_data='Europe/Paris'
-Ap=0
+# tz_data2 ='Etc/GMT-2' # UTC+2
+# tz_data2 ='Etc/GMT-1' #UTC+1
 
 #PAMGuard raw detections
 root = Tk()
@@ -46,7 +46,7 @@ start = time.time()
 time_bin_duration = easygui.integerbox('Enter time bin duration (s):', title = 'Timebin', lowerbound = 10, upperbound = 86400)
 
 ## Time vector
-wav_datetimes = [extract_datetime(x) for x in wav_list] #datetime of wav files
+wav_datetimes = [extract_datetime(x, tz=tz_data) for x in wav_list] #datetime of wav files
 
 first_date = from_str2dt(dfpamguard['start_datetime'][0]) #1st detection
 last_date = from_str2dt(dfpamguard['start_datetime'].iloc[-1]) #last detection
@@ -58,7 +58,7 @@ wav_datetimes, wav_list, wav_folder, wav_files, durations = wav_datetimes[idx_wa
 print('\n1st wav : ' + wav_list[0])
 print('last wav : ' + wav_list[-1], end='\n\n')
 
-time_vector = [elem for i in range(len(wav_list)) for elem in extract_datetime(wav_list[i]).timestamp() + np.arange(0, durations[i], time_bin_duration).astype(int)]
+time_vector = [elem for i in range(len(wav_list)) for elem in extract_datetime(wav_list[i], tz=tz_data).timestamp() + np.arange(0, durations[i], time_bin_duration).astype(int)]
 time_vector_str = [str(wav_list[i]).split('.wav')[0]+ '_+'  + str(elem) for i in range(len(wav_list)) for elem in np.arange(0, durations[i], time_bin_duration).astype(int)]
 
 

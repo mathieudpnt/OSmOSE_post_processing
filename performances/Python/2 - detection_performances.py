@@ -17,7 +17,8 @@ from post_processing_detections.utilities.def_func import read_header, extract_d
 print('\n\nLoading data...', end='')
 
 tz_data='Europe/Paris'
-
+# tz_data2 ='Etc/GMT-2' # UTC+2
+# tz_data2 ='Etc/GMT-1' #UTC+1
 
 #PAMGuard detections
 root = Tk()
@@ -59,7 +60,7 @@ labels = tuple_aplose[3]
 df_aplose = tuple_aplose[-1]
 
 ## Time vector
-wav_datetimes = [extract_datetime(x) for x in wav_list] #datetime of wav files
+wav_datetimes = [extract_datetime(x, tz=tz_data) for x in wav_list] #datetime of wav files
 
 #selection of waf files according to first and last dates
 idx_wav_beg = 0 if all(wav_datetimes[i] >= first_date for i in range(len(wav_datetimes))) else [i for i, x in enumerate(wav_datetimes) if x < first_date][-1]
@@ -68,7 +69,7 @@ wav_datetimes, wav_list, wav_folder, wav_files, durations = wav_datetimes[idx_wa
 print('\n1st wav : ' + wav_list[0])
 print('last wav : ' + wav_list[-1], end='\n\n')
 
-time_vector = [elem for i in range(len(wav_list)) for elem in extract_datetime(wav_list[i]).timestamp() + np.arange(0, durations[i], time_bin).astype(int)]
+time_vector = [elem for i in range(len(wav_list)) for elem in extract_datetime(wav_list[i], tz=tz_data).timestamp() + np.arange(0, durations[i], time_bin).astype(int)]
 time_vector_str = [str(wav_list[i]).split('.wav')[0]+ '_+'  + str(elem) for i in range(len(wav_list)) for elem in np.arange(0, durations[i], time_bin).astype(int)]
 
 

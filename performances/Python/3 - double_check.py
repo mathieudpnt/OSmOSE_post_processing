@@ -8,6 +8,7 @@ import numpy as np
 import time
 import datetime as dt
 import pandas as pd
+import pytz
 from post_processing_detections.utilities.def_func import read_header, extract_datetime, from_str2dt, from_str2ts, t_rounder, get_wav_info, sorting_annot_boxes, pick_datetimes, export2Raven
 
 #%% LOAD DATA - User inputs
@@ -15,8 +16,11 @@ from post_processing_detections.utilities.def_func import read_header, extract_d
 print('\n\nLoading data...', end='')
 
 tz_data='Europe/Paris'
+# tz_data2 ='Etc/GMT-2' # UTC+2
+# tz_data2 ='Etc/GMT-1' #UTC+1
 
 #PAMGuard detections
+
 root = Tk()
 root.withdraw()
 pamguard_path = filedialog.askopenfilename(title="Select PAMGuard detection file", filetypes=[("CSV files", "*.csv")])
@@ -28,13 +32,12 @@ wavpath = filedialog.askdirectory(title = 'Select wav folder')
 wav_files = glob.glob(os.path.join(wavpath, "**/*.wav"), recursive=True)
 wav_list = [os.path.basename(file) for file in wav_files]
 wav_folder = [os.path.dirname(file) for file in wav_files]
-wav_datetimes = [extract_datetime(file) for file in wav_list] #datetime of wav files
+wav_datetimes = [extract_datetime(file, tz=tz_data) for file in wav_list] #datetime of wav files
 durations = get_wav_info(wavpath)
 # durations = [read_header(file)[-1] for file in wav_files] #slower than fet_wav_info
 wav_tuple = (wav_list, wav_datetimes, durations)
 
 print('\tDone!', end='\n')
-
 
 #%% FORMAT DATA
 print('\nFormating data...', end='\n')
