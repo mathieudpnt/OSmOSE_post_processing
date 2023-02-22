@@ -16,14 +16,14 @@ from post_processing_detections.utilities.def_func import read_header, extract_d
 
 print('\nLoading data...', end='')
 
-tz_data='Europe/Paris'
-# tz_data2 ='Etc/GMT-2' # UTC+2
-# tz_data2 ='Etc/GMT-1' #UTC+1
+# tz_data='Europe/Paris'
+tz_data ='Etc/GMT-2' # UTC+2
+# tz_data ='Etc/GMT-1' #UTC+1
 
 #PAMGuard raw detections
 root = Tk()
-root.withdraw()
 pamguard_path = filedialog.askopenfilename(title="Select PAMGuard detection file", filetypes=[("CSV files", "*.csv")])
+root.withdraw()
 dfpamguard = pd.read_csv(pamguard_path).sort_values('start_datetime')
 
    
@@ -86,11 +86,9 @@ print('\tDone!', end='\n')
 start_datetime_str, end_datetime_str, filename = [],[],[]
 for i in range(len(time_vector)):
     if PG_vec[i] == 1:
-        start_datetime = pytz.timezone('UTC').localize(dt.datetime.utcfromtimestamp(time_vector[i])) #
-        start_datetime = start_datetime.astimezone(pytz.timezone(tz_data))
+        start_datetime = pytz.timezone(tz_data).localize(dt.datetime.fromtimestamp(time_vector[i]))
         start_datetime_str.append(start_datetime.strftime('%Y-%m-%dT%H:%M:%S.%f%z')[:-8]+ start_datetime.strftime('%Y-%m-%dT%H:%M:%S.%f%z')[-5:-2] +':' + start_datetime.strftime('%Y-%m-%dT%H:%M:%S.%f%z')[-2:])
-        end_datetime = pytz.timezone('UTC').localize(dt.datetime.utcfromtimestamp(time_vector[i]+10))
-        end_datetime = end_datetime.astimezone(pytz.timezone(tz_data))
+        end_datetime = pytz.timezone(tz_data).localize(dt.datetime.fromtimestamp(time_vector[i]+10))
         end_datetime_str.append(end_datetime.strftime('%Y-%m-%dT%H:%M:%S.%f%z')[:-8]+ end_datetime.strftime('%Y-%m-%dT%H:%M:%S.%f%z')[-5:-2] +':' + end_datetime.strftime('%Y-%m-%dT%H:%M:%S.%f%z')[-2:])
         filename.append(time_vector_str[i])
 

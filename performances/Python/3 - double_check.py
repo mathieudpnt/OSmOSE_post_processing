@@ -16,8 +16,8 @@ from post_processing_detections.utilities.def_func import read_header, extract_d
 print('\n\nLoading data...', end='')
 
 tz_data='Europe/Paris'
-# tz_data2 ='Etc/GMT-2' # UTC+2
-# tz_data2 ='Etc/GMT-1' #UTC+1
+# tz_data ='Etc/GMT-2' # UTC+2
+# tz_data ='Etc/GMT-1' #UTC+1
 
 #PAMGuard detections
 
