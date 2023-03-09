@@ -1,4 +1,4 @@
-function [] = PG2APLOSE(infoAp, wavPath, BinaryPath, TZ)
+function [] = PG2APLOSE(infoAp, wavPath, BinaryPath, format_datestr, TZ)
 %% This function import binary files info and export it as an Aplose csv & Raven selection table
 start = now;
 
@@ -15,6 +15,8 @@ folder_data_wav =  wavPath;
 %Binary folder
 % folder_data_PG = uigetdir(folder_data_wav,'Select folder contening PAMGuard binary results');
 folder_data_PG = BinaryPath;
+datetimestr_folder_PG = char(extractfield(dir(fullfile(folder_data_PG, '/**/*.pgdf')), 'name')');
+datetime_folder_PG = datetime(datetimestr_folder_PG(:, end-19:end-5), 'InputFormat', 'yyyyMMdd_HHmmss', 'Format', 'yyyy-MM-dd''T''HH:mm:ss.SSSZ', 'TimeZone', TZ);
 
 %Infos from wav files
 WavFolderInfo.wavList = dir(fullfile(folder_data_wav, '/**/*.wav'));
@@ -22,16 +24,17 @@ T = struct2table(WavFolderInfo.wavList);
 WavFolderInfo.wavList = table2struct(sortrows(T, 'name')); %Sort the wav files by their names
 WavFolderInfo.wavNames = string(extractfield(WavFolderInfo.wavList, 'name')');
 WavFolderInfo.folder = string(extractfield(WavFolderInfo.wavList, 'folder')');
-WavFolderInfo.splitDates = split(WavFolderInfo.wavNames, [".","_"," - "],2);
 
-%%%%%%%%%%%% TO ADAPT ACCORDING TO FILENAME %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% WavFolderInfo.wavDates = WavFolderInfo.splitDates(:,2); %APOCACO
-% WavFolderInfo.wavDates_formated = datetime(WavFolderInfo.wavDates, 'InputFormat', 'yyMMddHHmmss', 'Format', 'yyyy-MM-dd''T''HH:mm:ss.SSSZ', 'TimeZone', TZ); %APOCADO
-WavFolderInfo.wavDates = strcat(WavFolderInfo.splitDates(:,2),'-',WavFolderInfo.splitDates(:,3)); %CETIROISE
-WavFolderInfo.wavDates_formated = datetime(WavFolderInfo.wavDates, 'InputFormat', 'yyyy-MM-dd-HH-mm-ss', 'Format', 'yyyy-MM-dd''T''HH:mm:ss.SSSZ', 'TimeZone', TZ);%CETIROISE
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% % % % % % % % % % % % WavFolderInfo.splitDates = split(WavFolderInfo.wavNames, [".","_"," - "],2);
+% % % % % % % % % % % % %%%%%%%%%%%% TO ADAPT ACCORDING TO FILENAME %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% % % % % % % % % % % % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% % % % % % % % % % % % WavFolderInfo.wavDates = WavFolderInfo.splitDates(:,2); %APOCACO
+% % % % % % % % % % % % WavFolderInfo.wavDates_formated = datetime(WavFolderInfo.wavDates, 'InputFormat', 'yyMMddHHmmss', 'Format', 'yyyy-MM-dd''T''HH:mm:ss.SSSZ', 'TimeZone', TZ); %APOCADO
+% % % % % % % % % % % % % WavFolderInfo.wavDates = strcat(WavFolderInfo.splitDates(:,2),'-',WavFolderInfo.splitDates(:,3)); %CETIROISE
+% % % % % % % % % % % % % WavFolderInfo.wavDates_formated = datetime(WavFolderInfo.wavDates, 'InputFormat', 'yyyy-MM-dd-HH-mm-ss', 'Format', 'yyyy-MM-dd''T''HH:mm:ss.SSSZ', 'TimeZone', TZ);%CETIROISE
+% % % % % % % % % % % % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% % % % % % % % % % % % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+WavFolderInfo.wavDates_formated = convert_datetime(WavFolderInfo.wavNames, format_datestr, TZ);
 
 for i = 1:length(WavFolderInfo.wavList)
     WavFolderInfo.wavinfo(i,1) = audioinfo(strcat(string(WavFolderInfo.folder(i,:)),"\",string(WavFolderInfo.wavNames(i,:))));
@@ -45,8 +48,10 @@ n_file_tot = length(WavFolderInfo.wavList);
 %wav files are located in the same folder (APOCADO for instance) but are
 %useless if the wanted wav are in the folder (CETIROISE for instance)
 %----------------------------------------------------------------------------------------
-input1 = datetime(string(inputdlg("Date & Time beginning (dd MM yyyy HH mm ss) :")), 'InputFormat', 'dd MM yyyy HH mm ss', 'Format', 'yyyy-MM-dd''T''HH:mm:ss.SSSZ', 'TimeZone', TZ);
-input2 = datetime(string(inputdlg("Date & Time end (dd MM yyyy HH mm ss) :")), 'InputFormat', 'dd MM yyyy HH mm ss', 'Format', 'yyyy-MM-dd''T''HH:mm:ss.SSSZ', 'TimeZone', TZ);
+% input1 = datetime(string(inputdlg("Date & Time beginning (dd MM yyyy HH mm ss) :")), 'InputFormat', 'dd MM yyyy HH mm ss', 'Format', 'yyyy-MM-dd''T''HH:mm:ss.SSSZ', 'TimeZone', TZ);
+% input2 = datetime(string(inputdlg("Date & Time end (dd MM yyyy HH mm ss) :")), 'InputFormat', 'dd MM yyyy HH mm ss', 'Format', 'yyyy-MM-dd''T''HH:mm:ss.SSSZ', 'TimeZone', TZ);
+input1 = min(datetime_folder_PG);
+input2 = max(datetime_folder_PG);
 
 %File selection
 idx_file{1} = max(find(WavFolderInfo.wavDates_formated < input1));
@@ -74,8 +79,8 @@ else
 end
 WavFolderInfo.wavList([1:idx_file_beg-1,idx_file_end+1:end])=[];
 WavFolderInfo.wavNames([1:idx_file_beg-1,idx_file_end+1:end])=[];
-WavFolderInfo.splitDates([1:idx_file_beg-1,idx_file_end+1:end])=[];
-WavFolderInfo.wavDates([1:idx_file_beg-1,idx_file_end+1:end])=[];
+% WavFolderInfo.splitDates([1:idx_file_beg-1,idx_file_end+1:end])=[];
+% WavFolderInfo.wavDates([1:idx_file_beg-1,idx_file_end+1:end])=[];
 WavFolderInfo.wavDates_formated([1:idx_file_beg-1,idx_file_end+1:end])=[];
 WavFolderInfo.wavinfo([1:idx_file_beg-1,idx_file_end+1:end])=[];
 %------------------------------------------------------------------------------------

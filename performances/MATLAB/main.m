@@ -4,15 +4,17 @@ clear;clc
 % User inputs
 % TZ = '+02:00';
 TZ = 'Europe/Paris'; %TimeZone
+format_datestr = 'yyMMddHHmmss'; %APOCADO filename format
+% format_datestr = 'yyyy-MM-dd_HH-mm-ss'; %CETIROISE filename format
 
 addpath(genpath(fullfile(fileparts(fileparts(pwd)), 'utilities')))
 
 %info written on Aplose csv file
 infoAplose.annotator = "PAMGuard";
 infoAplose.annotation = "Whistle and moan detector";
-infoAplose.dataset = "APOCADO C2D1_070722 (10_144000)";
+infoAplose.dataset = "APOCADO C2D?(10_144000)";
 
-GeneralFolderWav = uigetdir2('L:\acoustock\Bioacoustique\DATASETS')
+GeneralFolderWav = uigetdir2('L:\acoustock\Bioacoustique\DATASETS');
 
 GeneralFolderBinary = uigetdir2('L:\acoustock\Bioacoustique\DATASETS');
 
@@ -26,10 +28,10 @@ subFoldersWav = string(unique(extractfield(GeneralFolderWavInfo, 'folder')'));
 
 % GeneralFolderBinaryInfo = dir(fullfile(GeneralFolderBinary, '/**/*.pgdf'));
 GeneralFolderBinaryInfo = [];
-for i = 1:length(GeneralFolderWav)
+for i = 1:length(GeneralFolderBinary)
     GeneralFolderBinaryInfo = [GeneralFolderBinaryInfo; dir(fullfile(GeneralFolderBinary{i}, '/**/*.pgdf'))];
 end
-subFoldersBinary = string(unique(extractfield(GeneralFolderBinaryInfo, 'folder')'));
+% subFoldersBinary = string(unique(extractfield(GeneralFolderBinaryInfo, 'folder')'));
 
 
 %% Execution of main
@@ -38,8 +40,11 @@ subFoldersBinary = string(unique(extractfield(GeneralFolderBinaryInfo, 'folder')
 %of selected data and use main_PG in a loop
 % /!\ input parameters 2 and 3 must be char type, not string type
 
-PG2APLOSE(infoAplose, GeneralFolderWav{1}, GeneralFolderBinary{1}, TZ);
+% PG2APLOSE(infoAplose, GeneralFolderWav{1}, GeneralFolderBinary{1}, TZ);
 
+for i=1:length(GeneralFolderBinary)
+    PG2APLOSE(infoAplose, GeneralFolderWav{1}, GeneralFolderBinary{i}, format_datestr, TZ);
+end
 
 
 % Manual file selection
