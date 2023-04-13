@@ -1,4 +1,4 @@
-function [data_table_Raven, data_table_Aplose] = importBinary_V2(WavFolderInfo, folder_data_PG, TZ, infoAp)
+function [data_table_Raven, data_table_Aplose] = importBinary_V2(WavFolderInfo, folder_data_PG, TZ,dt_deployments, infoAp)
 %Fonction qui permet d'extraire et de convertir les résultats de détection de PAMGuard binaires
 
 % Sampling frequency
@@ -50,7 +50,12 @@ datenum_1stF = datenum(FirstDate);
 % Load the data
 % data = loadPamguardBinaryFolder(folder_data_PG, convertStringsToChars(strcat(type_data,"*.pgdf")),5);
 %----------------------------------------------------------------------------------------------------------------------------------------------
-data = loadPamguardBinaryFolder(folder_data_PG, convertStringsToChars("*.pgdf"),5); %if the detector name is not the same throughout the folder
+
+data = loadPamguardBinaryFolder(folder_data_PG, '*.pgdf',1); %if the detector name is not the same throughout the folder
+
+%Here we delete the detections that are not within the deployement's datetimes
+test = ([cell2mat({data.date})'] < datenum(dt_deployments(1)) ) | ([cell2mat({data.date})'] > datenum(dt_deployments(2)));
+data(test) = [];
 
 datenum_det = cell2mat({data(1:end).date})'; %datetime of the detections, MATLAB format
 duration_det = cell2mat({data(1:end).sampleDuration})'/Fs; %durations of detections

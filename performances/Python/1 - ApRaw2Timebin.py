@@ -10,6 +10,7 @@ import numpy as np
 import time
 import easygui
 from post_processing_detections.utilities.def_func import read_header, extract_datetime, from_str2dt, from_str2ts, t_rounder, get_wav_info
+from pathlib import Path
 
 
 #%% LOAD DATA - User inputs
@@ -22,7 +23,8 @@ tz_data ='Etc/GMT-2' # UTC+2
 
 #PAMGuard raw detections
 root = Tk()
-pamguard_path = filedialog.askopenfilename(title="Select PAMGuard detection file", filetypes=[("CSV files", "*.csv")])
+# pamguard_path = filedialog.askopenfilename(initialdir = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 3/IROISE/336363566/analysis', title="Select PAMGuard detection file", filetypes=[("CSV files", "*.csv")])
+pamguard_path = filedialog.askopenfilename(initialdir = 'L:/acoustock/Bioacoustique/DATASETS', title="Select PAMGuard detection file", filetypes=[("CSV files", "*.csv")])
 root.withdraw()
 dfpamguard = pd.read_csv(pamguard_path).sort_values('start_datetime')
 
@@ -30,8 +32,10 @@ dfpamguard = pd.read_csv(pamguard_path).sort_values('start_datetime')
 #WAV files 
 root = Tk()
 root.withdraw()
-wavpath = filedialog.askdirectory(title = 'Select wav folder')
+wavpath = filedialog.askdirectory(initialdir = Path(pamguard_path).parents[2], title = 'Select wav folder')
+# wavpath = os.path.join(Path(pamguard_path).parents[2], 'wav')
 wav_files = glob.glob(os.path.join(wavpath, "**/*.wav"), recursive=True)
+wav_files.sort()
 wav_list = [os.path.basename(file) for file in wav_files]
 wav_folder = [os.path.dirname(file) for file in wav_files]
 # durations = [read_header(file)[-1] for file in wav_files]
@@ -39,11 +43,13 @@ durations = get_wav_info(wavpath)
 fmax = 0.5*read_header(wav_files[0])[2]
 
 print('\tDone!', end='\n')
-#%% FORMAT DATA
+
+## FORMAT DATA
 print('\nFormating data...', end='\n')
 
 start = time.time()
 time_bin_duration = easygui.integerbox('Enter time bin duration (s):', title = 'Timebin', lowerbound = 10, upperbound = 86400)
+# time_bin_duration = 10
 
 ## Time vector
 wav_datetimes = [extract_datetime(x, tz=tz_data) for x in wav_list] #datetime of wav files
@@ -81,7 +87,7 @@ PG_vec[ranks] = 1
 PG_vec = list(PG_vec)
 print('\tDone!', end='\n')
 
-#%% EXPORT RESHAPPED DETECTIONS
+## EXPORT RESHAPPED DETECTIONS
 
 start_datetime_str, end_datetime_str, filename = [],[],[]
 for i in range(len(time_vector)):

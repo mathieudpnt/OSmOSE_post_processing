@@ -15,15 +15,18 @@ from post_processing_detections.utilities.def_func import read_header, extract_d
 
 print('\n\nLoading data...', end='')
 
-tz_data='Europe/Paris'
-# tz_data ='Etc/GMT-2' # UTC+2
-# tz_data ='Etc/GMT-1' #UTC+1
-
 #PAMGuard detections
-
 root = Tk()
 root.withdraw()
 pamguard_path = filedialog.askopenfilename(title="Select PAMGuard detection file", filetypes=[("CSV files", "*.csv")])
+tuple_pamguard = sorting_annot_boxes(pamguard_path)
+time_bin = tuple_pamguard[0]
+fmax = tuple_pamguard[1]
+annotators = tuple_pamguard[2]
+labels = tuple_pamguard[3]
+dfpamguard = tuple_pamguard[-1]
+tz_data = dfpamguard['start_datetime'][0].tz
+
 
 #WAV files 
 root = Tk()
@@ -33,8 +36,8 @@ wav_files = glob.glob(os.path.join(wavpath, "**/*.wav"), recursive=True)
 wav_list = [os.path.basename(file) for file in wav_files]
 wav_folder = [os.path.dirname(file) for file in wav_files]
 wav_datetimes = [extract_datetime(file, tz=tz_data) for file in wav_list] #datetime of wav files
+
 durations = get_wav_info(wavpath)
-# durations = [read_header(file)[-1] for file in wav_files] #slower than fet_wav_info
 wav_tuple = (wav_list, wav_datetimes, durations)
 
 print('\tDone!', end='\n')
@@ -43,15 +46,6 @@ print('\tDone!', end='\n')
 print('\nFormating data...', end='\n')
 
 start = time.time()
-
-tuple_pamguard = sorting_annot_boxes(pamguard_path, tz_data)
-time_bin = tuple_pamguard[0]
-fmax = tuple_pamguard[1]
-print(fmax)
-
-annotators = tuple_pamguard[2]
-labels = tuple_pamguard[3]
-dfpamguard = tuple_pamguard[-1]
 
 first_date = dfpamguard['start_datetime'][0] #1st detection
 last_date = dfpamguard['start_datetime'].iloc[-1] #last detection
@@ -66,7 +60,7 @@ print('\n1st wav : ' + wav_list[0])
 print('last wav : ' + wav_list[-1], end='\n\n')
 
 time_vector_test = [elem for i in range(len(wav_list)) for elem in np.arange(0, durations[i], time_bin).astype(int)]
-time_vector = [elem for i in range(len(wav_list)) for elem in extract_datetime(wav_list[i]).timestamp() + np.arange(0, durations[i], time_bin).astype(int)]
+time_vector = [elem for i in range(len(wav_list)) for elem in extract_datetime(wav_list[i], tz_data).timestamp() + np.arange(0, durations[i], time_bin).astype(int)]
 time_vector_str = [str(wav_list[i]).split('.wav')[0]+ '_+'  + str(elem) for i in range(len(wav_list)) for elem in np.arange(0, durations[i], time_bin).astype(int)]
 
 

@@ -36,20 +36,27 @@ WavFolderInfo.folder = string(extractfield(WavFolderInfo.wavList, 'folder')');
 % % % % % % % % % % % % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 WavFolderInfo.wavDates_formated = convert_datetime(WavFolderInfo.wavNames, format_datestr, TZ);
 
-for i = 1:length(WavFolderInfo.wavList)
-    WavFolderInfo.wavinfo(i,1) = audioinfo(strcat(string(WavFolderInfo.folder(i,:)),"\",string(WavFolderInfo.wavNames(i,:))));
-    clc
-    disp(['Reading wav files ...', num2str(i),'/',num2str(length(WavFolderInfo.wavList))])
-end
+% for i = 1:length(WavFolderInfo.wavList)
+%     WavFolderInfo.wavinfo(i,1) = audioinfo(strcat(string(WavFolderInfo.folder(i,:)),"\",string(WavFolderInfo.wavNames(i,:))));
+%     clc
+%     disp(['Reading wav files ...', num2str(i),'/',num2str(length(WavFolderInfo.wavList))])
+% end
 
 n_file_tot = length(WavFolderInfo.wavList);
 
 %inputs used to select the wanted wav files - this is used if all the
-%wav files are located in the same folder (APOCADO for instance) but are
-%useless if the wanted wav are in the folder (CETIROISE for instance)
+%wav files of a campaign are located in the same folder (APOCADO for instance)
+%dt_deployments is used to sort out all the detection that are not related
+%to our interest (when the hydrophone is not UW for example...)
 %----------------------------------------------------------------------------------------
-% input1 = datetime(string(inputdlg("Date & Time beginning (dd MM yyyy HH mm ss) :")), 'InputFormat', 'dd MM yyyy HH mm ss', 'Format', 'yyyy-MM-dd''T''HH:mm:ss.SSSZ', 'TimeZone', TZ);
-% input2 = datetime(string(inputdlg("Date & Time end (dd MM yyyy HH mm ss) :")), 'InputFormat', 'dd MM yyyy HH mm ss', 'Format', 'yyyy-MM-dd''T''HH:mm:ss.SSSZ', 'TimeZone', TZ);
+[~, prompt_title, ~] = fileparts(folder_data_PG);
+deployment1 = datetime(string(inputdlg("Date & Time beginning deployement (dd MM yyyy HH mm ss) :", prompt_title)), 'InputFormat', 'dd MM yyyy HH mm ss', 'Format', 'yyyy-MM-dd''T''HH:mm:ss.SSSZ', 'TimeZone', TZ);
+deployment2 = datetime(string(inputdlg("Date & Time end deployement(dd MM yyyy HH mm ss) :", prompt_title)), 'InputFormat', 'dd MM yyyy HH mm ss', 'Format', 'yyyy-MM-dd''T''HH:mm:ss.SSSZ', 'TimeZone', TZ);
+if isempty(deployment1) | isempty(deployment2)
+    return
+end
+dt_deployments = [deployment1, deployment2];
+
 input1 = min(datetime_folder_PG);
 input2 = max(datetime_folder_PG);
 
@@ -82,7 +89,14 @@ WavFolderInfo.wavNames([1:idx_file_beg-1,idx_file_end+1:end])=[];
 % WavFolderInfo.splitDates([1:idx_file_beg-1,idx_file_end+1:end])=[];
 % WavFolderInfo.wavDates([1:idx_file_beg-1,idx_file_end+1:end])=[];
 WavFolderInfo.wavDates_formated([1:idx_file_beg-1,idx_file_end+1:end])=[];
-WavFolderInfo.wavinfo([1:idx_file_beg-1,idx_file_end+1:end])=[];
+% WavFolderInfo.wavinfo([1:idx_file_beg-1,idx_file_end+1:end])=[];
+
+for i = 1:numel(WavFolderInfo.wavList)
+    WavFolderInfo.wavinfo(i,1) = audioinfo(strcat(string(WavFolderInfo.folder(i,:)),"\",string(WavFolderInfo.wavNames(i,:))));
+    clc
+    disp(['Reading wav files ...', num2str(i),'/',num2str(length(WavFolderInfo.wavList))])
+end
+
 %------------------------------------------------------------------------------------
 
 Firstname = char(WavFolderInfo.wavNames(1));
@@ -94,7 +108,7 @@ disp(strcat(num2str(length(WavFolderInfo.wavList)),"/", num2str(n_file_tot), " f
 
 
 % Export PG data
-[PG_Annotation_Raven,  PG_Annotation_Aplose] = importBinary_V2(WavFolderInfo, folder_data_PG, TZ, infoAplose);
+[PG_Annotation_Raven,  PG_Annotation_Aplose] = importBinary_V2(WavFolderInfo, folder_data_PG, TZ, dt_deployments, infoAplose);
 
 % %% Deletion of annotation not within the wanted datetimes
 % idx3 = find(PG_dt.beg > input1 == 0);

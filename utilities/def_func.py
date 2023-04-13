@@ -10,6 +10,8 @@ from tqdm import tqdm
 import os
 import glob
 import wave
+import matplotlib.dates as mdates
+import matplotlib.pyplot as plt
 
 # def read_header(file:str) -> Tuple[int, int, int, int, int]:
 #     #reads header of a wav file to get info such as duration, samplerate etc...
@@ -78,10 +80,9 @@ def get_wav_info(folder):
     return durations
 
 
-def extract_datetime(var, formats=None, tz=None):
+def extract_datetime(var, tz, formats=None):
     #extract datetime from filename such as Apocado / Cetiroise or custom ones
     
-    if tz is None : tz = 'Europe/Paris'
     if formats is None:
         formats = [r'\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}', r'\d{2}\d{2}\d{2}\d{2}\d{2}\d{2}'] #add more format if necessary
     match = None
@@ -98,12 +99,12 @@ def extract_datetime(var, formats=None, tz=None):
         elif f == r'\d{2}\d{2}\d{2}_\d{2}\d{2}\d{2}':
             dt_format = '%y%m%d_%H%M%S'
         date_obj = dt.datetime.strptime(dt_string, dt_format)
-        date_obj = pytz.timezone(tz).localize(date_obj)
+        date_obj = tz.localize(date_obj)
         return date_obj
     else:
         return print("No datetime found")
     
-def sorting_annot_boxes(file, tz, date_begin=None, date_end=None) -> Tuple[int, int, list, list, pd.DataFrame]:
+def sorting_annot_boxes(file, tz=None, date_begin=None, date_end=None, annotator=None, label=None) -> Tuple[int, int, list, list, pd.DataFrame]:
     # From an Aplose results csv, returns a DataFrame without the Aplose box annotations (weak annotations)
 
     df = pd.read_csv(file)
@@ -111,14 +112,18 @@ def sorting_annot_boxes(file, tz, date_begin=None, date_end=None) -> Tuple[int, 
     max_time = int(max(df['end_time']))
     df = df.loc[(df['start_time'] == 0) & (df['end_time'] == max_time) & (df['end_frequency'] == max_freq)] #deletion of boxes
     df = df.sort_values('start_datetime') #sorting value according to datetime_start
-    df = df.reset_index(drop=True) #reset the indexes of row after sorting the df
     df['start_datetime'] = pd.to_datetime(df['start_datetime'], format='%Y-%m-%dT%H:%M:%S.%f%Z')
     df['end_datetime'] = pd.to_datetime(df['end_datetime'], format='%Y-%m-%dT%H:%M:%S.%f%Z')
-    df['start_datetime'] = [x.tz_convert(tz) for x in df['start_datetime']] #converting to desired tz
-    df['end_datetime'] = [x.tz_convert(tz) for x in df['end_datetime']] #converting to desired tz
+    if tz is not None:
+        df['start_datetime'] = [x.tz_convert(tz) for x in df['start_datetime']] #converting to desired tz
+        df['end_datetime'] = [x.tz_convert(tz) for x in df['end_datetime']] #converting to desired tz
     if date_begin is not None and date_end is not None: 
         df = df[(df['start_datetime']>=date_begin) & (df['start_datetime']<=date_end)] #select data within [date_begin;date_end]
-
+    df = df.reset_index(drop=True) #reset the indexes of row after sorting the df
+    if annotator is not None:
+        df = df.loc[(df['annotator'] == annotator)]
+    if annotator is not None:
+        df = df.loc[(df['annotation'] == label)]
     annotators = list(df['annotator'].drop_duplicates())
     labels = list(df['annotation'].drop_duplicates())
     
@@ -303,8 +308,49 @@ def export2Raven(tuple_info, time_vec, time_str, bin_height, selection_vec=None)
     
     return df_PG2Raven
 
+def get_season(ts):
+    # "day of year" ranges for the northern hemisphere
+    
+    spring = range(80, 172)
+    summer = range(172, 264)
+    autumn = range(264, 355)
+    # winter = everything else
+    if ts.dayofyear in spring: season = 'spring'
+    elif ts.dayofyear in summer: season = 'summer'
+    elif ts.dayofyear in autumn: season = 'autumn'
+    else: season = 'winter'
+    return season
 
+def histo_detect(detections, lim, res_min, time_bin,  plot=False, hours_interval=4, label=None, annotator=None):
+    #Get the detection histogram values and plot it if desired
+    
+    delta, start_vec, end_vec = dt.timedelta(seconds=60*res_min),  lim[0], lim[1]
+    bins = [start_vec + i * delta for i in range(int((end_vec - start_vec) / delta) + 1)]
+    n_annot_max = (res_min*60)/time_bin #max nb of annoted time_bin max per res_min slice
+    tz_data = lim[0].tz
 
+    fig,ax = plt.subplots(figsize=(20,9))
+    y, x, _ = ax.hist(detections, bins); #histo
+    if plot is False: plt.close()
+    else:
+    
+        bars = range(0,110,10) #from 0 to 100 step 10
+        y_pos = np.linspace(0,n_annot_max, num=len(bars))
+        ax.set_yticks(y_pos, bars);
+        ax.tick_params(axis='x', rotation= 60);
+        ax.tick_params(labelsize=20)
+        ax.set_ylabel("Positive detection rate [%] ("+str(res_min)+"min)", fontsize = 20)
+        ax.tick_params(axis='y')
+        if label is not None and annotator is not None:
+            plt.suptitle('annotateur : ' + annotator +'\n'+ 'label : ' + label, fontsize = 24, y=0.98);
+         
+        ax.xaxis.set_major_locator(mdates.HourLocator(interval=hours_interval))
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%d/%m %Hh', tz=tz_data))
+        ax.set_xlim(lim[0]-dt.timedelta(minutes=20), lim[-1]+dt.timedelta(minutes=20))
+        ax.set_ylim(0, n_annot_max)
+        plt.grid(color='k', linestyle='-', linewidth=0.2, axis='both')
+    
+    return y, x
 
 
 

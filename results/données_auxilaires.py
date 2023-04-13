@@ -164,18 +164,18 @@ def res_timebin_plot(date_begin, date_end, duration_min):
 # TimestampPath = 'L:/acoustock/Bioacoustique/DATASETS/CETIROISE/DATA/B_Sud Fosse Ouessant/Phase_1/Sylence/2022-07-17/timestamp.csv'
 # WavPath = 'L:/acoustock/Bioacoustique/DATASETS/CETIROISE/DATA/B_Sud Fosse Ouessant/Phase_1/Sylence/2022-07-17'
 
-# FilePath = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 2/IROISE/335556632/analysis/C2D1/Aplose results APOCADO_IROISE_C2D1.csv'
-# TimestampPath = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 2/IROISE/335556632/analysis/C2D1/timestamp.csv'
-# WavPath = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 2/IROISE/335556632/wav'
+FilePath = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 2/IROISE/335556632/analysis/C2D1_070722/Aplose results APOCADO_IROISE_C2D1.csv'
+TimestampPath = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 2/IROISE/335556632/analysis/C2D1_070722/timestamp.csv'
+WavPath = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 2/IROISE/335556632/wav'
 
-FilePath = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 3/IROISE/335556632/analysis/PG Binary C3D5 - Results/23-11_090454/PG2Aplose table.csv'
-TimestampPath = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 3/IROISE/335556632/wav/C3D5/timestamp_PG.csv'
-WavPath = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 3/IROISE/335556632/wav/C3D5'
+# FilePath = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 3/IROISE/335556632/analysis/PG Binary C3D5 - Results/23-11_090454/PG2Aplose table.csv'
+# TimestampPath = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 3/IROISE/335556632/wav/C3D5/timestamp_PG.csv'
+# WavPath = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 3/IROISE/335556632/wav/C3D5'
 
 tz_data ='Europe/Paris'
 
 # file_maree = 'L:/acoustock/Bioacoustique/DATASETS/CETIROISE/maregraphie/152_2022.csv'
-file_maree = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/maregraphie/6305_2022.csv'
+# file_maree = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/maregraphie/6305_2022.csv'
 
 # pkl_filename = 'C:/Users/dupontma2/Downloads/complete_welch.pkl'
 # pkl_filename = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 2/IROISE/335556632/analysis/C2D1/complete_welch.pkl'
