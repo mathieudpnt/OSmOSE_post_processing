@@ -13,6 +13,7 @@ import statistics as stat
 
 deploy = pd.read_excel('L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/APOCADO - Suivi déploiements.xlsx', skiprows=[0])
 deploy = deploy[(deploy['N° campagne'] != 1)] #deleting 1st campaign
+deploy = deploy[(deploy['N° campagne'] != 6)] #deleting 6 campaign for now
 deploy = deploy.loc[~((deploy['N° campagne'] == 4) & (deploy['N° déploiement'] == 9)), :] #deleting C4D9
 deploy = deploy.reset_index(drop=True)
 
@@ -35,42 +36,42 @@ print('\n# Duration per net length #')
 
 #%% Save metadata
 
-list_csv = glob.glob(os.path.join('L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO', '**/PG_formatteddata**.csv'), recursive=True)\
-            +glob.glob(os.path.join('L:/acoustock2/Bioacoustique/APOCADO2', '**/PG_formatteddata**.csv'), recursive=True)
+# list_csv = glob.glob(os.path.join('L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO', '**/PG_formatteddata**.csv'), recursive=True)\
+#             +glob.glob(os.path.join('L:/acoustock2/Bioacoustique/APOCADO2', '**/PG_formatteddata**.csv'), recursive=True)
 
-for i in tqdm(list_csv):
+# for i in tqdm(list_csv):
 
-    t_detections = sorting_annot_boxes(i)
+#     t_detections = sorting_annot_boxes(i)
     
-    time_bin = t_detections[0]
-    fmax = t_detections[1]
-    [annotators] = t_detections[2]
-    [labels] = t_detections[3]
-    df_detections = t_detections[-1]
+#     time_bin = t_detections[0]
+#     fmax = t_detections[1]
+#     [annotators] = t_detections[2]
+#     [labels] = t_detections[3]
+#     df_detections = t_detections[-1]
     
-    [ID_detections] = list(set(df_detections['dataset']))
-    rank = [i for i, ID in enumerate(deploy['ID']) if ID in ID_detections][0]
-    duration_deployment = int(deploy['durations_deployments'][rank].total_seconds())
-    dt_deployment_beg = dt.datetime.strftime(dt.datetime.combine(deploy['Date début déploiement'][rank], deploy['Heure début déploiement'][rank]), '%d/%m/%Y %H:%M:%S')
-    dt_deployment_end = dt.datetime.strftime(dt.datetime.combine(deploy['Date fin déploiement'][rank], deploy['Heure fin déploiement'][rank]), '%d/%m/%Y %H:%M:%S')
-    ID = deploy['ID'][rank]
-    net_len = int(deploy['Longueur (m)'][rank])
-    n_instru = deploy['nb ST/filet'][rank] if type(deploy['nb ST/filet'][rank]) is int else int(deploy['nb ST/filet'][rank][0])
+#     [ID_detections] = list(set(df_detections['dataset']))
+#     rank = [i for i, ID in enumerate(deploy['ID']) if ID in ID_detections][0]
+#     duration_deployment = int(deploy['durations_deployments'][rank].total_seconds())
+#     dt_deployment_beg = dt.datetime.strftime(dt.datetime.combine(deploy['Date début déploiement'][rank], deploy['Heure début déploiement'][rank]), '%d/%m/%Y %H:%M:%S')
+#     dt_deployment_end = dt.datetime.strftime(dt.datetime.combine(deploy['Date fin déploiement'][rank], deploy['Heure fin déploiement'][rank]), '%d/%m/%Y %H:%M:%S')
+#     ID = deploy['ID'][rank]
+#     net_len = int(deploy['Longueur (m)'][rank])
+#     n_instru = deploy['nb ST/filet'][rank] if type(deploy['nb ST/filet'][rank]) is int else int(deploy['nb ST/filet'][rank][0])
     
-    wav_files = glob.glob(os.path.join(Path(i).parents[2], "**/*.wav"), recursive=True)
-    wav_names = [os.path.basename(file) for file in wav_files]
-    [wav_folder] = list(set([os.path.dirname(file) for file in wav_files]))
-    test_wav = [j in sorted(list(set([i.split('_')[0] for i in df_detections['filename']]))) for j in [i.split('.wav')[0] for i in wav_names]]
-    wav_names, wav_files = zip(*[(wav_names[i], wav_files[i]) for i in range(len(wav_names)) if test_wav[i]]) #only the wav files corresponding to the detections are kept
-    durations = [read_header(file)[-1] for file in wav_files]
+#     wav_files = glob.glob(os.path.join(Path(i).parents[2], "**/*.wav"), recursive=True)
+#     wav_names = [os.path.basename(file) for file in wav_files]
+#     [wav_folder] = list(set([os.path.dirname(file) for file in wav_files]))
+#     test_wav = [j in sorted(list(set([i.split('_')[0] for i in df_detections['filename']]))) for j in [i.split('.wav')[0] for i in wav_names]]
+#     wav_names, wav_files = zip(*[(wav_names[i], wav_files[i]) for i in range(len(wav_names)) if test_wav[i]]) #only the wav files corresponding to the detections are kept
+#     durations = [read_header(file)[-1] for file in wav_files]
     
     
     
-    metadata =  {'detection_file': i, 'wav_folder': wav_folder, 'deploy_ID' : ID, 'beg_deployment': dt_deployment_beg, 'end_deployment': dt_deployment_end, 'duration_deployment': duration_deployment, 'fmax': fmax, 'timebin': time_bin, 'annotators': annotators, 'net_length': net_len, 'n_instru': n_instru, 'labels': labels, 'wav_path': wav_files, 'durations': durations}
+#     metadata =  {'detection_file': i, 'wav_folder': wav_folder, 'deploy_ID' : ID, 'beg_deployment': dt_deployment_beg, 'end_deployment': dt_deployment_end, 'duration_deployment': duration_deployment, 'fmax': fmax, 'timebin': time_bin, 'annotators': annotators, 'net_length': net_len, 'n_instru': n_instru, 'labels': labels, 'wav_path': wav_files, 'durations': durations}
     
-    out_file = open(os.path.join(Path(i).parents[0], 'metadata.json'), 'w+')
-    json.dump(metadata, out_file, indent=4)
-    out_file.close()
+#     out_file = open(os.path.join(Path(i).parents[0], 'metadata.json'), 'w+')
+#     json.dump(metadata, out_file, indent=4)
+#     out_file.close()
 
 
 
@@ -139,13 +140,14 @@ ax.grid(color='k', linestyle='-', linewidth=0.2, axis='both')
 
 
 #%% export csv for QGIS
-deploy_out = deploy.drop(columns=['Date début campagne', 'Date fin campagne', 'Heure début campagne', 'Heure fin campagne', 'check heures', 'Conditions météo', 'Conditions météo.1', 'Présence cétacés', 'Présence cétacés.1', 'Commentaire', 'Unnamed: 25', 'Unnamed: 27', 'Unnamed: 28', 'Unnamed: 29'])
+# deploy_out = deploy.drop(columns=['Date début campagne', 'Date fin campagne', 'Heure début campagne', 'Heure fin campagne', 'check heures', 'Conditions météo', 'Conditions météo.1', 'Présence cétacés', 'Présence cétacés.1', 'Commentaire', 'Unnamed: 25', 'Unnamed: 27', 'Unnamed: 28', 'Unnamed: 29'])
+deploy_out = deploy.drop(columns=['lat D','lat DM','lat DD','long D','long DM','long DD','Date début campagne', 'Date fin campagne', 'Heure début campagne', 'Heure fin campagne', 'check heures', 'Conditions météo', 'Conditions météo.1', 'Présence cétacés', 'Présence cétacés.1', 'Commentaire'])
 
 for i in range(len(deploy['nb ST/filet'])):
     if '1' in str(deploy['nb ST/filet'][i]): deploy_out['nb ST/filet'][i]=1
     if '2' in str(deploy['nb ST/filet'][i]): deploy_out['nb ST/filet'][i]=2
     
-deploy_out.to_csv('L:/acoustock/Bioacoustique/DATASETS/APOCADO/Data QGIS/APOCADO - Suivi déploiements 16032023.csv', index=False, encoding='latin1')
+deploy_out.to_csv('L:/acoustock/Bioacoustique/DATASETS/APOCADO/Data QGIS/APOCADO - Suivi déploiements 13042023.csv', index=False, encoding='latin1')
 
 #%% Nombre moyen de detection à chaque heure de la journée / saison
 
