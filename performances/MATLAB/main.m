@@ -32,7 +32,9 @@ for i = 1:numel(GeneralFolderBinary)
 end
 % subFoldersBinary = string(unique(extractfield(GeneralFolderBinaryInfo, 'folder')'));
 
-
+if numel(GeneralFolderBinaryInfo)~= numel(GeneralFolderWavInfo)
+    warning('attention')
+end
 %% Execution of main
 %if all the data of a folder is to be analyzed, use the function main_PG
 %if only certains dates are to be analyzed in the data folder, create list
@@ -41,8 +43,13 @@ end
 
 % PG2APLOSE(infoAplose, GeneralFolderWav{1}, GeneralFolderBinary{2}, format_datestr, TZ);
 
-for i=1:numel(GeneralFolderBinary)
-    PG2APLOSE(infoAplose, GeneralFolderWav{1}, GeneralFolderBinary{i}, format_datestr, TZ);
+if numel(GeneralFolderBinaryInfo)== numel(GeneralFolderWavInfo)
+    for i=1:numel(GeneralFolderBinary)
+        PG2APLOSE(infoAplose, GeneralFolderWav{1}, GeneralFolderBinary{i}, format_datestr, TZ);
+    end
+else
+    warning('Number of wav files is different than number of pgdf files')
+    msgbox('Number of wav files is different than number of pgdf files')
 end
 
 
