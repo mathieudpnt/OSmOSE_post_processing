@@ -4,18 +4,18 @@ clear;clc
 % User inputs
 TZ = '+02:00';
 % TZ = 'Europe/Paris'; %TimeZone
-format_datestr = 'yyMMddHHmmss'; %APOCADO filename format
-% format_datestr = 'yyyy-MM-dd_HH-mm-ss'; %CETIROISE filename format
+% format_datestr = 'yyMMddHHmmss'; %APOCADO filename format
+format_datestr = 'yyyy-MM-dd_HH-mm-ss'; %CETIROISE filename format
 
 addpath(genpath(fullfile(fileparts(fileparts(pwd)), 'utilities')))
 
 %info written on Aplose csv file
 infoAplose.annotator = "PAMGuard";
 infoAplose.annotation = "Whistle and moan detector";
-infoAplose.dataset = "APOCADO C4D8 ST336363566(10_144000)";
+infoAplose.dataset = "test_CET";
 
-GeneralFolderWav = uigetdir2('L:\acoustock\Bioacoustique\DATASETS');
-GeneralFolderBinary = uigetdir2(fileparts(GeneralFolderWav{1}));
+GeneralFolderWav = uigetdir2('L:\acoustock\Bioacoustique\DATASETS', 'Select wav folders');
+GeneralFolderBinary = uigetdir2(fileparts(GeneralFolderWav{1}), 'Select binary folders');
 
 % Get files - Automatic
 
