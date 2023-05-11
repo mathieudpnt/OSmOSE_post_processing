@@ -115,8 +115,8 @@ def sorting_annot_boxes(file, tz=None, date_begin=None, date_end=None, annotator
     max_time = int(max(df['end_time']))
     df = df.loc[(df['start_time'] == 0) & (df['end_time'] == max_time) & (df['end_frequency'] == max_freq)] #deletion of boxes
     df = df.sort_values('start_datetime') #sorting value according to datetime_start
-    df['start_datetime'] = pd.to_datetime(df['start_datetime'], format='%Y-%m-%dT%H:%M:%S.%f%Z')
-    df['end_datetime'] = pd.to_datetime(df['end_datetime'], format='%Y-%m-%dT%H:%M:%S.%f%Z')
+    df['start_datetime'] = pd.to_datetime(df['start_datetime'], format='%Y-%m-%dT%H:%M:%S.%f%z')
+    df['end_datetime'] = pd.to_datetime(df['end_datetime'], format='%Y-%m-%dT%H:%M:%S.%f%z')
     if tz is not None:
         df['start_datetime'] = [x.tz_convert(tz) for x in df['start_datetime']] #converting to desired tz
         df['end_datetime'] = [x.tz_convert(tz) for x in df['end_datetime']] #converting to desired tz
@@ -191,6 +191,7 @@ def oneday_per_month(time_vector_ts, time_vector_str, vec)-> Tuple[list, list, l
 
 def n_random_hour(time_vector_ts, time_vector_str, vec, n_hour, TZ)-> Tuple[list, list, list, list]:
     # randomly select n non-overlapping hours from the time vector
+    if type(TZ) is not pytz._FixedOffset: TZ=pytz.timezone(TZ)
     
     if not isinstance(n_hour, int):
         print('n_hour is not an integer')
@@ -225,7 +226,7 @@ def n_random_hour(time_vector_ts, time_vector_str, vec, n_hour, TZ)-> Tuple[list
     # extract the corresponding vectors and time strings
     selected_vec = [vec[time_vector_ts.index(i)] for i in tqdm(selected_time_vector_ts, position=0, leave=True)]
     selected_time_vector_str = [time_vector_str[time_vector_ts.index(i)] for i in tqdm(selected_time_vector_ts, position=0, leave=True)]
-    selected_dates = [dt.datetime.fromtimestamp(i, pytz.timezone(TZ)).strftime('%d/%m/%Y %H:%M:%S') for i in selected_dates]
+    selected_dates = [dt.datetime.fromtimestamp(i, TZ).strftime('%d/%m/%Y %H:%M:%S') for i in selected_dates]
 
     return selected_time_vector_ts, selected_time_vector_str, selected_vec, selected_dates
 

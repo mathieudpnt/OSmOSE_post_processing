@@ -9,7 +9,7 @@ import time
 import datetime as dt
 import pandas as pd
 import pytz
-from post_processing_detections.utilities.def_func import read_header, extract_datetime, from_str2dt, from_str2ts, t_rounder, get_wav_info, sorting_annot_boxes, pick_datetimes, export2Raven
+from post_processing_detections.utilities.def_func import read_header, extract_datetime, from_str2dt, from_str2ts, t_rounder, get_wav_info, sorting_annot_boxes, pick_datetimes, export2Raven, n_random_hour
 
 #%% LOAD DATA - User inputs
 
@@ -99,15 +99,15 @@ selected_time_vector = []
 # tv_day = ([dt.datetime.fromtimestamp(time_vector[i]).day for i in range(len(time_vector))])
 # tv_hour = ([dt.datetime.fromtimestamp(time_vector[i]).hour for i in range(len(time_vector))])
 
-# while True:
+while True:
 #     # selected_time_vector = [time_vector[i] for i in range(len(time_vector)) if tv_hour[i]%2 == 0] #select even hours
 #     # selected_time_vector, selected_PG_vec, selected_time_vector_str, selected_dates = oneday_per_month(time_vector, time_vector_str, PG_vec) #select randomly one day per month
-#     # selected_time_vector, selected_time_vector_str, selected_PG_vec, selected_dates = n_random_hour(time_vector, time_vector_str, PG_vec, 2, tz_data)
-#     if round(sum(selected_PG_vec)/len(selected_time_vector),3) > 0.75*round(sum(PG_vec)/len(time_vector),3) and round(sum(selected_PG_vec)/len(selected_time_vector),3) < 1.25*round(sum(PG_vec)/len(time_vector),3):
-#         break
+    selected_time_vector, selected_time_vector_str, selected_PG_vec, selected_dates = n_random_hour(time_vector, time_vector_str, PG_vec, 12, tz_data) #select randomly n hour in the dataset
+    if round(sum(selected_PG_vec)/len(selected_time_vector),3) > 0.75*round(sum(PG_vec)/len(time_vector),3) and round(sum(selected_PG_vec)/len(selected_time_vector),3) < 1.25*round(sum(PG_vec)/len(time_vector),3):
+        break
 
-selected_datetimes,  selected_durations = ['07/07/2022 00:00:00'], ['1d']
-selected_time_vector, selected_time_vector_str, selected_PG_vec, selected_dates = pick_datetimes(time_vector, time_vector_str, PG_vec, selected_datetimes, selected_durations, tz_data)
+# selected_datetimes,  selected_durations = ['07/07/2022 00:00:00'], ['1d']
+# selected_time_vector, selected_time_vector_str, selected_PG_vec, selected_dates = pick_datetimes(time_vector, time_vector_str, PG_vec, selected_datetimes, selected_durations, tz_data)
 
 
 print('\n', selected_dates)
