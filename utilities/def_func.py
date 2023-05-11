@@ -99,7 +99,7 @@ def extract_datetime(var, tz, formats=None):
         elif f == r'\d{2}\d{2}\d{2}_\d{2}\d{2}\d{2}':
             dt_format = '%y%m%d_%H%M%S'
         date_obj = dt.datetime.strptime(dt_string, dt_format)
-        date_obj = tz.localize(date_obj)
+        date_obj = pytz.timezone(tz).localize(date_obj)
         return date_obj
     else:
         return print("No datetime found")
