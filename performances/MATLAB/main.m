@@ -12,7 +12,7 @@ addpath(genpath(fullfile(fileparts(fileparts(pwd)), 'utilities')))
 %info written on Aplose csv file
 infoAplose.annotator = "PAMGuard";
 infoAplose.annotation = "Whistle and moan detector";
-infoAplose.dataset = "test_CET";
+infoAplose.dataset = "Point_B_Ph_1";
 
 GeneralFolderWav = uigetdir2('L:\acoustock\Bioacoustique\DATASETS', 'Select wav folders');
 GeneralFolderBinary = uigetdir2(fileparts(GeneralFolderWav{1}), 'Select binary folders');
@@ -33,7 +33,7 @@ end
 % subFoldersBinary = string(unique(extractfield(GeneralFolderBinaryInfo, 'folder')'));
 
 if numel(GeneralFolderBinaryInfo)~= numel(GeneralFolderWavInfo)
-    warning('attention')
+    warning('Number of wav files (%.0f) is different than number of pgdf files (%.0f)', numel(GeneralFolderWavInfo), numel(GeneralFolderBinaryInfo))
 end
 %% Execution of main
 %if all the data of a folder is to be analyzed, use the function main_PG

@@ -12,6 +12,7 @@ import glob
 import wave
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
+import statistics as stat
 
 # def read_header(file:str) -> Tuple[int, int, int, int, int]:
 #     #reads header of a wav file to get info such as duration, samplerate etc...
@@ -189,7 +190,7 @@ def oneday_per_month(time_vector_ts, time_vector_str, vec)-> Tuple[list, list, l
 
 
 
-def n_random_hour(time_vector_ts, time_vector_str, vec, n_hour, TZ)-> Tuple[list, list, list, list]:
+def n_random_hour(time_vector_ts, time_vector_str, vec, n_hour, TZ, time_step)-> Tuple[list, list, list, list]:
     # randomly select n non-overlapping hours from the time vector
     if type(TZ) is not pytz._FixedOffset: TZ=pytz.timezone(TZ)
     
@@ -202,11 +203,14 @@ def n_random_hour(time_vector_ts, time_vector_str, vec, n_hour, TZ)-> Tuple[list
         # choose a random datetime from the time vector
         rand_idx = random.randrange(len(time_vector_ts))
         rand_datetime = time_vector_ts[rand_idx]
+        
         selected_dates.append(rand_datetime)
     
         # select all datetimes that fall within the hour following this datetime
-        possible_datetimes = [time for time in time_vector_ts if rand_datetime < time < rand_datetime + 3600]
-    
+        # possible_datetimes = [time for time in time_vector_ts if rand_datetime < time < rand_datetime + 3600]
+        # possible_datetimes = [(idx, dt) for idx, dt in enumerate(time_vector_ts) if rand_datetime <= dt <= rand_datetime+3600]
+        possible_datetimes = time_vector_ts[rand_idx:rand_idx+round(3600/time_step)+1]
+        
         # check if any of the selected datetimes overlap with the previously selected datetimes
         overlap = False
         for i in selected_time_vector_ts:
@@ -300,7 +304,7 @@ def export2Raven(tuple_info, time_vec, time_str, bin_height, selection_vec=None)
     test_name = list(np.array([file.split('.wav')[0] for file in file_list])) # extract file names without extension
     idx_wav_Raven = [test_name.index(time_str[i].split('_+')[0]) for i in tqdm(range(len(time_vec)-1), position=0, leave=True, desc = '1/3')]
     start_datetime = [int(time_vec[i] - file_datetimes[0].timestamp()) + offsets_cumsum[idx_wav_Raven[i]] for i in tqdm(range(len(time_vec)-1), position=0, leave=True, desc = '2/3') if selection_vec[i] == 1]
-    end_datetime = [int(time_vec[i] - file_datetimes[0].timestamp())+(time_vec[i+1]-time_vec[i]) + offsets_cumsum[idx_wav_Raven[i]]  for i in tqdm(range(len(time_vec)-1), position=0, leave=True, desc = '3/3') if selection_vec[i] == 1]
+    end_datetime =   [int(time_vec[i] - file_datetimes[0].timestamp())+(time_vec[i+1]-time_vec[i]) + offsets_cumsum[idx_wav_Raven[i]]  for i in tqdm(range(len(time_vec)-1), position=0, leave=True, desc = '3/3') if selection_vec[i] == 1]
     
     df_PG2Raven = pd.DataFrame()
     df_PG2Raven['Selection'] = np.arange(1,len(start_datetime)+1)
@@ -310,6 +314,25 @@ def export2Raven(tuple_info, time_vec, time_str, bin_height, selection_vec=None)
     df_PG2Raven['Low Freq (Hz)'] = [0]*len(start_datetime)
     df_PG2Raven['High Freq (Hz)'] = [bin_height]*len(start_datetime)
     
+    # durations = df_PG2Raven['End Time (s)']-df_PG2Raven['Begin Time (s)']
+    # rows = [idx for idx, dur in tqdm(enumerate(durations), position=0, leave=True, desc = '4/3') if dur > stat.median(durations)]
+    # df_PG2Raven = df_PG2Raven.drop(rows)
+    # df_PG2Raven['Selection'] = np.arange(1,len(df_PG2Raven)+1)
+
+    # Convert relevant columns to NumPy arrays
+    begin_times = np.array(df_PG2Raven['Begin Time (s)'])
+    end_times = np.array(df_PG2Raven['End Time (s)'])
+    
+    # Calculate durations using vectorized operations
+    durations = end_times - begin_times
+    
+    # Filter rows based on duration using boolean indexing
+    rows_to_keep = durations <= 10*np.median(durations)
+    df_PG2Raven = df_PG2Raven[rows_to_keep]
+    
+    # Update the 'Selection' column with consecutive numbers
+    df_PG2Raven['Selection'] = np.arange(1, len(df_PG2Raven) + 1)
+
     return df_PG2Raven
 
 def get_season(ts):

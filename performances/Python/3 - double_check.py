@@ -47,19 +47,20 @@ print('\nFormating data...', end='\n')
 
 start = time.time()
 
-first_date = dfpamguard['start_datetime'][0] #1st detection
-last_date = dfpamguard['start_datetime'].iloc[-1] #last detection
+# first_date = dfpamguard['start_datetime'][0] #1st detection
+# last_date = dfpamguard['start_datetime'].iloc[-1] #last detection
 
-## Time vector
+# ## Time vector
 
-#selection of waf files according to first and last dates
-idx_wav_beg = 0 if all(wav_datetimes[i] >= first_date for i in range(len(wav_datetimes))) else [i for i, x in enumerate(wav_datetimes) if x < first_date][-1]
-idx_wav_end = len(wav_list) if all(wav_datetimes[i] <= last_date for i in range(len(wav_datetimes))) else [i for i, x in enumerate(wav_datetimes) if x > last_date][0]
-wav_datetimes, wav_list, wav_folder, wav_files, durations = wav_datetimes[idx_wav_beg:idx_wav_end], wav_list[idx_wav_beg:idx_wav_end], wav_folder[idx_wav_beg:idx_wav_end], wav_files[idx_wav_beg:idx_wav_end], durations[idx_wav_beg:idx_wav_end]
-print('\n1st wav : ' + wav_list[0])
-print('last wav : ' + wav_list[-1], end='\n\n')
+# #selection of wav files according to first and last dates => A AMELIORER
+##################################################################################
+# idx_wav_beg = 0 if all(wav_datetimes[i] >= first_date for i in range(len(wav_datetimes))) else [i for i, x in enumerate(wav_datetimes) if x < first_date][-1]
+# idx_wav_end = len(wav_list) if all(wav_datetimes[i] <= last_date for i in range(len(wav_datetimes))) else [i for i, x in enumerate(wav_datetimes) if x > last_date][0]
+# wav_datetimes, wav_list, wav_folder, wav_files, durations = wav_datetimes[idx_wav_beg:idx_wav_end], wav_list[idx_wav_beg:idx_wav_end], wav_folder[idx_wav_beg:idx_wav_end], wav_files[idx_wav_beg:idx_wav_end], durations[idx_wav_beg:idx_wav_end]
+# print('\n1st wav : ' + wav_list[0])
+# print('last wav : ' + wav_list[-1], end='\n\n')
+##################################################################################
 
-time_vector_test = [elem for i in range(len(wav_list)) for elem in np.arange(0, durations[i], time_bin).astype(int)]
 time_vector = [elem for i in range(len(wav_list)) for elem in extract_datetime(wav_list[i], tz_data).timestamp() + np.arange(0, durations[i], time_bin).astype(int)]
 time_vector_str = [str(wav_list[i]).split('.wav')[0]+ '_+'  + str(elem) for i in range(len(wav_list)) for elem in np.arange(0, durations[i], time_bin).astype(int)]
 
@@ -69,7 +70,7 @@ times_PG_beg = [dfpamguard['start_datetime'][i].timestamp() for i in range(len(d
 times_PG_end = [dfpamguard['end_datetime'][i].timestamp() for i in range(len(dfpamguard))]
 
 PG_vec, ranks, k = np.zeros(len(time_vector), dtype=int), [], 0
-for i in tqdm(range(len(times_PG_beg)), 'Importing PAMGuard detections...'):
+for i in tqdm(range(len(times_PG_beg)), 'Importing PAMGuard detections...', position=0, leave=True):
     for j in range(k, len(time_vector)-1):
         if int(times_PG_beg[i]*1000) in range(int(time_vector[j]*1000), int(time_vector[j+1]*1000)) or int(times_PG_end[i]*1000) in range(int(time_vector[j]*1000), int(time_vector[j+1]*1000)):
                 ranks.append(j)
@@ -102,7 +103,7 @@ selected_time_vector = []
 while True:
 #     # selected_time_vector = [time_vector[i] for i in range(len(time_vector)) if tv_hour[i]%2 == 0] #select even hours
 #     # selected_time_vector, selected_PG_vec, selected_time_vector_str, selected_dates = oneday_per_month(time_vector, time_vector_str, PG_vec) #select randomly one day per month
-    selected_time_vector, selected_time_vector_str, selected_PG_vec, selected_dates = n_random_hour(time_vector, time_vector_str, PG_vec, 12, tz_data) #select randomly n hour in the dataset
+    selected_time_vector, selected_time_vector_str, selected_PG_vec, selected_dates = n_random_hour(time_vector, time_vector_str, PG_vec, 3, tz_data, time_bin) #select randomly n hour in the dataset
     if round(sum(selected_PG_vec)/len(selected_time_vector),3) > 0.75*round(sum(PG_vec)/len(time_vector),3) and round(sum(selected_PG_vec)/len(selected_time_vector),3) < 1.25*round(sum(PG_vec)/len(time_vector),3):
         break
 
@@ -114,6 +115,8 @@ print('\n', selected_dates)
 print('Taux de détection positives :', end='\n')
 print('selection :', round(sum(selected_PG_vec)/len(selected_time_vector),3))  #proportion de positifs dans les éléments selectionnés randomly
 print('original :', round(sum(PG_vec)/len(time_vector),3)) #proportion de positifs dans les éléments
+
+
 
 #%% EXPORT TO RAVEN FORMAT
 
@@ -127,7 +130,8 @@ result_path = result_dir
 
 with open(os.path.join(result_path, "configuration.txt"), "w+") as f:
     f.write("Selected dates :\n")
-    [f.write(selected_dates['datetimes'][i] +"\t"+ selected_dates['durations'][i] + "\n") for i in range(len(selected_dates))]
+    # [f.write(selected_dates['datetimes'][i] +"\t"+ selected_dates['durations'][i] + "\n") for i in range(len(selected_dates))]
+    [f.write(selected_dates[i]+"\n") for i in range(len(selected_dates))]
 
 
 wav_tuple = (wav_list, wav_datetimes, durations)
