@@ -6,9 +6,12 @@ import numpy as np
 import easygui
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
-from post_processing_detections.utilities.def_func import extract_datetime, sorting_annot_boxes, t_rounder
+import re
+from post_processing_detections.utilities.def_func import read_header, extract_datetime, sorting_annot_boxes, t_rounder
+
 
 #%% User inputs
+
 
 root = Tk()
 root.withdraw()
@@ -130,6 +133,7 @@ label_ref = ''.join(easygui.buttonbox('Select a label', 'Single plot', t_detecti
 res_min = int(easygui.enterbox("résolution temporelle bin ? (min) :"))
 
 delta, start_vec, end_vec = dt.timedelta(seconds=60*res_min), t_rounder(extract_datetime(wav_names.iloc[0], tz_data)), t_rounder(extract_datetime(wav_names.iloc[-1], tz_data) + dt.timedelta(seconds=time_bin))
+
 
 time_vector = [start_vec + i * delta for i in range(int((end_vec - start_vec) / delta) + 1)]
 

@@ -483,7 +483,8 @@ def reshape_timebin(detections_file):
     fmax = t_detections[1]
     annotators = t_detections[2]
     labels = t_detections[3]
-    tz_data = df_detections['start_datetime'][0].tz
+    tz_data = df_detections['start_
+                            '][0].tz
 
     while True:
         timebin_new = easygui.buttonbox('Select a new time resolution for the detection file', 'Select new timebin', ['10s','1min', '10min', '1h', '24h'])
@@ -564,7 +565,85 @@ def reshape_timebin(detections_file):
         df_new = df_new.sort_values(by=['start_datetime'])
             
     return df_new
+ __converter = {
+    "%Y": r"[12][0-9]{3}",
+    "%y": r"[0-9]{2}",
+    "%m": r"(0[1-9]|1[0-2])",
+    "%d": r"([0-2][0-9]|3[0-1])",
+    "%H": r"([0-1][0-9]|2[0-4])",
+    "%I": r"(0[1-9]|1[0-2])",
+    "%p": r"(AM|PM)",
+    "%M": r"[0-5][0-9]",
+    "%S": r"[0-5][0-9]",
+    "%f": r"[0-9]{6}",
+}
 
+def convert_template_to_re(date_template: str) -> str:
+    """Converts a template in strftime format to a matching regular expression
+
+    Parameter:
+        date_template: the template in strftime format
+
+    Returns:
+        The regular expression matching the template"""
+
+    res = ""
+    i = 0
+    while i < len(date_template):
+        if date_template[i : i + 2] in __converter:
+            res += __converter[date_template[i : i + 2]]
+            i += 1
+        else:
+            res += date_template[i]
+        i += 1
+
+    return res
+
+def get_timestamps():
+    msg = "Do you already have the timestamp.csv  ?"
+    choices = ["Yes","No"]
+    reply = easygui.buttonbox(msg, choices=choices)
+    if reply=="Yes":
+        root = Tk()
+        root.withdraw()
+        timestampcsv_path = filedialog.askopenfilename(title="Selcet the timestamp.csv") # show an "Open" dialog box and return the path to the selected file
+        root = Tk()
+        root.withdraw()
+        df_timestamps = pd.read_csv(timestampcsv_path, header=None)
+        df_timestamps.columns=['filename', 'timestamp']
+    elif reply=="No":
+        root = Tk()
+        root.withdraw()
+        list_wav_paths =  filedialog.askopenfilenames(title="Select wav folder")
+        root = Tk()
+        root.withdraw()
+        
+        msg = "Enter your time template"
+        date_template = easygui.enterbox(msg)
+        
+        
+        list_audio_file = [wav_path.split('/')[-1] for wav_path in list_wav_paths]
+        
+        timestamp = []
+        filename_raw_audio = []
+
+        converted = convert_template_to_re(date_template)
+        for i, filename in enumerate(list_audio_file):
+            date_extracted = re.search(converted, str(filename))[0]
+            date_obj = dt.datetime.strptime(date_extracted, date_template)
+            dates = dt.datetime.strftime(date_obj, "%Y-%m-%dT%H:%M:%S.%f")
+    
+            dates_final = dates[:-3] + "Z"
+            timestamp.append(dates_final)
+            filename_raw_audio.append(filename)
+            
+        df_timestamps = pd.DataFrame(
+                {"filename": filename_raw_audio, "timestamp": timestamp}#, "timezone": timezone}
+            )
+        df_timestamps.sort_values(by=["timestamp"], inplace=True)
+    
+        
+    return df_timestamps
 
 
 
