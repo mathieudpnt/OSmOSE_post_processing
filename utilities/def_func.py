@@ -483,8 +483,7 @@ def reshape_timebin(detections_file):
     fmax = t_detections[1]
     annotators = t_detections[2]
     labels = t_detections[3]
-    tz_data = df_detections['start_
-                            '][0].tz
+    tz_data = df_detections['start_datetime'][0].tz
 
     while True:
         timebin_new = easygui.buttonbox('Select a new time resolution for the detection file', 'Select new timebin', ['10s','1min', '10min', '1h', '24h'])
@@ -565,7 +564,8 @@ def reshape_timebin(detections_file):
         df_new = df_new.sort_values(by=['start_datetime'])
             
     return df_new
- __converter = {
+
+__converter = {
     "%Y": r"[12][0-9]{3}",
     "%y": r"[0-9]{2}",
     "%m": r"(0[1-9]|1[0-2])",
@@ -618,9 +618,7 @@ def get_timestamps():
         root = Tk()
         root.withdraw()
         
-        msg = "Enter your time template"
-        date_template = easygui.enterbox(msg)
-        
+        date_template = easygui.enterbox('Enter your time template')
         
         list_audio_file = [wav_path.split('/')[-1] for wav_path in list_wav_paths]
         
@@ -642,6 +640,7 @@ def get_timestamps():
             )
         df_timestamps.sort_values(by=["timestamp"], inplace=True)
     
+    df_timestamps['timestamp'] = [pd.Timestamp(i, tz='UTC') for i in df_timestamps['timestamp']]
         
     return df_timestamps
 

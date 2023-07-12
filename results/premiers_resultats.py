@@ -7,8 +7,7 @@ import easygui
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import re
-from post_processing_detections.utilities.def_func import read_header, extract_datetime, sorting_annot_boxes, t_rounder
-
+from post_processing_detections.utilities.def_func import read_header, extract_datetime, sorting_annot_boxes, t_rounder, get_timestamps, convert_template_to_re
 
 #%% User inputs
 
