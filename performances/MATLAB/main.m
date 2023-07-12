@@ -12,7 +12,7 @@ addpath(genpath(fullfile(fileparts(fileparts(pwd)), 'utilities')))
 %info written on Aplose csv file
 infoAplose.annotator = "PAMGuard";
 infoAplose.annotation = "Whistle and moan detector";
-infoAplose.dataset = "Point_B_Ph_1";
+infoAplose.dataset = "Point_A_Ph_1";
 
 GeneralFolderWav = uigetdir2('L:\acoustock\Bioacoustique\DATASETS', 'Select wav folders');
 GeneralFolderBinary = uigetdir2(fileparts(GeneralFolderWav{1}), 'Select binary folders');
