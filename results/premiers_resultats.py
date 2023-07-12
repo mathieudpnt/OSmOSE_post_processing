@@ -9,51 +9,28 @@ import numpy as np
 import easygui
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+import re
 from post_processing_detections.utilities.def_func import read_header, extract_datetime, sorting_annot_boxes, t_rounder
-
+import datetime
 #%% User inputs
 
-# time_bin = t_detections[0]
-# fmax = t_detections[1]
-# annotators = t_detections[2]
-# labels = t_detections[3]
-# df_detections = t_detections[-1]
 
-msg = "Do you have the timestamp.csv ?"
-choices = ["Yes","No"]
-reply = easygui.buttonbox(msg, choices=choices)
-
-if reply=="Yes":
-    root = Tk()
-    timestampcsv_path = filedialog.askopenfilename(title="Open the timestamp.csv") # show an "Open" dialog box and return the path to the selected file
-    root = Tk()
-    root.withdraw()
-    df_timestampcsv = pd.read_csv(timestampcsv_path, header=None)
-    #start_vec=t_rounder(extract_datetime(df_timestampcsv[0][0], tz_data, formats='%Y_%m_%d_%H_%M_%S'))
-
-elif reply=="No":
-    msg_wavfiles = "Do you have the wav files ?"
-    choices = ["Yes","No"]
-    reply_wavfiles = easygui.buttonbox(msg_wavfiles, choices=choices)
-    if reply_wavfiles=="Yes":
-        root = Tk()
-        #root.withdraw()
-        wavfolder_path = filedialog.askdirectory(title="Select wav folder")
-        root = Tk()
-        root.withdraw()
-    else:
-        start_time = easygui.enterbox("Enter start time of your dataset (YYYY mm dd HH MM SS)")
-        end_time = easygui.enterbox("Enter end time of your dataset (YYYY mm dd HH MM SS)")
-
-root = Tk()
-detections_file_path = filedialog.askopenfilename(title="Select APLOSE format detection file", filetypes=[("CSV files", "*.csv")])
 root = Tk()
 root.withdraw()
-detections_file = pd.read_csv(detections_file_path, sep=',')
+folder = filedialog.askdirectory(title="Select wav folder")
+root = Tk()
+root.withdraw()
+detections_file = filedialog.askopenfilename(initialdir = Path(folder).parents[0], title="Select APLOSE format detection file", filetypes=[("CSV files", "*.csv")])
+
+
 t_detections = sorting_annot_boxes(detections_file)
 
+time_bin = t_detections[0]
+fmax = t_detections[1]
+annotators = t_detections[2]
+labels = t_detections[3]
+df_detections = t_detections[-1]
 
-#%%
 
 tz_data = df_detections['start_datetime'][0].tz
 wav_files = glob.glob(os.path.join(folder, "**/*.wav"), recursive=True)
@@ -160,7 +137,6 @@ for i, label in enumerate(selected_labels):
     ax[i].xaxis.set_major_formatter(mdates.DateFormatter('%H:%M', tz=tz_data))
     ax[i].set_xlim(time_vector[0], time_vector[-1])
     ax[i].grid(color='k', linestyle='-', linewidth=0.2, axis='both')
-
 
 
 
