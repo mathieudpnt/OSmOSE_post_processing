@@ -13,7 +13,7 @@ root.withdraw()
 master_folder = filedialog.askdirectory(title="Select master folder")
 
 
-folders = [ f.path for f in os.scandir(master_folder) if f.is_dir() ]
+# folders = [ f.path for f in os.scandir(master_folder) if f.is_dir() ]
 
 folders = []
 for root, dirs, files in os.walk(master_folder):
@@ -21,7 +21,7 @@ for root, dirs, files in os.walk(master_folder):
         folders.append(root)
 
 
-for folder in tqdm(folders) :
+for folder in tqdm(folders, position=0, leave=True, desc = '\n') :
 
     files = glob.glob(os.path.join(folder, "**/*.*"), recursive=True)
     

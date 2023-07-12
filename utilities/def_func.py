@@ -13,6 +13,12 @@ import wave
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import statistics as stat
+from tkinter import filedialog
+from tkinter import Tk
+import gzip
+import math
+import easygui
+
 
 # def read_header(file:str) -> Tuple[int, int, int, int, int]:
 #     #reads header of a wav file to get info such as duration, samplerate etc...
@@ -85,7 +91,7 @@ def extract_datetime(var, tz, formats=None):
     #extract datetime from filename such as Apocado / Cetiroise or custom ones
     
     if formats is None:
-        formats = [r'\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}', r'\d{2}\d{2}\d{2}\d{2}\d{2}\d{2}'] #add more format if necessary
+        formats = [r'\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}', r'\d{2}\d{2}\d{2}\d{2}\d{2}\d{2}', r'\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}'] #add more format if necessary
     match = None
     for f in formats:
         match = re.search(f, var)
@@ -93,7 +99,9 @@ def extract_datetime(var, tz, formats=None):
             break
     if match:
         dt_string = match.group()
-        if f == r'\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}':
+        if f == r'\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}':
+            dt_format = '%Y-%m-%dT%H-%M-%S'
+        elif f == r'\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}':
             dt_format = '%Y-%m-%d_%H-%M-%S'
         elif f == r'\d{2}\d{2}\d{2}\d{2}\d{2}\d{2}':
             dt_format = '%y%m%d%H%M%S'
@@ -134,19 +142,45 @@ def sorting_annot_boxes(file, tz=None, date_begin=None, date_end=None, annotator
     # print(len(df), 'annotations')
     return (max_time, max_freq, annotators, labels, df)
 
-def t_rounder(t):
-    # Rounds to nearest 10-minute interval
+# def t_rounder(t, resolution):
+#     # Rounds to nearest 10-minute interval
 
-    minute = t.minute
-    minute = (minute + 5) // 10 * 10
-    if minute >= 60:
-            minute = 0
-            hour = t.hour + 1
-            if hour >= 24:
-                hour = 0
-                t += dt.timedelta(days=1)
-            t = t.replace(hour=hour, minute=minute, second=0, microsecond=0)
-    else: t = t.replace(minute=minute, second=0, microsecond=0)
+#     minute = t.minute
+#     minute = (minute + 5) // 10 * 10
+#     if minute >= 60:
+#             minute = 0
+#             hour = t.hour + 1
+#             if hour >= 24:
+#                 hour = 0
+#                 t += dt.timedelta(days=1)
+#             t = t.replace(hour=hour, minute=minute, second=0, microsecond=0)
+#     else: t = t.replace(minute=minute, second=0, microsecond=0)
+#     return t
+
+def t_rounder(t, res):
+    """Rounds a Timestamp according to the user specified resolution : 10s / 1min / 10 min / 1h / 24h
+
+    Parameter:
+        t: Timestamp to round
+        res: integer corresponding to the new resolution in seconds
+
+    Returns:
+        Rounded Timestamp"""
+    
+    if res == 600: #10min
+        minute = t.minute
+        minute = math.floor(minute/10)*10
+        t = t.replace(minute=minute, second=0, microsecond=0)
+    elif res == 10: #10s
+        seconde = t.second
+        seconde = math.floor(seconde/10)*10
+        t = t.replace(second=seconde, microsecond=0)
+    elif res == 60: #1min
+        t = t.replace(second=0, microsecond=0)
+    elif res == 3600: #1h
+        t = t.replace(minute=0, second=0, microsecond=0)
+    elif res == 86400: #24h
+        t = t.replace(hour=0, minute=0, second=0, microsecond=0)
     return t
 
 def from_str2ts(date):
@@ -337,15 +371,17 @@ def export2Raven(tuple_info, time_vec, time_str, bin_height, selection_vec=None)
 
 def get_season(ts):
     # "day of year" ranges for the northern hemisphere
-    
+    winter1 = range(1,80)
     spring = range(80, 172)
     summer = range(172, 264)
     autumn = range(264, 355)
+    winter2 = range(355,367)
     # winter = everything else
-    if ts.dayofyear in spring: season = 'spring'
-    elif ts.dayofyear in summer: season = 'summer'
-    elif ts.dayofyear in autumn: season = 'autumn'
-    else: season = 'winter'
+    if ts.dayofyear in spring: season = 'spring'+ ' ' + str(ts.year)
+    elif ts.dayofyear in summer: season = 'summer'+ ' ' + str(ts.year)
+    elif ts.dayofyear in autumn: season = 'autumn'+ ' ' + str(ts.year)
+    elif ts.dayofyear in winter1: season = 'winter'+ ' ' + str(ts.year-1)
+    elif ts.dayofyear in winter2: season = 'winter'+ ' ' + str(ts.year)
     return season
 
 def histo_detect(detections, lim, res_min, time_bin,  plot=False, hours_interval=4, label=None, annotator=None):
@@ -379,8 +415,155 @@ def histo_detect(detections, lim, res_min, time_bin,  plot=False, hours_interval
     
     return y, x
 
+def load_glider_nav():
+    #Load the navigation data from glider output files
+    #TODO : lire les data directement à partir des fichiers gz
+    root = Tk()
+    root.withdraw()
+    directory = filedialog.askdirectory(title="Select master folder")
+    
+    all_rows = [] # Initialize an empty list to store the contents of all CSV files
+    yo = []  # List to store the file numbers
+    file = []
+    
+    first_file = True
+    file_number = 1  # Initialize the file number
+    
+    for filename in os.listdir(directory):
+        if filename.endswith('.gz'):
+            file_path = os.path.join(directory, filename)
+
+            with gzip.open(file_path, 'rt') as gz_file:
+                delimiter = ';'  # Specify the desired delimiter
+                gz_reader = pd.read_csv(gz_file, delimiter=delimiter)
+                # If it's the first file, append the header row
+                if first_file:
+                    all_rows.append(gz_reader.columns.tolist())
+                    first_file = False
+                # Add the rows from the current CSV file to the all_rows list
+                all_rows.extend(gz_reader.values.tolist())
+                # Add yo number to the yo list
+                yo.extend([filename.split('.')[-2]] * len(gz_reader))
+                file.extend([filename] * len(gz_reader))
+                file_number += 1  # Increment the file number for the next file
+    
+    # Create a DataFrame from the combined data
+    df = pd.DataFrame(all_rows)
+    df.columns = df.iloc[0]  # set 1st row as headers
+    df = df.iloc[1:, 0:-1]  # delete last column and 1st row
+
+    # Add the yo number to the DataFrame
+    df['yo'] = [int(x) for x in yo]
+    
+    df['file'] = file
+    df = df.sort_values(by=['Timestamp'])
+    df = df.drop(df[(df['Lat'] == 0) & (df['Lon'] == 0)].index).reset_index(drop=True)
+    df['Lat DD'] = [int(x) + (((x - int(x))/60)*100) for x in df['Lat']/100]
+    df['Lon DD'] = [int(x) + (((x - int(x))/60)*100) for x in df['Lon']/100]
+    df['Datetime'] = [dt.datetime.strptime(x, '%d/%m/%Y %H:%M:%S') for x in df['Timestamp']]
+    df['Depth'] = -df['Depth']
+
+    return df
 
 
+def reshape_timebin(detections_file):
+    """Changes the timebin (time resolution) of a detection file
+    ex :    -from a raw PAMGuard detection file to a detection file with 10s timebin
+            -from an 10s detection file to a 1min / 1h / 24h detection file
+
+    Parameter:
+        detection_file: Path to the detection file
+
+    Returns:
+        another dataframe with the new timebin and writes it to a csv"""
+    
+    t_detections = sorting_annot_boxes(detections_file)
+    df_detections = t_detections[-1]
+    timebin_orig = t_detections[0]
+    fmax = t_detections[1]
+    annotators = t_detections[2]
+    labels = t_detections[3]
+    tz_data = df_detections['start_datetime'][0].tz
+
+    while True:
+        timebin_new = easygui.buttonbox('Select a new time resolution for the detection file', 'Select new timebin', ['10s','1min', '10min', '1h', '24h'])
+        if timebin_new == '10s':
+            f= timebin_new
+            timebin_new=10
+        elif timebin_new == '1min':
+            f= timebin_new
+            timebin_new=60
+        elif timebin_new == '10min':
+            f= timebin_new
+            timebin_new=600
+        elif timebin_new == '1h':
+            f= timebin_new
+            timebin_new=3600
+        elif timebin_new == '24h':
+            f= timebin_new
+            timebin_new=86400
+        
+        if timebin_new > timebin_orig: break
+        else: easygui.msgbox('New time resolution is equal or smaller than the original one', 'Warning', 'Ok')
+                    
+    df_new = pd.DataFrame()
+    for annotator in annotators:
+        for label in labels:
+            
+            df_detect_prov = sorting_annot_boxes(file=detections_file, annotator = annotator, label = label)[-1]
+
+            t = t_rounder(df_detect_prov['start_datetime'].iloc[0], timebin_new)
+            t2 = t_rounder(df_detect_prov['start_datetime'].iloc[-1], timebin_new) + dt.timedelta(seconds=timebin_new)
+            time_vector = [ts.timestamp() for ts in pd.date_range(start=t, end=t2, freq=f)]
+            # time_vector_str = [ts.timestamp() for ts in pd.date_range(start=t, end=t2, freq=f)]
+            
+            times_detect_beg = [detect.timestamp() for detect in df_detect_prov['start_datetime']]
+            times_detect_end = [detect.timestamp() for detect in df_detect_prov['end_datetime']]
+                
+            detect_vec, ranks, k = np.zeros(len(time_vector), dtype=int), [], 0
+            for i in range(len(times_detect_beg)):
+                for j in range(k, len(time_vector)-1):
+                    if int(times_detect_beg[i]*1000) in range(int(time_vector[j]*1000), int(time_vector[j+1]*1000)) or int(times_detect_end[i]*1000) in range(int(time_vector[j]*1000), int(time_vector[j+1]*1000)):
+                            ranks.append(j)
+                            k=j
+                            break
+                    else: 
+                        continue 
+            ranks = sorted(list(set(ranks)))
+            detect_vec[ranks] = 1
+            detect_vec = list(detect_vec)
+               
+            
+            start_datetime_str, end_datetime_str, filename = [],[],[]
+            for i in range(len(time_vector)):
+                if detect_vec[i] == 1:
+                    start_datetime = pd.Timestamp(time_vector[i], unit='s', tz=tz_data)
+                    start_datetime_str.append(start_datetime.strftime('%Y-%m-%dT%H:%M:%S.%f%z')[:-8]+ start_datetime.strftime('%Y-%m-%dT%H:%M:%S.%f%z')[-5:-2] +':' + start_datetime.strftime('%Y-%m-%dT%H:%M:%S.%f%z')[-2:])
+                    end_datetime = pd.Timestamp(time_vector[i]+timebin_new, unit='s', tz=tz_data)
+                    end_datetime_str.append(end_datetime.strftime('%Y-%m-%dT%H:%M:%S.%f%z')[:-8]+ end_datetime.strftime('%Y-%m-%dT%H:%M:%S.%f%z')[-5:-2] +':' + end_datetime.strftime('%Y-%m-%dT%H:%M:%S.%f%z')[-2:])
+                    filename.append(str(pd.Timestamp(time_vector[i], unit='s', tz=tz_data)))
+            
+            
+            df_new_prov = pd.DataFrame()
+            dataset_str = list(set(df_detect_prov['dataset']))
+            
+            df_new_prov['dataset'] = dataset_str*len(start_datetime_str)
+            df_new_prov['filename'] = filename
+            df_new_prov['start_time'] = [0]*len(start_datetime_str)
+            df_new_prov['end_time'] = [timebin_new]*len(start_datetime_str)
+            df_new_prov['start_frequency'] = [0]*len(start_datetime_str)
+            df_new_prov['end_frequency'] = [fmax]*len(start_datetime_str)
+            
+            df_new_prov['annotation'] = list(set(df_detect_prov['annotation']))*len(start_datetime_str)
+            df_new_prov['annotator'] = list(set(df_detect_prov['annotator']))*len(start_datetime_str)
+              
+            df_new_prov['start_datetime'], df_new_prov['end_datetime'] = start_datetime_str, end_datetime_str
+    
+            df_new = pd.concat([df_new, df_new_prov])
+            
+        df_new = df_new.sort_values(by=['start_datetime'])
+            
+    return df_new
 
 
 

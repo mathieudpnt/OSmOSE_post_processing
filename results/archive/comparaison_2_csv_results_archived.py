@@ -24,15 +24,8 @@ folder2 = filedialog.askdirectory(initialdir = 'L:/acoustock/Bioacoustique/DATAS
 root = Tk()
 root.withdraw()
 FilePath2 = filedialog.askopenfilename(initialdir = os.path.dirname(folder2), title="Select result file 2", filetypes=[("CSV files", "*.csv")])
-root = Tk()
-root.withdraw()
-taskstatus_file1 = filedialog.askopenfilename(initialdir = FilePath1, title="Select APLOSE formatted task status file", filetypes=[("CSV files", "*.csv")])
-root = Tk()
-root.withdraw()
-taskstatus_file2 = filedialog.askopenfilename(initialdir = FilePath2, title="Select APLOSE formatted task status file", filetypes=[("CSV files", "*.csv")])
 
 t1_detections, t2_detections = sorting_annot_boxes(FilePath1), sorting_annot_boxes(FilePath2)
-df_taskstatus1, df_taskstatus2 = pd.read_csv(taskstatus_file1), pd.read_csv(taskstatus_file2)
 
 time_bin = sorted(list(set([t1_detections[0], t2_detections[0]])))
 fmax = sorted(list(set([t1_detections[1], t2_detections[1]])))
@@ -40,10 +33,19 @@ annotators = sorted(list(set(t1_detections[2] + t2_detections[2])))
 labels = sorted(list(set(t1_detections[3] + t2_detections[3])))
 df1_detections, df2_detections = t1_detections[-1], t2_detections[-1]
 
+
 if len(time_bin) != 1 : print('time bins are different', time_bin)
 else: time_bin = time_bin[0]
 
-wav_names1, wav_names2 = df_taskstatus1['filename'], df_taskstatus2['filename']
+wav_files1, wav_files2 = glob.glob(os.path.join(folder1, "**/*.wav"), recursive=True), glob.glob(os.path.join(folder2, "**/*.wav"), recursive=True)
+wav_names1, wav_names2 = [os.path.basename(file) for file in wav_files1], [os.path.basename(file) for file in wav_files2]
+test_wav1, test_wav2 = [j in sorted(list(set([i.split('_')[0] for i in df1_detections['filename']]))) for j in [i.split('.wav')[0] for i in wav_names1]], [j in sorted(list(set([i.split('_')[0] for i in df2_detections['filename']]))) for j in [i.split('.wav')[0] for i in wav_names2]]
+wav_names1, wav_files1 = zip(*[(wav_names1[i], wav_files1[i]) for i in range(len(wav_names1)) if test_wav1[i]]) #only the wav files corresponding to the detections are kept
+wav_names2, wav_files2 = zip(*[(wav_names2[i], wav_files2[i]) for i in range(len(wav_names2)) if test_wav2[i]])
+
+durations1, durations2 = [read_header(file)[-1] for file in wav_files1], [read_header(file)[-1] for file in wav_files2]
+total_duration = [sum(durations1), sum(durations2)]
+
 #%% Plot
 label_legend = ['1', '2']
 tz_data = list(set([i.tz for i in pd.concat([df1_detections['start_datetime'], df2_detections['start_datetime']])]))[0]
@@ -53,7 +55,7 @@ annot_ref = ''.join(easygui.buttonbox('Select an annotator', 'Single plot', anno
 res_min = int(easygui.enterbox("résolution temporelle bin ? (min) :"))
 # res_min = 10
 
-delta, start_vec, end_vec = dt.timedelta(seconds=60*res_min), t_rounder(extract_datetime(min(wav_names1[0], wav_names2[0]), tz=tz_data)), t_rounder(max(extract_datetime(wav_names1.iloc[-1], tz=tz_data) + dt.timedelta(seconds=time_bin), extract_datetime(wav_names2.iloc[-1], tz=tz_data) + dt.timedelta(seconds=time_bin)))
+delta, start_vec, end_vec = dt.timedelta(seconds=60*res_min), t_rounder(extract_datetime(min(wav_names1[0], wav_names2[0]))), t_rounder(max(extract_datetime(wav_names1[-1]) + dt.timedelta(seconds=durations1[-1]), extract_datetime(wav_names2[-1]) + dt.timedelta(seconds=durations2[-1])))
           
 time_vector = [start_vec + i * delta for i in range(int((end_vec - start_vec) / delta) + 1)]
 duration_h = int((time_vector[-1] - time_vector[0]).total_seconds()//3600)
@@ -130,7 +132,7 @@ elif len(annotators)==1:
     annot_ref = annotators[0]
 
 res_min = int(easygui.enterbox("résolution temporelle bin ? (min) :"))
-delta, start_vec, end_vec = dt.timedelta(seconds=60*res_min), t_rounder(extract_datetime(min(wav_names1.iloc[0], wav_names2.iloc[0]), tz=tz_data)), t_rounder(max(extract_datetime(wav_names1.iloc[-1], tz=tz_data) + dt.timedelta(seconds=time_bin), extract_datetime(wav_names2.iloc[-1], tz=tz_data) + dt.timedelta(seconds=time_bin)))
+delta, start_vec, end_vec = dt.timedelta(seconds=60*res_min), t_rounder(extract_datetime(min(wav_names1[0], wav_names2[0]))), t_rounder(max(extract_datetime(wav_names1[-1]) + dt.timedelta(seconds=durations1[-1]), extract_datetime(wav_names2[-1]) + dt.timedelta(seconds=durations2[-1])))
           
 time_vector = [start_vec + i * delta for i in range(int((end_vec - start_vec) / delta) + 1)]
 
@@ -160,8 +162,8 @@ ax2.tick_params(axis='y')
 
 ax1.xaxis.set_major_locator(mdates.HourLocator(interval=6))
 ax2.xaxis.set_major_locator(mdates.HourLocator(interval=6))
-ax1.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M', tz=tz_data))
-ax2.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M', tz=tz_data))
+ax1.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M', tz=pytz.timezone(tz_data)))
+ax2.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M', tz=pytz.timezone(tz_data)))
 
 ax1.grid(color='k', linestyle='-', linewidth=0.2, axis='both')
 ax2.grid(color='k', linestyle='-', linewidth=0.2, axis='both')

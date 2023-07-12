@@ -4,6 +4,7 @@ import glob
 from pathlib import Path
 import json
 import pandas as pd
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import datetime as dt
 from tqdm import tqdm
@@ -12,32 +13,53 @@ import statistics as stat
 #%% import csv deployment
 
 deploy = pd.read_excel('L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/APOCADO - Suivi déploiements.xlsx', skiprows=[0])
-deploy = deploy[(deploy['N° campagne'] != 1)] #deleting 1st campaign
-deploy = deploy[(deploy['N° campagne'] != 6)] #deleting 6 campaign for now
 deploy = deploy.loc[~((deploy['N° campagne'] == 4) & (deploy['N° déploiement'] == 9)), :] #deleting C4D9
+deploy = deploy.loc[~((deploy['N° campagne'] == 7) & (deploy['N° déploiement'] == 1)), :]
 deploy = deploy.reset_index(drop=True)
 
 deploy['durations_deployments'] = [dt.datetime.combine(deploy['Date fin déploiement'][i], deploy['Heure fin déploiement'][i])\
                                     -dt.datetime.combine(deploy['Date début déploiement'][i], deploy['Heure début déploiement'][i]) for i in range(len(deploy))]
-deploy['season'] = [get_season(i) for i in deploy['Date début déploiement']]
+
+deploy['season'] = [get_season(i)[:-5] for i in deploy['Date début déploiement']]
+deploy['season_year'] = [get_season(i)[-4:] for i in deploy['Date début déploiement']]
 
 print('\n#### RESULTS DEPLOYMENTS ####')
 print('-total duration: ', sum(deploy['durations_deployments'], dt.timedelta()))
+
 print('\n# Duration per season #')
-[print('-{0}:'.format(season), int(sum(deploy[deploy['season']== season]['durations_deployments'], dt.timedelta()).total_seconds()/3600),'h') for season in ['spring', 'summer', 'autumn', 'winter']];
+# [print('-{0}:'.format(season), int(sum(deploy[deploy['season']== season]['durations_deployments'], dt.timedelta()).total_seconds()/3600),'h') for season in ['spring', 'summer', 'autumn', 'winter']];
+for y in sorted(list(set(deploy['season_year']))):    
+    for s in list(dict.fromkeys(deploy[(deploy['season_year']==y)]['season'])):
+        print('-{0}:'.format(s+' '+y), int(sum(deploy[(deploy['season_year'] == y) & (deploy['season'] == s)]['durations_deployments'], dt.timedelta()).total_seconds()/3600),'h')
+
 print('\n# Duration per net #')
 [print('-Filet {0}:'.format(filet), int(sum(deploy[deploy['Filet']== filet]['durations_deployments'], dt.timedelta()).total_seconds()/3600),'h') for filet in sorted(list(set(deploy['Filet'])))];
+
 print('\n# Mean duration of a deployment per net type #')
 [print('-Filet {0}:'.format(filet), round(np.mean(deploy[deploy['Filet']== filet]['durations_deployments']).total_seconds()/3600,1), 'h +/-', round(np.std(deploy[deploy['Filet']== filet]['durations_deployments']).total_seconds()/3600,1), 'h') for filet in sorted(list(set(deploy['Filet'])))];
+
 print('\n# Duration per net length #')
 [print('-{:.0f}'.format(L),'m :', int(sum(deploy[deploy['Longueur (m)']== L]['durations_deployments'], dt.timedelta()).total_seconds()/3600),'h') for L in sorted(list(set(deploy['Longueur (m)'])))];
+#%%
+x = [str(elem) for elem in sorted(list(set(deploy['Longueur (m)'])))]
+y = [int(sum(deploy[deploy['Longueur (m)']== L]['durations_deployments'], dt.timedelta()).total_seconds()/3600) for L in sorted(list(set(deploy['Longueur (m)'])))]
 
-
+fig,ax = plt.subplots(figsize=(16,6), facecolor='#36454F')
+ax.bar(x,y); #histo
+ax.set_facecolor('#36454F')
+ax.tick_params(axis='both', colors='w')
+ax.spines['bottom'].set_color('w')
+ax.spines['left'].set_color('w')
+ax.spines['right'].set_visible(False)
+ax.spines['top'].set_visible(False)
+plt.suptitle('', color='w')
+ax.set_ylabel('Heures d\'enregistrement', fontsize = 16, color='w')
+ax.set_xlabel('Longueur filière [m]', fontsize = 16, color='w')
 
 #%% Save metadata
 
-# list_csv = glob.glob(os.path.join('L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO', '**/PG_formatteddata**.csv'), recursive=True)\
-#             +glob.glob(os.path.join('L:/acoustock2/Bioacoustique/APOCADO2', '**/PG_formatteddata**.csv'), recursive=True)
+list_csv = glob.glob(os.path.join('L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO', '**/PG_formatteddata**.csv'), recursive=True)\
+            +glob.glob(os.path.join('L:/acoustock2/Bioacoustique/APOCADO2', '**/PG_formatteddata**.csv'), recursive=True)
 
 # for i in tqdm(list_csv):
 
