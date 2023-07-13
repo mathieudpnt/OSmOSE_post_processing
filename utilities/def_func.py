@@ -8,17 +8,14 @@ import random
 import numpy as np
 from tqdm import tqdm
 import os
-import glob
-import wave
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
-import statistics as stat
 from tkinter import filedialog
 from tkinter import Tk
 import gzip
 import math
 import easygui
-
+from typing import Union
 
 # def read_header(file:str) -> Tuple[int, int, int, int, int]:
 #     #reads header of a wav file to get info such as duration, samplerate etc...
@@ -38,8 +35,19 @@ import easygui
 #        return sampwidth, frames, samplerate, channels, frames/samplerate
 
 def read_header(file:str) -> Tuple[int, int, int, int]:
-    #reads header of a wav file to get info such as duration, samplerate etc...
-
+    """Reads header of a wav file to get info such as duration, samplerate etc...
+    
+    Parameter:
+        file : path to the wav file
+        
+    Returns:
+        sampwidth
+        frames
+        samplerate
+        channels
+        frames/samplerate
+    """
+    
     with open(file, "rb") as fh:
         _, size, _ = struct.unpack('<4sI4s', fh.read(12))
         chunk_header = fh.read(8)
@@ -73,25 +81,39 @@ def read_header(file:str) -> Tuple[int, int, int, int]:
         return sampwidth, frames, samplerate, channels, frames/samplerate
 
 
-def get_wav_info(folder):
-    durations=[]
-    wav_files = glob.glob(os.path.join(folder, "**/*.wav"), recursive=True)
-    for file in tqdm(wav_files, 'Getting wav durations...', position=0, leave=True):
-        try:
-            with wave.open(file, 'r') as wav_files:
-                frames = wav_files.getnframes()
-                rate = wav_files.getframerate()
-                durations.append(frames / float(rate))
-        except Exception as e:
-            print(f'An error occured while reading the file {file} : {e}') 
-    return durations
+# def get_wav_info(folder):
+#     durations=[]
+#     wav_files = glob.glob(os.path.join(folder, "**/*.wav"), recursive=True)
+#     for file in tqdm(wav_files, 'Getting wav durations...', position=0, leave=True):
+#         try:
+#             with wave.open(file, 'r') as wav_files:
+#                 frames = wav_files.getnframes()
+#                 rate = wav_files.getframerate()
+#                 durations.append(frames / float(rate))
+#         except Exception as e:
+#             print(f'An error occured while reading the file {file} : {e}') 
+#     return durations
 
 
-def extract_datetime(var, tz, formats=None):
-    #extract datetime from filename such as Apocado / Cetiroise or custom ones
+def extract_datetime(var:str, tz:pytz._FixedOffset, formats=None) -> Union[dt.datetime, str]:
+    """Extracts datetime from filename based on the date format
+    
+        Parameters
+            var : name of the wav file
+            tz : timezone info
+            formats : the date template in strftime format. For example, `2017/02/24` has the template `%Y/%m/%d`
+                        For more information on strftime template, see https://strftime.org/
+            
+        Returns
+            date_obj : datetime corresponding to the datetime found in var
+    """
     
     if formats is None:
-        formats = [r'\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}', r'\d{2}\d{2}\d{2}\d{2}\d{2}\d{2}', r'\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}'] #add more format if necessary
+        formats = [
+                    r'\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}',
+                    r'\d{2}\d{2}\d{2}\d{2}\d{2}\d{2}',
+                    r'\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}'
+                    ] #add more format if necessary
     match = None
     for f in formats:
         match = re.search(f, var)
@@ -116,9 +138,24 @@ def extract_datetime(var, tz, formats=None):
     else:
         return print("No datetime found")
     
-def sorting_annot_boxes(file, tz=None, date_begin=None, date_end=None, annotator=None, label=None) -> Tuple[int, int, list, list, pd.DataFrame]:
-    # From an Aplose results csv, returns a DataFrame without the Aplose box annotations (weak annotations)
-
+def sorting_annot_boxes(file: str, tz:pytz._FixedOffset = None, date_begin:dt.datetime = None, date_end:dt.datetime = None, annotator:str =None, label:str =None) -> Tuple[int, int, list, list, pd.DataFrame]:
+    """ Filters an Aplose formatted detection file according to user specified filters
+        
+        Parameters
+            file : path to the detection file
+            tz : timezone info, to be specified if the user wants to change the TZ of the detections
+            date_begin : datetime to be specified if the user wants to select detections after date_begin
+            date_end : datetime to be specified if the user wants to select detections before date_end
+            annotator : string to be specified if the user wants to select the detection of a particular annotator
+            label : string to be specified if the user wants to select the detection of a particular label
+            
+        Returns
+            max_time : spectrogram temporal length
+            max_freq : sampling frequency *0.5
+            annotators : list of annotators after filtering
+            labels : list of labels after filtering
+            df : dataFrame corresponding to the filters applied
+    """
     df = pd.read_csv(file)
     max_freq = int(max(df['end_frequency']))
     max_time = int(max(df['end_time']))
@@ -134,30 +171,14 @@ def sorting_annot_boxes(file, tz=None, date_begin=None, date_end=None, annotator
     df = df.reset_index(drop=True) #reset the indexes of row after sorting the df
     if annotator is not None:
         df = df.loc[(df['annotator'] == annotator)]
-    if annotator is not None:
+    if label is not None:
         df = df.loc[(df['annotation'] == label)]
     annotators = list(df['annotator'].drop_duplicates())
     labels = list(df['annotation'].drop_duplicates())
     
-    # print(len(df), 'annotations')
     return (max_time, max_freq, annotators, labels, df)
 
-# def t_rounder(t, resolution):
-#     # Rounds to nearest 10-minute interval
-
-#     minute = t.minute
-#     minute = (minute + 5) // 10 * 10
-#     if minute >= 60:
-#             minute = 0
-#             hour = t.hour + 1
-#             if hour >= 24:
-#                 hour = 0
-#                 t += dt.timedelta(days=1)
-#             t = t.replace(hour=hour, minute=minute, second=0, microsecond=0)
-#     else: t = t.replace(minute=minute, second=0, microsecond=0)
-#     return t
-
-def t_rounder(t, res):
+def t_rounder(t:dt.datetime, res:int):
     """Rounds a Timestamp according to the user specified resolution : 10s / 1min / 10 min / 1h / 24h
 
     Parameter:
@@ -165,7 +186,8 @@ def t_rounder(t, res):
         res: integer corresponding to the new resolution in seconds
 
     Returns:
-        Rounded Timestamp"""
+        t: rounded Timestamp
+    """
     
     if res == 600: #10min
         minute = t.minute
@@ -183,15 +205,15 @@ def t_rounder(t, res):
         t = t.replace(hour=0, minute=0, second=0, microsecond=0)
     return t
 
-def from_str2ts(date):
-    #from APLOSE date string to a timestamp
+# def from_str2ts(date):
+#     #from APLOSE date string to a timestamp
     
-    return dt.datetime.strptime(date, '%Y-%m-%dT%H:%M:%S.%f%z').timestamp()
+#     return dt.datetime.strptime(date, '%Y-%m-%dT%H:%M:%S.%f%z').timestamp()
 
-def from_str2dt(date):
-    #from APLOSE date string to a datetime
+# def from_str2dt(date):
+#     #from APLOSE date string to a datetime
     
-    return dt.datetime.strptime(date, '%Y-%m-%dT%H:%M:%S.%f%z')
+#     return dt.datetime.strptime(date, '%Y-%m-%dT%H:%M:%S.%f%z')
 
 def oneday_per_month(time_vector_ts, time_vector_str, vec)-> Tuple[list, list, list, list]:
     #select a random day for each months in input datetimes list and returns all the datetimes of those randomly selected days
@@ -312,16 +334,18 @@ def pick_datetimes(time_vector_ts, time_vector_str, vec, selected_dates, selecte
 
     return selected_time_vector_ts, selected_time_vector_str, selected_vec, selected_df_out
 
-def export2Raven(tuple_info, time_vec, time_str, bin_height, selection_vec=None):
-    # Export a given vector to Raven formatted table
-    #the functions requires several input arguments:
-        #-time_vec : the vector to export
-        #-time_str : the corresponding names of each timebin to be exported
-        #-TZ : the time zone info
-        #-files : the list of the paths of the correponding wav files
-        #-dur : list of the wav files durations
-        #-bin_height : the maximum frequency of the exported timebins
-        #-selection_vec : if it is set to None, all the timebins are exported, else the selection_vec is used to selec the wanted timebins to export, for instance it corresponds to all the positives timebins, containing detections
+def export2Raven(tuple_info, time_vec, time_str, bin_height, selection_vec=None) -> pd.DataFrame:
+    """ Export a given vector to Raven formatted table
+            
+        Parameter:
+
+            time_vec : the vector to export
+            time_str : the corresponding names of each timebin to be exported
+            TZ : the time zone info
+            files : the list of the paths of the correponding wav files
+            dur : list of the wav files durations
+            bin_height : the maximum frequency of the exported timebins
+            selection_vec : if it is set to None, all the timebins are exported, else the selection_vec is used to selec the wanted timebins to export, for instance it corresponds to all the positives timebins, containing detections"""
     
     #TODO: gérer les dernieres timebin de chaque wav car elles peuvent être < à la timebin duration et donc elles débordent sur le wav suivant pour l'instant
     #TODO : créer un fichier readme avec des infos de la config
@@ -369,19 +393,27 @@ def export2Raven(tuple_info, time_vec, time_str, bin_height, selection_vec=None)
 
     return df_PG2Raven
 
-def get_season(ts):
-    # "day of year" ranges for the northern hemisphere
+def get_season(ts: dt.datetime)-> str:
+    """ "day of year" ranges for the northern hemisphere
+    
+        Parameter
+            ts : datetime
+        
+        Returns
+            season : string corresponding to the season and year of the datetime (ex : if datetime is 01/01/2023, returns 'winter 2022')
+    """
     winter1 = range(1,80)
     spring = range(80, 172)
     summer = range(172, 264)
     autumn = range(264, 355)
     winter2 = range(355,367)
-    # winter = everything else
+
     if ts.dayofyear in spring: season = 'spring'+ ' ' + str(ts.year)
     elif ts.dayofyear in summer: season = 'summer'+ ' ' + str(ts.year)
     elif ts.dayofyear in autumn: season = 'autumn'+ ' ' + str(ts.year)
     elif ts.dayofyear in winter1: season = 'winter'+ ' ' + str(ts.year-1)
     elif ts.dayofyear in winter2: season = 'winter'+ ' ' + str(ts.year)
+    
     return season
 
 def histo_detect(detections, lim, res_min, time_bin,  plot=False, hours_interval=4, label=None, annotator=None):
