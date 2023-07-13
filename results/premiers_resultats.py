@@ -9,7 +9,12 @@ import matplotlib.dates as mdates
 from collections import Counter
 import seaborn as sns
 from scipy import stats
-from post_processing_detections.utilities.def_func import extract_datetime, sorting_annot_boxes, t_rounder, get_timestamps
+from post_processing_detections.utilities.def_func import extract_datetime, sorting_annot_boxes, t_rounder, get_timestamps, reshape_timebin
+
+root = Tk()
+root.withdraw()
+detections_file = filedialog.askopenfilename(title="Select APLOSE formatted detection file", filetypes=[("CSV files", "*.csv")])
+test = reshape_timebin(detections_file)
 
 #%% User inputs
 

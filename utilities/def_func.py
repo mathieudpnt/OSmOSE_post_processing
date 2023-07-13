@@ -17,6 +17,7 @@ import math
 import easygui
 from typing import Union
 
+
 # def read_header(file:str) -> Tuple[int, int, int, int, int]:
 #     #reads header of a wav file to get info such as duration, samplerate etc...
     
@@ -138,7 +139,7 @@ def extract_datetime(var:str, tz:pytz._FixedOffset, formats=None) -> Union[dt.da
     else:
         return print("No datetime found")
     
-def sorting_annot_boxes(file: str, tz:pytz._FixedOffset = None, date_begin:dt.datetime = None, date_end:dt.datetime = None, annotator:str =None, label:str =None) -> Tuple[int, int, list, list, pd.DataFrame]:
+def sorting_annot_boxes(file: str, tz:pytz._FixedOffset = None, date_begin:dt.datetime = None, date_end:dt.datetime = None, annotator:str =None, label:str =None, box:bool =False) -> Tuple[int, int, list, list, pd.DataFrame]:
     """ Filters an Aplose formatted detection file according to user specified filters
         
         Parameters
@@ -148,6 +149,7 @@ def sorting_annot_boxes(file: str, tz:pytz._FixedOffset = None, date_begin:dt.da
             date_end : datetime to be specified if the user wants to select detections before date_end
             annotator : string to be specified if the user wants to select the detection of a particular annotator
             label : string to be specified if the user wants to select the detection of a particular label
+            box : if set to True, keeps all the annotations, if False keeps only the absence/presence box (weak detection)
             
         Returns
             max_time : spectrogram temporal length
@@ -158,8 +160,10 @@ def sorting_annot_boxes(file: str, tz:pytz._FixedOffset = None, date_begin:dt.da
     """
     df = pd.read_csv(file)
     max_freq = int(max(df['end_frequency']))
-    max_time = int(max(df['end_time']))
-    df = df.loc[(df['start_time'] == 0) & (df['end_time'] == max_time) & (df['end_frequency'] == max_freq)] #deletion of boxes
+    if box is False:
+        max_time = int(max(df['end_time']))
+        df = df.loc[(df['start_time'] == 0) & (df['end_time'] == max_time) & (df['end_frequency'] == max_freq)] #deletion of boxes
+    else : max_time = 0
     df = df.sort_values('start_datetime') #sorting value according to datetime_start
     df['start_datetime'] = pd.to_datetime(df['start_datetime'], format='%Y-%m-%dT%H:%M:%S.%f%z')
     df['end_datetime'] = pd.to_datetime(df['end_datetime'], format='%Y-%m-%dT%H:%M:%S.%f%z')
@@ -509,7 +513,7 @@ def reshape_timebin(detections_file):
     Returns:
         another dataframe with the new timebin and writes it to a csv"""
     
-    t_detections = sorting_annot_boxes(detections_file)
+    t_detections = sorting_annot_boxes(detections_file, box=True)
     df_detections = t_detections[-1]
     timebin_orig = t_detections[0]
     fmax = t_detections[1]
@@ -542,7 +546,7 @@ def reshape_timebin(detections_file):
     for annotator in annotators:
         for label in labels:
             
-            df_detect_prov = sorting_annot_boxes(file=detections_file, annotator = annotator, label = label)[-1]
+            df_detect_prov = sorting_annot_boxes(file=detections_file, annotator = annotator, label = label, box=True)[-1]
 
             t = t_rounder(df_detect_prov['start_datetime'].iloc[0], timebin_new)
             t2 = t_rounder(df_detect_prov['start_datetime'].iloc[-1], timebin_new) + dt.timedelta(seconds=timebin_new)
