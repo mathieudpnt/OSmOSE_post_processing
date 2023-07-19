@@ -6,7 +6,8 @@ import matplotlib.dates as mdates
 import pytz
 import os
 import easygui
-from post_processing_detections.utilities.def_func import read_header, extract_datetime, sorting_annot_boxes, t_rounder
+from post_processing_detections.utilities.def_func import extract_datetime, sorting_detections, t_rounder, get_timestamps
+
 from tkinter import filedialog
 from tkinter import Tk
 import glob
@@ -14,25 +15,16 @@ import glob
 #%% User input
 root = Tk()
 root.withdraw()
-folder1 = filedialog.askdirectory(initialdir = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO', title="Select wav folder 1")
-root = Tk()
-root.withdraw()
-FilePath1 = filedialog.askopenfilename(initialdir = os.path.dirname(folder1), title="Select result file 1", filetypes=[("CSV files", "*.csv")])
-root = Tk()
-root.withdraw()
-folder2 = filedialog.askdirectory(initialdir = 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO', title="Select wav folder 2")
-root = Tk()
-root.withdraw()
-FilePath2 = filedialog.askopenfilename(initialdir = os.path.dirname(folder2), title="Select result file 2", filetypes=[("CSV files", "*.csv")])
-root = Tk()
-root.withdraw()
-taskstatus_file1 = filedialog.askopenfilename(initialdir = FilePath1, title="Select APLOSE formatted task status file", filetypes=[("CSV files", "*.csv")])
-root = Tk()
-root.withdraw()
-taskstatus_file2 = filedialog.askopenfilename(initialdir = FilePath2, title="Select APLOSE formatted task status file", filetypes=[("CSV files", "*.csv")])
+detections_file1 = filedialog.askopenfilename(title="Select APLOSE formatted detection file", filetypes=[("CSV files", "*.csv")])
+timestamps_file1 = get_timestamps()
 
-t1_detections, t2_detections = sorting_annot_boxes(FilePath1), sorting_annot_boxes(FilePath2)
-df_taskstatus1, df_taskstatus2 = pd.read_csv(taskstatus_file1), pd.read_csv(taskstatus_file2)
+root = Tk()
+root.withdraw()
+detections_file2 = filedialog.askopenfilename(title="Select APLOSE formatted detection file", filetypes=[("CSV files", "*.csv")])
+timestamps_file2 = get_timestamps()
+
+
+t1_detections, t2_detections = sorting_detections(detections_file1), sorting_detections(detections_file2)
 
 time_bin = sorted(list(set([t1_detections[0], t2_detections[0]])))
 fmax = sorted(list(set([t1_detections[1], t2_detections[1]])))
@@ -43,7 +35,8 @@ df1_detections, df2_detections = t1_detections[-1], t2_detections[-1]
 if len(time_bin) != 1 : print('time bins are different', time_bin)
 else: time_bin = time_bin[0]
 
-wav_names1, wav_names2 = df_taskstatus1['filename'], df_taskstatus2['filename']
+# for i in range(len(df2_detections)):
+#     df2_detections['annotation'][i] = 'Odontocete whistle'
 #%% Plot
 label_legend = ['1', '2']
 tz_data = list(set([i.tz for i in pd.concat([df1_detections['start_datetime'], df2_detections['start_datetime']])]))[0]
@@ -53,14 +46,17 @@ annot_ref = ''.join(easygui.buttonbox('Select an annotator', 'Single plot', anno
 res_min = int(easygui.enterbox("résolution temporelle bin ? (min) :"))
 # res_min = 10
 
-delta, start_vec, end_vec = dt.timedelta(seconds=60*res_min), t_rounder(extract_datetime(min(wav_names1[0], wav_names2[0]), tz=tz_data)), t_rounder(max(extract_datetime(wav_names1.iloc[-1], tz=tz_data) + dt.timedelta(seconds=time_bin), extract_datetime(wav_names2.iloc[-1], tz=tz_data) + dt.timedelta(seconds=time_bin)))
+wav_names1 = timestamps_file1['filename']
+wav_names2 = timestamps_file2['filename']
+
+delta, start_vec, end_vec = dt.timedelta(seconds=60*res_min), t_rounder(extract_datetime(min(wav_names1[0], wav_names2[0]), tz=tz_data),res = 600), t_rounder(max(extract_datetime(wav_names1.iloc[-1], tz=tz_data) + dt.timedelta(seconds=time_bin), extract_datetime(wav_names2.iloc[-1], tz=tz_data) + dt.timedelta(seconds=time_bin)),res = 600)
           
 time_vector = [start_vec + i * delta for i in range(int((end_vec - start_vec) / delta) + 1)]
 duration_h = int((time_vector[-1] - time_vector[0]).total_seconds()//3600)
 
 n_annot_max = (res_min*60)/time_bin #max nb of annoted time_bin max per res_min slice
 
-df1_1annot_1label, df2_1annot_1label = df1_detections.loc[(df1_detections['annotator'] == annot_ref) & (df1_detections['annotation'] == label_ref)], df2_detections.loc[(df2_detections['annotator'] == annot_ref) & (df2_detections['annotation'] == label_ref)]
+df1_1annot_1label, df2_1annot_1label = df1_detections.loc[(df1_detections['annotator'] == annot_ref) & (df1_detections['annotation'] == label_ref)], df2_detections.loc[(df2_detections['annotator'] == 'PAMGuard') & (df2_detections['annotation'] == label_ref)]
 df1_1annot_1label, df2_1annot_1label = df1_1annot_1label.sort_values('start_datetime'), df2_1annot_1label.sort_values('start_datetime')
 
 

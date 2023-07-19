@@ -1,5 +1,5 @@
 import struct
-from typing import Tuple
+from typing import Tuple, List, Dict
 import pytz
 import pandas as pd
 import re
@@ -139,48 +139,94 @@ def extract_datetime(var:str, tz:pytz._FixedOffset, formats=None) -> Union[dt.da
     else:
         return print("No datetime found")
     
-def sorting_annot_boxes(file: str, tz:pytz._FixedOffset = None, date_begin:dt.datetime = None, date_end:dt.datetime = None, annotator:str =None, label:str =None, box:bool =False) -> Tuple[int, int, list, list, pd.DataFrame]:
+def get_detection_files(num_files: int) -> List[str]:
+    """ Opens a file dialog multiple times to get X APLOSE formatted detection files.
+
+    Parameters:
+        num_files: The number of detection files the user needs to select.
+
+    Returns:
+        List of file paths selected by the user.
+    """
+    root = Tk()
+    root.withdraw()
+
+    file_paths = []
+    for _ in range(num_files):
+        file_path = filedialog.askopenfilename(
+            title=f"Select APLOSE formatted detection file ({len(file_paths) + 1}/{num_files})",
+            filetypes=[("CSV files", "*.csv")]
+        )
+        if not file_path:
+            break  # User cancelled or closed the file dialog
+        file_paths.append(file_path)
+
+    return file_paths
+
+def sorting_detections(files: List[str], tz: pytz._FixedOffset = None, date_begin: dt.datetime = None, date_end: dt.datetime = None, annotator: str = None, label: str = None, box: bool = False, timebin_new:int = None) -> (pd.DataFrame,  pd.DataFrame):
     """ Filters an Aplose formatted detection file according to user specified filters
         
         Parameters
-            file : path to the detection file
+            file : list of path(s) to the detection file(s), can be a str too
             tz : timezone info, to be specified if the user wants to change the TZ of the detections
             date_begin : datetime to be specified if the user wants to select detections after date_begin
             date_end : datetime to be specified if the user wants to select detections before date_end
             annotator : string to be specified if the user wants to select the detection of a particular annotator
             label : string to be specified if the user wants to select the detection of a particular label
             box : if set to True, keeps all the annotations, if False keeps only the absence/presence box (weak detection)
+            timebin_new : integer to be specified if the user already know the new time resolution to set the detection file to
             
         Returns
             max_time : spectrogram temporal length
             max_freq : sampling frequency *0.5
             annotators : list of annotators after filtering
             labels : list of labels after filtering
-            df : dataFrame corresponding to the filters applied
+            result_df : dataFrame corresponding to the filters applied and containing all the detections
+            info : DataFrame containing infos such as max_time/max_freq/annotators/labels corresponding to each detection file
     """
-    df = pd.read_csv(file)
-    max_freq = int(max(df['end_frequency']))
-    if box is False:
-        max_time = int(max(df['end_time']))
-        df = df.loc[(df['start_time'] == 0) & (df['end_time'] == max_time) & (df['end_frequency'] == max_freq)] #deletion of boxes
-    else : max_time = 0
-    df = df.sort_values('start_datetime') #sorting value according to datetime_start
-    df['start_datetime'] = pd.to_datetime(df['start_datetime'], format='%Y-%m-%dT%H:%M:%S.%f%z')
-    df['end_datetime'] = pd.to_datetime(df['end_datetime'], format='%Y-%m-%dT%H:%M:%S.%f%z')
-    if tz is not None:
-        df['start_datetime'] = [x.tz_convert(tz) for x in df['start_datetime']] #converting to desired tz
-        df['end_datetime'] = [x.tz_convert(tz) for x in df['end_datetime']] #converting to desired tz
-    if date_begin is not None and date_end is not None: 
-        df = df[(df['start_datetime']>=date_begin) & (df['start_datetime']<=date_end)] #select data within [date_begin;date_end]
-    df = df.reset_index(drop=True) #reset the indexes of row after sorting the df
-    if annotator is not None:
-        df = df.loc[(df['annotator'] == annotator)]
-    if label is not None:
-        df = df.loc[(df['annotation'] == label)]
-    annotators = list(df['annotator'].drop_duplicates())
-    labels = list(df['annotation'].drop_duplicates())
     
-    return (max_time, max_freq, annotators, labels, df)
+    if isinstance(files, str): files = [files]  # Convert the single string to a list with one element
+
+    info, result_df = pd.DataFrame(), pd.DataFrame()
+    for file in files:
+        df = pd.read_csv(file)
+        max_freq = int(max(df['end_frequency']))
+        if box is False:
+            max_time = int(max(df['end_time']))
+            df = df.loc[(df['start_time'] == 0) & (df['end_time'] == max_time) & (df['end_frequency'] == max_freq)]
+            if len(df) == 0:
+                if timebin_new is None :
+                    df = reshape_timebin(file)
+                    max_time = int(max(df['end_time']))
+                else:
+                    df = reshape_timebin(file, timebin_new=timebin_new)
+                    max_time = timebin_new
+        else:
+            max_time = 0
+
+        df = df.sort_values('start_datetime')
+        df['start_datetime'] = pd.to_datetime(df['start_datetime'], format='%Y-%m-%dT%H:%M:%S.%f%z')
+        df['end_datetime'] = pd.to_datetime(df['end_datetime'], format='%Y-%m-%dT%H:%M:%S.%f%z')
+        if tz is not None:
+            df['start_datetime'] = [x.tz_convert(tz) for x in df['start_datetime']]
+            df['end_datetime'] = [x.tz_convert(tz) for x in df['end_datetime']]
+        if date_begin is not None and date_end is not None:
+            df = df[(df['start_datetime'] >= date_begin) & (df['start_datetime'] <= date_end)]
+        df = df.reset_index(drop=True)
+        if annotator is not None:
+            df = df.loc[(df['annotator'] == annotator)]
+        if label is not None:
+            df = df.loc[(df['annotation'] == label)]
+        annotators = list(df['annotator'].drop_duplicates())
+        labels = list(df['annotation'].drop_duplicates())
+
+        result_df = pd.concat([result_df, df]).reset_index(drop=True)
+        columns = ['file', 'max_time', 'max_freq', 'annotators', 'labels']
+        info = pd.concat([info, pd.DataFrame([[file, max_time, max_freq, annotators, labels]], columns=columns) ])
+
+    return result_df, info
+
+
 
 def t_rounder(t:dt.datetime, res:int):
     """Rounds a Timestamp according to the user specified resolution : 10s / 1min / 10 min / 1h / 24h
@@ -502,56 +548,56 @@ def load_glider_nav():
     return df
 
 
-def reshape_timebin(detections_file):
+def reshape_timebin(detections_file: str, timebin_new:int=None) -> pd.DataFrame:
     """Changes the timebin (time resolution) of a detection file
     ex :    -from a raw PAMGuard detection file to a detection file with 10s timebin
             -from an 10s detection file to a 1min / 1h / 24h detection file
 
     Parameter:
         detection_file: Path to the detection file
+        timebin_new : Time resolution to base the detections on, if not provided it is asked to the user
 
     Returns:
-        another dataframe with the new timebin and writes it to a csv"""
+        another dataframe with the new timebin"""
     
-    t_detections = sorting_annot_boxes(detections_file, box=True)
-    df_detections = t_detections[-1]
-    timebin_orig = t_detections[0]
-    fmax = t_detections[1]
-    annotators = t_detections[2]
-    labels = t_detections[3]
+    df_detections, t_detections = sorting_detections(files = detections_file, box=True)
+    timebin_orig = t_detections.iloc[0]['max_time']
+    fmax = t_detections.iloc[0]['max_freq']
+    annotators = t_detections.iloc[0]['annotators']
+    labels = t_detections.iloc[0]['labels']
     tz_data = df_detections['start_datetime'][0].tz
-
-    while True:
-        timebin_new = easygui.buttonbox('Select a new time resolution for the detection file', 'Select new timebin', ['10s','1min', '10min', '1h', '24h'])
-        if timebin_new == '10s':
-            f= timebin_new
-            timebin_new=10
-        elif timebin_new == '1min':
-            f= timebin_new
-            timebin_new=60
-        elif timebin_new == '10min':
-            f= timebin_new
-            timebin_new=600
-        elif timebin_new == '1h':
-            f= timebin_new
-            timebin_new=3600
-        elif timebin_new == '24h':
-            f= timebin_new
-            timebin_new=86400
-        
-        if timebin_new > timebin_orig: break
-        else: easygui.msgbox('New time resolution is equal or smaller than the original one', 'Warning', 'Ok')
-                    
+    if timebin_new is None: 
+        while True:
+            timebin_new = easygui.buttonbox('Select a new time resolution for the detection file', detections_file.split('/')[-1], ['10s','1min', '10min', '1h', '24h'])
+            if timebin_new == '10s':
+                f= timebin_new
+                timebin_new=10
+            elif timebin_new == '1min':
+                f= timebin_new
+                timebin_new=60
+            elif timebin_new == '10min':
+                f= timebin_new
+                timebin_new=600
+            elif timebin_new == '1h':
+                f= timebin_new
+                timebin_new=3600
+            elif timebin_new == '24h':
+                f= timebin_new
+                timebin_new=86400
+            
+            if timebin_new > timebin_orig: break
+            else: easygui.msgbox('New time resolution is equal or smaller than the original one', 'Warning', 'Ok')
+    else: f=str(timebin_new)+'s'
+    
     df_new = pd.DataFrame()
     for annotator in annotators:
         for label in labels:
             
-            df_detect_prov = sorting_annot_boxes(file=detections_file, annotator = annotator, label = label, box=True)[-1]
+            df_detect_prov = sorting_detections(files=detections_file, annotator = annotator, label = label, box=True)[0]
 
             t = t_rounder(df_detect_prov['start_datetime'].iloc[0], timebin_new)
             t2 = t_rounder(df_detect_prov['start_datetime'].iloc[-1], timebin_new) + dt.timedelta(seconds=timebin_new)
             time_vector = [ts.timestamp() for ts in pd.date_range(start=t, end=t2, freq=f)]
-            # time_vector_str = [ts.timestamp() for ts in pd.date_range(start=t, end=t2, freq=f)]
             
             times_detect_beg = [detect.timestamp() for detect in df_detect_prov['start_datetime']]
             times_detect_end = [detect.timestamp() for detect in df_detect_prov['end_datetime']]

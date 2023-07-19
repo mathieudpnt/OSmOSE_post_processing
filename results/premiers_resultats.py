@@ -9,26 +9,19 @@ import matplotlib.dates as mdates
 from collections import Counter
 import seaborn as sns
 from scipy import stats
-from post_processing_detections.utilities.def_func import extract_datetime, sorting_annot_boxes, t_rounder, get_timestamps, reshape_timebin
-
-root = Tk()
-root.withdraw()
-detections_file = filedialog.askopenfilename(title="Select APLOSE formatted detection file", filetypes=[("CSV files", "*.csv")])
-test = reshape_timebin(detections_file)
+import sys
+from post_processing_detections.utilities.def_func import get_detection_files, extract_datetime, sorting_detections, t_rounder, get_timestamps
 
 #%% User inputs
 
-root = Tk()
-root.withdraw()
-detections_file = filedialog.askopenfilename(title="Select APLOSE formatted detection file", filetypes=[("CSV files", "*.csv")])
+files_list = get_detection_files(2)
 timestamps_file = get_timestamps()
+df_detections, t_detections = sorting_detections(files_list)
 
-t_detections = sorting_annot_boxes(detections_file)
-time_bin = t_detections[0]
-fmax = t_detections[1]
-annotators = t_detections[2]
-labels = t_detections[3]
-df_detections = t_detections[-1]
+time_bin = list(set(t_detections['max_time']))
+fmax = list(set(t_detections['max_freq']))
+annotators = list(set(t_detections['annotators'].explode()))
+labels = list(set(t_detections['labels'].explode()))
 
 tz_data = df_detections['start_datetime'][0].tz
 
@@ -45,10 +38,11 @@ summary_label = df_detections.groupby('annotation')['annotator'].apply(Counter).
 summary_annotator = df_detections.groupby('annotator')['annotation'].apply(Counter).unstack(fill_value=0)
 
 print('\n\t%%% Overview of the detections : %%%\n\n {0}'.format(summary_label))
-print('\n\t-----------------------------------\n\n {0}'.format(summary_annotator))
+print('\n\t-----------------------------------\n\n {0}'.format(summary_annotator.to_string()))
 
 fig, (ax1, ax2) = plt.subplots(2, figsize=(10,10), gridspec_kw={'height_ratios':[1, 1]}, facecolor='#36454F')
-ax1 = summary_label.plot(kind='bar', ax=ax1, color=['tab:blue', 'tab:orange'], edgecolor='black', linewidth=1)
+# ax1 = summary_label.plot(kind='bar', ax=ax1, color=['tab:blue', 'tab:orange'], edgecolor='black', linewidth=1)
+ax1 = summary_label.plot(kind='bar', ax=ax1, edgecolor='black', linewidth=1)
 ax2 = summary_annotator.plot(kind='bar', ax=ax2, edgecolor='black', linewidth=1)
 
 #facecolor
@@ -98,17 +92,22 @@ ax2.set_title('Number of annotations per annotator', color='w', fontdict=title_f
 #%% Single plot 
 #%TODO date spécifié par utilisateur, de miniut à minuit
 
-label_ref = ''.join(easygui.buttonbox('Select a label', 'Single plot', t_detections[3]) if len(t_detections[3])>1 else t_detections[3])
-annot_ref = ''.join(easygui.buttonbox('Select an annotator', 'Single plot', t_detections[2]) if len(t_detections[2])>1 else t_detections[2])
+annot_ref = easygui.buttonbox('Select an annotator', 'Single plot', annotators) if len(annotators)>1 else annotators[0]
+list_labels = t_detections[t_detections['annotators'].apply(lambda x: annot_ref in x)]['labels'].iloc[0]
+label_ref = easygui.buttonbox('Select an annotator', 'Single plot', list_labels) if len(list_labels)>1 else list_labels[0]
+time_bin_ref = int(t_detections[t_detections['annotators'].apply(lambda x: annot_ref in x)]['max_time'].iloc[0])
+file_ref = t_detections[t_detections['annotators'].apply(lambda x: annot_ref in x)]['file'].iloc[0]
+
+
 res_min = easygui.integerbox('Enter the bin size (min) ', 'Time resolution', default=10, lowerbound=1, upperbound=86400)
     
-delta, start_vec, end_vec = dt.timedelta(seconds=60*res_min), t_rounder(extract_datetime(wav_names.iloc[0], tz_data),res = 600), t_rounder(extract_datetime(wav_names.iloc[-1], tz_data) + dt.timedelta(seconds=time_bin),res = 600)
+delta, start_vec, end_vec = dt.timedelta(seconds=60*res_min), t_rounder(extract_datetime(wav_names.iloc[0], tz_data),res = 600), t_rounder(extract_datetime(wav_names.iloc[-1], tz_data) + dt.timedelta(seconds=time_bin_ref),res = 600)
 
 time_vector = [start_vec + i * delta for i in range(int((end_vec - start_vec) / delta) + 1)]
 
-n_annot_max = (res_min*60)/time_bin #max nb of annoted time_bin max per res_min slice
+n_annot_max = (res_min*60)/time_bin_ref #max nb of annoted time_bin max per res_min slice
 
-df_1annot_1label = sorting_annot_boxes(detections_file, annotator = annot_ref, label = label_ref)[-1]
+df_1annot_1label, _  = sorting_detections(file_ref, annotator = annot_ref, label = label_ref, timebin_new = time_bin_ref)
 
 fig,ax = plt.subplots(figsize=(20,9), facecolor='#36454F')
 ax.hist(df_1annot_1label['start_datetime'], bins=time_vector, color='crimson', edgecolor='black', linewidth=1)
@@ -144,48 +143,55 @@ ax.grid(color='w', linestyle='--', linewidth=0.2, axis='both')
 #%% Multilabel plot
 
 if len(annotators)>1:
-    annot_ref = easygui.buttonbox('Select an annotator', 'Plot label', annotators)
-elif len(annotators==1):
+    annot_ref = easygui.buttonbox('Select an annotator', 'multilabel plot', annotators) if len(annotators)>1 else annotators[0]
+
+elif len(annotators)==1:
     annot_ref = annotators[0]
 
-selected_labels = labels[0:3] #TODO : checkbox to select desired labels to plot ?
+list_labels = t_detections[t_detections['annotators'].apply(lambda x: annot_ref in x)]['labels'].iloc[0]
+time_bin_ref = int(t_detections[t_detections['annotators'].apply(lambda x: annot_ref in x)]['max_time'].iloc[0])
+file_ref = t_detections[t_detections['annotators'].apply(lambda x: annot_ref in x)]['file'].iloc[0]
+if len(list_labels)>1:
+    selected_labels = list_labels[0:3] #TODO : checkbox to select desired labels to plot ?
 
-res_min = easygui.integerbox('Enter the bin size (min) ', 'Time resolution', default=10, lowerbound=1, upperbound=86400)
-delta, start_vec, end_vec = dt.timedelta(seconds=60*res_min), t_rounder(extract_datetime(wav_names[0], tz_data),res = 600), t_rounder(extract_datetime(wav_names.iloc[-1], tz_data) + dt.timedelta(seconds=time_bin),res = 600)
-time_vector = [start_vec + i * delta for i in range(int((end_vec - start_vec) / delta) + 1)]
-
-
-time_slice = 60*res_min #10 min
-n_annot_max = time_slice/time_bin #nb of annoted time_bin max per time_slice
-
-bars = range(0,110,10) #from 0 to 100 step 10
-y_pos = np.linspace(0,n_annot_max, num=len(bars))
-
-fig, ax = plt.subplots(nrows = len(selected_labels), figsize=(25,15), facecolor='#36454F')
-fig.tight_layout(pad=10)
-
-for i, label in enumerate(selected_labels):
+    res_min = easygui.integerbox('Enter the bin size (min) ', 'Time resolution', default=10, lowerbound=1, upperbound=86400)
+    delta, start_vec, end_vec = dt.timedelta(seconds=60*res_min), t_rounder(extract_datetime(wav_names[0], tz_data),res = 600), t_rounder(extract_datetime(wav_names.iloc[-1], tz_data) + dt.timedelta(seconds=time_bin_ref),res = 600)
+    time_vector = [start_vec + i * delta for i in range(int((end_vec - start_vec) / delta) + 1)]
     
-    df_1annot_1label = sorting_annot_boxes(detections_file, annotator = annot_ref, label = label)[-1]
-
-    ax[i].hist(df_1annot_1label['start_datetime'], bins=time_vector, color='crimson', edgecolor='black', linewidth=1)
-
+    
+    time_slice = 60*res_min #10 min
+    n_annot_max = time_slice/time_bin_ref #nb of annoted time_bin max per time_slice
+    
     bars = range(0,110,10) #from 0 to 100 step 10
     y_pos = np.linspace(0,n_annot_max, num=len(bars))
-    ax[i].set_facecolor('#36454F')
-    ax[i].set_yticks(y_pos, bars)
-    ax[i].tick_params(axis='both', colors='w',rotation=0, labelsize=15)
-    ax[i].tick_params(axis='x', rotation= 60)
-    ax[i].set_title(label, fontsize = 15, color='w')
-    ax[i].set_ylabel('positive detection rate\n({0} min)'.format(res_min), fontsize = 15, color='w')
+    
+    fig, ax = plt.subplots(nrows = len(selected_labels), figsize=(25,15), facecolor='#36454F')
+    fig.tight_layout(pad=10)
+    
+    for i, label in enumerate(selected_labels):
+        
+        df_1annot_1label, _ = sorting_detections(file_ref, annotator = annot_ref, label = label)
+    
+        ax[i].hist(df_1annot_1label['start_datetime'], bins=time_vector, color='crimson', edgecolor='black', linewidth=1)
+    
+        bars = range(0,110,10) #from 0 to 100 step 10
+        y_pos = np.linspace(0,n_annot_max, num=len(bars))
+        ax[i].set_facecolor('#36454F')
+        ax[i].set_yticks(y_pos, bars)
+        ax[i].tick_params(axis='both', colors='w',rotation=0, labelsize=15)
+        ax[i].tick_params(axis='x', rotation= 60)
+        ax[i].set_title(label, fontsize = 15, color='w')
+        ax[i].set_ylabel('positive detection rate\n({0} min)'.format(res_min), fontsize = 15, color='w')
+    
+         
+        ax[i].xaxis.set_major_locator(mdates.HourLocator(interval=1))
+        ax[i].xaxis.set_major_formatter(mdates.DateFormatter('%H:%M', tz=tz_data))
+        ax[i].set_xlim(time_vector[0], time_vector[-1])
+        ax[i].grid(color='w', linestyle='--', linewidth=0.2, axis='both')
+    
+    fig.suptitle('Annotator : {0}'.format(annot_ref), fontsize = 25, y=0.98, color='w', weight= 'bold')
 
-     
-    ax[i].xaxis.set_major_locator(mdates.HourLocator(interval=1))
-    ax[i].xaxis.set_major_formatter(mdates.DateFormatter('%H:%M', tz=tz_data))
-    ax[i].set_xlim(time_vector[0], time_vector[-1])
-    ax[i].grid(color='w', linestyle='--', linewidth=0.2, axis='both')
-
-fig.suptitle('Annotator : {0}'.format(annot_ref), fontsize = 25, y=0.98, color='w', weight= 'bold')
+else: sys.exit('Not enough labels')
 
 #%% Multi-user plot
 
@@ -193,24 +199,45 @@ if len(annotators)>2:
     annot_ref1 = easygui.buttonbox('Select annotator 1', 'Plot label', annotators)
     annot_ref2 = easygui.buttonbox('Select an annotator', 'Plot label', [elem for elem in annotators if elem != annot_ref1])
 elif len(annotators)<2:
-    print('Not enough annotators to make a comparison')
+    sys.exit('Not enough annotators to make a comparison')
+
 else:
     annot_ref1 = annotators[0]
     annot_ref2 = annotators[1]
 
-label_ref = ''.join(easygui.buttonbox('Select a label', 'Single plot', t_detections[3]) if len(t_detections[3])>1 else t_detections[3])
+list_labels = t_detections[t_detections['annotators'].apply(lambda x: annot_ref1 in x)]['labels'].iloc[0]
+if len(list_labels)>1:
+    label_ref1 = easygui.buttonbox('Select a label for annotator 2 : {0}'.format(annot_ref1), 'Single plot', list_labels)
+else:
+    label_ref1 = list_labels[0]
+    easygui.msgbox('Only one label available for annotator 2, {0} : {1}'.format(annot_ref2, list_labels[0]))
+list_labels = t_detections[t_detections['annotators'].apply(lambda x: annot_ref2 in x)]['labels'].iloc[0]
+if len(list_labels)>1:
+    label_ref2 = easygui.buttonbox('Select a label for annotator 2 : {0}'.format(annot_ref2), 'Single plot', list_labels)
+else:
+    label_ref2 = list_labels[0]
+    easygui.msgbox('Only one label available for annotator 2, {0} : {1}'.format(annot_ref2, list_labels[0]))
+
+time_bin_ref1 = int(t_detections[t_detections['annotators'].apply(lambda x: annot_ref1 in x)]['max_time'][0])
+time_bin_ref2 = int(t_detections[t_detections['annotators'].apply(lambda x: annot_ref2 in x)]['max_time'][0])
+if time_bin_ref1==time_bin_ref2:
+    time_bin_ref = time_bin_ref1  
+else:
+    sys.exit('The timebin of the detections {0}/{1} is {2}s whereas the timebin for {3}/{4} is {5}s!'.format(annot_ref1, label_ref1, time_bin_ref1, annot_ref2, label_ref2, time_bin_ref2))
+
+file_ref1 = t_detections[t_detections['annotators'].apply(lambda x: annot_ref1 in x)]['file'].iloc[0]
+file_ref2 = t_detections[t_detections['annotators'].apply(lambda x: annot_ref2 in x)]['file'].iloc[0]
 
 res_min = easygui.integerbox('Enter the bin size (min) ', 'Time resolution', default=10, lowerbound=1, upperbound=86400)
 
-delta, start_vec, end_vec = dt.timedelta(seconds=60*res_min), t_rounder(extract_datetime(wav_names.iloc[0], tz_data), res=600), t_rounder(extract_datetime(wav_names.iloc[-1], tz_data) + dt.timedelta(seconds=time_bin), res=600)
-
+delta, start_vec, end_vec = dt.timedelta(seconds=60*res_min), t_rounder(extract_datetime(wav_names.iloc[0], tz_data), res=600), t_rounder(extract_datetime(wav_names.iloc[-1], tz_data) + dt.timedelta(seconds=time_bin_ref), res=600)
 
 time_vector = [start_vec + i * delta for i in range(int((end_vec - start_vec) / delta) + 1)]
 
-n_annot_max = (res_min*60)/time_bin #max nb of annoted time_bin max per res_min slice
+n_annot_max = (res_min*60)/time_bin_ref #max nb of annoted time_bin max per res_min slice
 
-df1_1annot_1label = sorting_annot_boxes(detections_file, annotator = annot_ref1, label = label_ref)[-1]
-df2_1annot_1label = sorting_annot_boxes(detections_file, annotator = annot_ref2, label = label_ref)[-1]
+df1_1annot_1label, _ = sorting_detections(file_ref1, annotator = annot_ref1, label = label_ref1, timebin_new = time_bin_ref)
+df2_1annot_1label, _ = sorting_detections(file_ref2, annotator = annot_ref2, label = label_ref2, timebin_new = time_bin_ref)
 
 fig,ax = plt.subplots(figsize=(16,6), facecolor='#36454F')
 ax.set_facecolor('#36454F')
@@ -224,7 +251,7 @@ ax.tick_params(axis='x', rotation= 60);
 ax.tick_params(labelsize=20)
 ax.set_ylabel('positive detection rate\n({0} min)'.format(res_min), fontsize = 20, c='w')
 ax.tick_params(axis='y')
-fig.suptitle('annotateurs : '+annot_ref1 + ' & ' + annot_ref2 +'\n'+ 'label : ' + label_ref,color='w', fontsize = 24, y=1.02);
+fig.suptitle('[{0}/{1}] VS [{2}/{3}]'.format(annot_ref1, label_ref1, annot_ref2, label_ref2), color='w', fontsize = 24, y=1.02);
  
 ax.xaxis.set_major_locator(mdates.HourLocator(interval=1))
 ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M', tz=tz_data))
@@ -240,11 +267,11 @@ ax.spines['bottom'].set_color('w')
 ax.spines['left'].set_color('w')
 
 # accord inter-annot
-list1 = list(sorting_annot_boxes(detections_file, annotator = annot_ref1, label = label_ref)[-1]['filename'])
-list2 = list(sorting_annot_boxes(detections_file, annotator = annot_ref2, label = label_ref)[-1]['filename'])
+list1 = list(sorting_detections(file_ref1, annotator = annot_ref1, label = label_ref1, timebin_new = time_bin_ref)[0]['filename'])
+list2 = list(sorting_detections(file_ref2, annotator = annot_ref2, label = label_ref2, timebin_new = time_bin_ref)[0]['filename'])
 unique_annotations = len([elem for elem in list1 if elem not in list2 ]) + len([elem for elem in list2 if elem not in list1 ])
 common_annotations = len([elem for elem in list1 if elem in list2 ])
-print('Pourcentage d\'accord entre les annotateurs {0} et {1} sur le label {2}: {3:.0f}%'.format(annot_ref1, annot_ref2, label_ref,100*((common_annotations)/(unique_annotations + common_annotations))))
+print('Pourcentage d\'accord entre [{0}/{1}] & [{2}/{3}] : {4:.0f}%'.format(annot_ref1, label_ref1, annot_ref2, label_ref2, 100*((common_annotations)/(unique_annotations + common_annotations))))
 
 # scatter
 df_corr = pd.DataFrame(hist_plot[0]/n_annot_max, index=[annot_ref1, annot_ref2]).transpose()

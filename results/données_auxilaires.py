@@ -7,7 +7,7 @@ import matplotlib.dates as mdates
 import calendar
 from scipy.signal import savgol_filter
 import pytz
-import easygui  # to install : conda install -c conda-forge easygui
+import easygui
 import os
 import contextlib
 import wave
