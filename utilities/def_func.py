@@ -15,6 +15,7 @@ from tkinter import Tk
 import gzip
 import math
 import easygui
+import glob
 from typing import Union
 
 
@@ -113,7 +114,8 @@ def extract_datetime(var:str, tz:pytz._FixedOffset, formats=None) -> Union[dt.da
         formats = [
                     r'\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}',
                     r'\d{2}\d{2}\d{2}\d{2}\d{2}\d{2}',
-                    r'\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}'
+                    r'\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}',
+                    r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}'
                     ] #add more format if necessary
     match = None
     for f in formats:
@@ -129,7 +131,9 @@ def extract_datetime(var:str, tz:pytz._FixedOffset, formats=None) -> Union[dt.da
         elif f == r'\d{2}\d{2}\d{2}\d{2}\d{2}\d{2}':
             dt_format = '%y%m%d%H%M%S'
         elif f == r'\d{2}\d{2}\d{2}_\d{2}\d{2}\d{2}':
-            dt_format = '%y%m%d_%H%M%S'
+            dt_format = '%y%m%d_%H%M%S'        
+        elif f == r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}':
+            dt_format = '%Y-%m-%d %H:%M:%S'
         date_obj = dt.datetime.strptime(dt_string, dt_format)
         
         if type(tz) is pytz._FixedOffset: date_obj = tz.localize(date_obj)
@@ -210,19 +214,24 @@ def sorting_detections(files: List[str], tz: pytz._FixedOffset = None, date_begi
         if tz is not None:
             df['start_datetime'] = [x.tz_convert(tz) for x in df['start_datetime']]
             df['end_datetime'] = [x.tz_convert(tz) for x in df['end_datetime']]
-        if date_begin is not None and date_end is not None:
-            df = df[(df['start_datetime'] >= date_begin) & (df['start_datetime'] <= date_end)]
+        if date_begin is not None :
+            df = df[df['start_datetime'] >= date_begin]      
+        if date_end is not None :
+            df = df[df['end_datetime'] <= date_end]      
         df = df.reset_index(drop=True)
         if annotator is not None:
             df = df.loc[(df['annotator'] == annotator)]
         if label is not None:
             df = df.loc[(df['annotation'] == label)]
-        annotators = list(df['annotator'].drop_duplicates())
-        labels = list(df['annotation'].drop_duplicates())
+        list_annotators = list(df['annotator'].drop_duplicates())    
+        annotators = list_annotators if len(list_annotators)>1 else list_annotators[0]
+        
+        list_labels = list(df['annotation'].drop_duplicates())    
+        labels = list_labels if len(list_labels)>1 else list_labels[0]
 
         result_df = pd.concat([result_df, df]).reset_index(drop=True)
         columns = ['file', 'max_time', 'max_freq', 'annotators', 'labels']
-        info = pd.concat([info, pd.DataFrame([[file, max_time, max_freq, annotators, labels]], columns=columns) ])
+        info = pd.concat([info, pd.DataFrame([[file, int(max_time), max_freq, annotators, labels]], columns=columns) ]).reset_index(drop=True)
 
     return result_df, info
 
@@ -590,14 +599,26 @@ def reshape_timebin(detections_file: str, timebin_new:int=None) -> pd.DataFrame:
     else: f=str(timebin_new)+'s'
     
     df_new = pd.DataFrame()
+    if isinstance(annotators, str): annotators=[annotators]
+    if isinstance(labels, str): labels=[labels]
     for annotator in annotators:
         for label in labels:
             
-            df_detect_prov = sorting_detections(files=detections_file, annotator = annotator, label = label, box=True)[0]
+            df_detect_prov, _ = sorting_detections(files=detections_file, annotator = annotator, label = label, box=True)
 
             t = t_rounder(df_detect_prov['start_datetime'].iloc[0], timebin_new)
             t2 = t_rounder(df_detect_prov['start_datetime'].iloc[-1], timebin_new) + dt.timedelta(seconds=timebin_new)
             time_vector = [ts.timestamp() for ts in pd.date_range(start=t, end=t2, freq=f)]
+            
+            #here test to find for each time vector value which filename corresponds
+            time_vector[0]
+            filenames = sorted(list(set(df_detect_prov['filename'])))
+            tz = df_detect_prov['start_datetime'][0].tz
+            ts_filenames = [extract_datetime(filename, tz=tz).timestamp()for filename in filenames]
+            for i in range(len(ts_filenames)-1):
+                time_vector[0] in range(int(ts_filenames[i]), int(ts_filenames[i+1]-1))....
+                
+            
             
             times_detect_beg = [detect.timestamp() for detect in df_detect_prov['start_datetime']]
             times_detect_end = [detect.timestamp() for detect in df_detect_prov['end_datetime']]
@@ -606,11 +627,12 @@ def reshape_timebin(detections_file: str, timebin_new:int=None) -> pd.DataFrame:
             for i in range(len(times_detect_beg)):
                 for j in range(k, len(time_vector)-1):
                     if int(times_detect_beg[i]*1000) in range(int(time_vector[j]*1000), int(time_vector[j+1]*1000)) or int(times_detect_end[i]*1000) in range(int(time_vector[j]*1000), int(time_vector[j+1]*1000)):
-                            ranks.append(j)
-                            k=j
-                            break
+                        ranks.append(j)
+                        k=j
+                        break
                     else: 
                         continue 
+            
             ranks = sorted(list(set(ranks)))
             detect_vec[ranks] = 1
             detect_vec = list(detect_vec)
@@ -623,7 +645,9 @@ def reshape_timebin(detections_file: str, timebin_new:int=None) -> pd.DataFrame:
                     start_datetime_str.append(start_datetime.strftime('%Y-%m-%dT%H:%M:%S.%f%z')[:-8]+ start_datetime.strftime('%Y-%m-%dT%H:%M:%S.%f%z')[-5:-2] +':' + start_datetime.strftime('%Y-%m-%dT%H:%M:%S.%f%z')[-2:])
                     end_datetime = pd.Timestamp(time_vector[i]+timebin_new, unit='s', tz=tz_data)
                     end_datetime_str.append(end_datetime.strftime('%Y-%m-%dT%H:%M:%S.%f%z')[:-8]+ end_datetime.strftime('%Y-%m-%dT%H:%M:%S.%f%z')[-5:-2] +':' + end_datetime.strftime('%Y-%m-%dT%H:%M:%S.%f%z')[-2:])
-                    filename.append(str(pd.Timestamp(time_vector[i], unit='s', tz=tz_data)))
+                    # filename.append(str(pd.Timestamp(time_vector[i], unit='s', tz=tz_data)))
+                    filename.append(df_detect_prov['filename'][i])
+                    
             
             
             df_new_prov = pd.DataFrame()
@@ -681,18 +705,31 @@ def convert_template_to_re(date_template: str) -> str:
 
     return res
 
-def get_timestamps():
+def get_timestamps(tz:str=None):
+    """
+    
+    Parameters
+    tz : str, optional, ex: tz='Etc/GMT-2'
+        DESCRIPTION. The default is None.
+
+    Returns
+    df_timestamps : TYPE
+        DESCRIPTION.
+
+    """
+    
     msg = "Do you already have the timestamp.csv  ?"
     choices = ["Yes","No"]
     reply = easygui.buttonbox(msg, choices=choices)
     if reply=="Yes":
         root = Tk()
         root.withdraw()
-        timestampcsv_path = filedialog.askopenfilename(title="Selcet the timestamp.csv") # show an "Open" dialog box and return the path to the selected file
+        timestampcsv_path = filedialog.askopenfilename(title='Select the timestamp csv file', filetypes=[("CSV files", "*.csv")]) # show an "Open" dialog box and return the path to the selected file
         root = Tk()
         root.withdraw()
         df_timestamps = pd.read_csv(timestampcsv_path, header=None)
         df_timestamps.columns=['filename', 'timestamp']
+            
     elif reply=="No":
         root = Tk()
         root.withdraw()
@@ -718,15 +755,101 @@ def get_timestamps():
             filename_raw_audio.append(filename)
             
         df_timestamps = pd.DataFrame(
-                {"filename": filename_raw_audio, "timestamp": timestamp}#, "timezone": timezone}
-            )
+                {"filename": filename_raw_audio, "timestamp": timestamp})#, "timezone": timezone}
         df_timestamps.sort_values(by=["timestamp"], inplace=True)
     
-    df_timestamps['timestamp'] = [pd.Timestamp(i, tz='UTC') for i in df_timestamps['timestamp']]
-        
+    if tz is not None:
+        tz = pytz.FixedOffset(pytz.timezone(tz).utcoffset(None).total_seconds()//60)
+        df_timestamps['timestamp'] = [pd.Timestamp(tz.localize(pd.Timestamp(i.split('Z')[0]))) for i in df_timestamps['timestamp']]
+    
     return df_timestamps
 
+def get_timestamps2(tz:str=None, f_type:str=None, ext:str=None):
+    """
+    
+    Parameters
+    tz : str, optional, ex: tz='Etc/GMT-2'
+        DESCRIPTION. The default is None.
 
+    Returns
+    df_timestamps : TYPE
+        DESCRIPTION.
+
+    """
+    
+    msg = "Do you already have the timestamp.csv  ?"
+    choices = ["Yes","No"]
+    reply = easygui.buttonbox(msg, choices=choices)
+    if reply=="Yes":
+        root = Tk()
+        root.withdraw()
+        timestampcsv_path = filedialog.askopenfilename(title='Select the timestamp csv file', filetypes=[("CSV files", "*.csv")]) # show an "Open" dialog box and return the path to the selected file
+        root = Tk()
+        root.withdraw()
+        df_timestamps = pd.read_csv(timestampcsv_path, header=None)
+        df_timestamps.columns=['filename', 'timestamp']
+            
+    elif reply=="No":
+        list_wav_paths = find_files(f_type=f_type, ext=ext)
+        
+        date_template = easygui.enterbox('Enter your time template')
+        
+        list_audio_file = [wav_path.split('/')[-1] for wav_path in list_wav_paths]
+        
+        timestamp = []
+        filename_raw_audio = []
+
+        converted = convert_template_to_re(date_template)
+        for i, filename in enumerate(list_audio_file):
+            date_extracted = re.search(converted, str(filename))[0]
+            date_obj = dt.datetime.strptime(date_extracted, date_template)
+            dates = dt.datetime.strftime(date_obj, "%Y-%m-%dT%H:%M:%S.%f")
+    
+            dates_final = dates[:-3] + "Z"
+            timestamp.append(dates_final)
+            filename_raw_audio.append(filename)
+            
+        df_timestamps = pd.DataFrame(
+                {'filename': filename_raw_audio, 'timestamp': timestamp, 'path': list_wav_paths})#, "timezone": timezone}
+        df_timestamps.sort_values(by=["timestamp"], inplace=True)
+    
+    if tz is not None:
+        tz = pytz.FixedOffset(pytz.timezone(tz).utcoffset(None).total_seconds()//60)
+        df_timestamps['timestamp'] = [pd.Timestamp(tz.localize(pd.Timestamp(i.split('Z')[0]))) for i in df_timestamps['timestamp']]
+    
+    return df_timestamps
+
+def find_files(f_type:str, ext:str)->list:
+    """
+    Based on selection_type, ask the user a folder and yields all the wav files inside it or ask the user multiple wav files
+
+    Parameters
+    ----------
+    selection_type : str, either 'dir' or 'file'
+    
+    Returns
+    -------
+    selected_files : list of the paths of the wav files
+
+    """
+    root = Tk()
+    root.withdraw()
+
+    # Define the file types to display in the dialog
+
+    selected_files = []
+
+    if f_type == 'dir':
+        # If the user wants to select a folder, show the directory dialog
+        directory = filedialog.askdirectory(title='Select {0} folder'.format(ext))
+        if directory:
+            selected_files.extend(glob.glob(os.path.join(directory, '**/*.{0}'.format(ext)), recursive=True))
+    elif f_type == 'file':
+        # If the user wants to select multiple files, show the file dialog
+        file_paths = filedialog.askopenfilenames(title='Select {0} files'.format(ext), filetypes=[('{0} files'.format(ext), '*.{0}'.format(ext))])
+        selected_files.extend(file_paths)
+
+    return selected_files
 
 
 

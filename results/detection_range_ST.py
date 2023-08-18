@@ -4,16 +4,16 @@ import matplotlib.pyplot as plt
 import datetime as dt
 import matplotlib.dates as mdates
 import os
-from post_processing_detections.utilities.def_func import extract_datetime, sorting_annot_boxes, t_rounder
+from post_processing_detections.utilities.def_func import extract_datetime, sorting_detections, t_rounder
 import glob
 import seaborn as sns
 from scipy import stats
 import json
-from tqdm import tqdm
 
 #%% Load data
 list_json = glob.glob(os.path.join('L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO', "**/metadata.json"), recursive=True)\
-           +glob.glob(os.path.join('D:/', "**/metadata.json"), recursive=True)
+            + glob.glob(os.path.join('L:/acoustock2/Bioacoustique/APOCADO2', "**/metadata.json"), recursive=True)\
+               # +glob.glob(os.path.join('D:/', "**/metadata.json"), recursive=True)
 
 
 data=[]
@@ -23,12 +23,12 @@ for i in range(len(list_json)):
     r_file.close()
 data = pd.DataFrame.from_dict(data)
 
-data['t_detections'] = [sorting_annot_boxes(i) for i in data['detection_file']]
-data['df_detections'] = [i[-1] for i in data['t_detections']]
+data['t_detections'] = [sorting_detections(i) for i in data['detection_file']]
+data['df_detections'] = [i[0] for i in data['t_detections']]
 
 #%%
-data1 = data[(data['n_instru']==2) & (data['net_length']!=400)]
-# data1 = data[data['n_instru']==2]
+# data1 = data[(data['n_instru']==2) & (data['net_length']!=400)]
+data1 = data[data['n_instru']==2]
 data_corr = pd.DataFrame()
 
 for length in sorted(list(set(data1['net_length']))):
@@ -60,8 +60,8 @@ for length in sorted(list(set(data1['net_length']))):
             res_min = 60
             
             delta, start_vec, end_vec = dt.timedelta(seconds=60*res_min),\
-                                        t_rounder(extract_datetime(min(wav_names1[0], wav_names2[0]), tz_data)),\
-                                        t_rounder(max(extract_datetime(wav_names1[-1], tz_data) + dt.timedelta(seconds=durations1[-1]), extract_datetime(wav_names2[-1], tz_data) + dt.timedelta(seconds=durations2[-1])))
+                                        t_rounder(extract_datetime(min(wav_names1[0], wav_names2[0]), tz_data), res=600),\
+                                        t_rounder(max(extract_datetime(wav_names1[-1], tz_data) + dt.timedelta(seconds=durations1[-1]), extract_datetime(wav_names2[-1], tz_data) + dt.timedelta(seconds=durations2[-1])), res=600)
                                         
             time_vector = [start_vec + i * delta for i in range(int((end_vec - start_vec) / delta) + 1)]
             duration_h = int((time_vector[-1] - time_vector[0]).total_seconds()//3600)

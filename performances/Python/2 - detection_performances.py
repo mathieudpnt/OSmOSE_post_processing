@@ -1,143 +1,115 @@
-from tqdm import tqdm
-import os
-import datetime as dt
-import pytz
-import glob
-from tkinter import filedialog
-from tkinter import Tk
-import pandas as pd
 import numpy as np
-import time
 import easygui
-from post_processing_detections.utilities.def_func import read_header, extract_datetime, from_str2dt, from_str2ts, t_rounder, get_wav_info, sorting_annot_boxes
-
-
+from post_processing_detections.utilities.def_func import get_detection_files, extract_datetime, sorting_detections, get_timestamps
+import pytz
+import pandas as pd
 #%% LOAD DATA - User inputs
 
-print('\n\nLoading data...', end='')
+files_list = get_detection_files(2)
+timestamps_file = get_timestamps(tz='Etc/GMT-2')
 
-# tz_data='Europe/Paris'
-# tz_data ='Etc/GMT-2' # UTC+2
-# tz_data ='Etc/GMT-1' #UTC+1
 
-#PAMGuard detections
-root = Tk()
-root.withdraw()
-pamguard_path = filedialog.askopenfilename(title="Select PAMGuard detection file", filetypes=[("CSV files", "*.csv")])
-tuple_pamguard = sorting_annot_boxes(pamguard_path)
-dfpamguard = tuple_pamguard[-1]
+df_detections, t_detections = sorting_detections(files=files_list)
+timebin_detections = int(list(set(t_detections['max_time']))[0])
+labels_detections = list(set(t_detections['labels'].explode()))
+annotators_detections = list(set(t_detections['annotators'].explode()))
 
-#APLOSE annotations
-root = Tk()
-root.withdraw()
-aplose_path = filedialog.askopenfilename(title="Select APLOSE annotation file", filetypes=[("CSV files", "*.csv")])
+first_date = df_detections['start_datetime'][0] #1st detection
+last_date = df_detections['start_datetime'].iloc[-1] #last detection
+# first_date = pd.Timestamp('2022-07-07 08:00:00+0200', tz=pytz.FixedOffset(120))
+# last_date = pd.Timestamp('2022-07-07 10:00:00+0200', tz=pytz.FixedOffset(120))
 
-    
-#WAV files 
-root = Tk()
-root.withdraw()
-wavpath = filedialog.askdirectory(title = 'Select wav folder')
-wav_files = glob.glob(os.path.join(wavpath, "**/*.wav"), recursive=True)
-wav_list = [os.path.basename(file) for file in wav_files]
-wav_folder = [os.path.dirname(file) for file in wav_files]
-durations = [read_header(file)[-1] for file in wav_files]
+tz_data = timestamps_file['timestamp'][0].tz
 
-print('\tDone!', end='\n')
+wav_files = timestamps_file['filename']
+wav_datetimes = timestamps_file['timestamp']
 
+annotator1 = easygui.buttonbox('Select annotator 1', 'file 1 : {0}'.format(files_list[0].split('/')[-1]), annotators_detections) if len(annotators_detections)>1 else annotators_detections[0]
+annotator2 = easygui.buttonbox('Select annotator 2 (reference)', 'file 2 : {0}'.format(files_list[1].split('/')[-1]), annotators_detections) if len(annotators_detections)>1 else annotators_detections[0]
+
+df1, t1 = sorting_detections(files=files_list[0], annotator=annotator1, timebin_new=timebin_detections, tz=tz_data, date_begin=first_date, date_end=last_date)
+df2, t2 = sorting_detections(files=files_list[1], annotator=annotator2, timebin_new=timebin_detections, tz=tz_data, date_begin=first_date, date_end=last_date)
+
+labels1 = t1['labels'][0]
+labels2 = t2['labels'][0]
 #%% FORMAT DATA
-print('\nFormating data...', end='\n')
-
-start = time.time()
-
-first_date = dfpamguard['start_datetime'][0] #1st detection
-last_date = dfpamguard['start_datetime'].iloc[-1] #last detection
-
-tuple_aplose = sorting_annot_boxes(aplose_path, tz_data, first_date, last_date)
-time_bin = tuple_aplose[0]
-fmax = tuple_aplose[1]
-annotators = tuple_aplose[2]
-labels = tuple_aplose[3]
-df_aplose = tuple_aplose[-1]
-
-## Time vector
-wav_datetimes = [extract_datetime(x, tz=tz_data) for x in wav_list] #datetime of wav files
 
 #selection of waf files according to first and last dates
 idx_wav_beg = 0 if all(wav_datetimes[i] >= first_date for i in range(len(wav_datetimes))) else [i for i, x in enumerate(wav_datetimes) if x < first_date][-1]
-idx_wav_end = len(wav_list) if all(wav_datetimes[i] <= last_date for i in range(len(wav_datetimes))) else [i for i, x in enumerate(wav_datetimes) if x > last_date][0]
-wav_datetimes, wav_list, wav_folder, wav_files, durations = wav_datetimes[idx_wav_beg:idx_wav_end], wav_list[idx_wav_beg:idx_wav_end], wav_folder[idx_wav_beg:idx_wav_end], wav_files[idx_wav_beg:idx_wav_end], durations[idx_wav_beg:idx_wav_end]
-print('\n1st wav : ' + wav_list[0])
-print('last wav : ' + wav_list[-1], end='\n\n')
+idx_wav_end = len(wav_files) if all(wav_datetimes[i] <= last_date for i in range(len(wav_datetimes))) else [i for i, x in enumerate(wav_datetimes) if x > last_date][0]
+wav_datetimes, wav_files = wav_datetimes[idx_wav_beg:idx_wav_end], wav_files[idx_wav_beg:idx_wav_end]
+print('\n1st wav : ' + wav_files.iloc[0])
+print('last wav : ' + wav_files.iloc[-1], end='\n\n')
 
-time_vector = [elem for i in range(len(wav_list)) for elem in extract_datetime(wav_list[i], tz=tz_data).timestamp() + np.arange(0, durations[i], time_bin).astype(int)]
-time_vector_str = [str(wav_list[i]).split('.wav')[0]+ '_+'  + str(elem) for i in range(len(wav_list)) for elem in np.arange(0, durations[i], time_bin).astype(int)]
+time_vector = [elem for i in range(len(wav_files)) for elem in [extract_datetime(wav_files.iloc[i], tz=tz_data).timestamp()]]
+time_vector_str = [wav_files.iloc[i].split('.wav')[0] for i in range(len(wav_files))]
 
-
-## Aplose
-selected_label = ''.join(easygui.buttonbox('Select a label', 'Single plot', labels) if len(labels)>1 else labels)
-selected_annotations = df_aplose.loc[(df_aplose['annotation'] == selected_label)]
+## df1
+selected_label1 = easygui.buttonbox('Select a label', 'file 1 : {0}'.format(files_list[0].split('/')[-1]), labels1) if len(labels1)>1 else labels1[0]
+selected_annotations1, _ = sorting_detections(files=files_list[0], timebin_new=timebin_detections, annotator = annotator1, label=selected_label1)
     
-times_Ap_beg = sorted(list(set(x.timestamp() for x in selected_annotations['start_datetime'])) )
-times_Ap_end = sorted(list(set(y.timestamp() for y in selected_annotations['end_datetime']))) #set -> Remove recurrent elements ie annotator common annotations in the list, returns a set with random order -> list + sorting
+times1_beg = sorted(list(set(x.timestamp() for x in selected_annotations1['start_datetime'])) )
+times1_end = sorted(list(set(y.timestamp() for y in selected_annotations1['end_datetime']))) #set -> Remove recurrent elements ie annotator common annotations in the list, returns a set with random order -> list + sorting
 
-Aplose_vec, ranks, k = np.zeros(len(time_vector), dtype=int), [], 0
-for i in range(len(times_Ap_beg)):
+vec1, ranks, k = np.zeros(len(time_vector), dtype=int), [], 0
+for i in range(len(times1_beg)):
     for j in range(k, len(time_vector)-1):
-        if int(times_Ap_beg[i]*1000) in range(int(time_vector[j]*1000), int(time_vector[j+1]*1000)) or int(times_Ap_end[i]*1000) in range(int(time_vector[j]*1000), int(time_vector[j+1]*1000)):
+        if int(times1_beg[i]*1000) in range(int(time_vector[j]*1000), int(time_vector[j+1]*1000)) or int(times1_end[i]*1000) in range(int(time_vector[j]*1000), int(time_vector[j+1]*1000)):
                 ranks.append(j)
                 k=j
                 break
         else: 
             continue 
 ranks = sorted(list(set(ranks)))
-Aplose_vec[np.isin(range(len(time_vector)), ranks)] = 1
+vec1[np.isin(range(len(time_vector)), ranks)] = 1
     
 
-## Pamguard
-times_PG_beg = [i.timestamp() for i in dfpamguard['start_datetime']]
-times_PG_end = [i.timestamp() for i in dfpamguard['end_datetime']]
+## df2 - REFERENCE
+selected_label2 = easygui.buttonbox('Select a label', '{0}'.format(files_list[1].split('/')[-1]), labels2) if len(labels2)>1 else labels2[0]
+selected_annotations2, _ = sorting_detections(files=files_list[1], timebin_new=timebin_detections, annotator = annotator2, label=selected_label2)
 
-PG_vec, ranks, k = np.zeros(len(time_vector), dtype=int), [], 0
-for i in tqdm(range(len(times_PG_beg)), 'Importing PAMGuard detections...'):
+times2_beg = [i.timestamp() for i in selected_annotations2['start_datetime']]
+times2_end = [i.timestamp() for i in selected_annotations2['end_datetime']]
+
+vec2, ranks, k = np.zeros(len(time_vector), dtype=int), [], 0
+for i in range(len(times2_beg)):
     for j in range(k, len(time_vector)-1):
-        if int(times_PG_beg[i]*1000) in range(int(time_vector[j]*1000), int(time_vector[j+1]*1000)) or int(times_PG_end[i]*1000) in range(int(time_vector[j]*1000), int(time_vector[j+1]*1000)):
+        if int(times2_beg[i]*1000) in range(int(time_vector[j]*1000), int(time_vector[j+1]*1000)) or int(times2_end[i]*1000) in range(int(time_vector[j]*1000), int(time_vector[j+1]*1000)):
                 ranks.append(j)
                 k=j
                 break
         else: 
             continue 
 ranks = sorted(list(set(ranks)))
-# PG_vec = [1 if i in ranks else 0 for i in tqdm(range(len(time_vector)), 'Importing PAMGuard detections...')] #takes too long
-PG_vec[np.isin(range(len(time_vector)), ranks)] = 1
+vec2[np.isin(range(len(time_vector)), ranks)] = 1
 
 
 ##  DETECTION PERFORMANCES
-print('\n\nDetection results :', end='\n')
 true_pos, false_pos, true_neg, false_neg, error = 0,0,0,0,0
 for i in range(len(time_vector)):
-    if Aplose_vec[i] == 0 and PG_vec[i] == 0:
+    if vec1[i] == 0 and vec2[i] == 0:
         true_neg+=1
-    elif Aplose_vec[i] == 1 and PG_vec[i] == 1:
+    elif vec1[i] == 1 and vec2[i] == 1:
         true_pos+=1
-    elif Aplose_vec[i] == 0 and PG_vec[i] == 1:
+    elif vec1[i] == 0 and vec2[i] == 1:
         false_pos+=1   
-    elif Aplose_vec[i] == 1 and PG_vec[i] == 0:
+    elif vec1[i] == 1 and vec2[i] == 0:
         false_neg+=1
     else:error+=1
-        
+
+print('\n\nDetection results :', end='\n') 
 if error == 0:
-    print('\tTrue positive : ', true_pos)
-    print('\tTrue negative : ', true_neg)
-    print('\tFalse positive : ', false_pos)
-    print('\tFalse negative : ', false_neg)   
+    print('\tTrue positive : {0}'.format(true_pos))
+    print('\tTrue negative : {0}'.format(true_neg))
+    print('\tFalse positive : {0}'.format(false_pos))
+    print('\tFalse negative : {0}'.format(false_neg))
     
-    print('\nPRECISION : ', round(true_pos/(true_pos+false_pos),3))
-    print('RECALL : ', round(true_pos/(false_neg+true_pos) ,3    ), end='\n\n')
-    print('Label : ', selected_label)
+    print('\nPRECISION : {0:.2f}'.format(true_pos/(true_pos+false_pos)))
+    print('RECALL : {0:.2f}'.format(true_pos/(false_neg+true_pos)), end='\n\n')
+    
+    print('Label 1 : {0}\nLabel 2 : {1}\n'.format(selected_label1, selected_label2))
 else: print('Error : ', error)
     
-end = time.time()
-print('\nElapsed time : ', round(end-start,2), 's')  
 
 
 

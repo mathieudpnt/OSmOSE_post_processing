@@ -1,5 +1,5 @@
 import os
-from post_processing_detections.utilities.def_func import read_header, sorting_annot_boxes, get_season, histo_detect
+from post_processing_detections.utilities.def_func import read_header, sorting_detections, get_season, histo_detect
 import glob
 from pathlib import Path
 import json
@@ -10,6 +10,8 @@ import datetime as dt
 from tqdm import tqdm
 import numpy as np
 import statistics as stat
+
+from post_processing_detections.utilities.def_func import extract_datetime
 #%% import csv deployment
 
 deploy = pd.read_excel('L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/APOCADO - Suivi déploiements.xlsx', skiprows=[0])
@@ -40,7 +42,8 @@ print('\n# Mean duration of a deployment per net type #')
 
 print('\n# Duration per net length #')
 [print('-{:.0f}'.format(L),'m :', int(sum(deploy[deploy['Longueur (m)']== L]['durations_deployments'], dt.timedelta()).total_seconds()/3600),'h') for L in sorted(list(set(deploy['Longueur (m)'])))];
-#%%
+#%% Distribution du nombre d'heures enregistrées selon la longueur de filière
+
 x = [str(elem) for elem in sorted(list(set(deploy['Longueur (m)'])))]
 y = [int(sum(deploy[deploy['Longueur (m)']== L]['durations_deployments'], dt.timedelta()).total_seconds()/3600) for L in sorted(list(set(deploy['Longueur (m)'])))]
 
@@ -61,39 +64,48 @@ ax.set_xlabel('Longueur filière [m]', fontsize = 16, color='w')
 list_csv = glob.glob(os.path.join('L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO', '**/PG_formatteddata**.csv'), recursive=True)\
             +glob.glob(os.path.join('L:/acoustock2/Bioacoustique/APOCADO2', '**/PG_formatteddata**.csv'), recursive=True)
 
-# for i in tqdm(list_csv):
+for i in tqdm(list_csv):
 
-#     t_detections = sorting_annot_boxes(i)
     
-#     time_bin = t_detections[0]
-#     fmax = t_detections[1]
-#     [annotators] = t_detections[2]
-#     [labels] = t_detections[3]
-#     df_detections = t_detections[-1]
+    df_detections, t_detections = sorting_detections(i)
+    fmax = int(list(set(t_detections['max_freq']))[0])
+    time_bin = int(list(set(t_detections['max_time']))[0])
+    labels = list(set(t_detections['labels'].explode()))
+    annotators = list(set(t_detections['annotators'].explode()))
     
-#     [ID_detections] = list(set(df_detections['dataset']))
-#     rank = [i for i, ID in enumerate(deploy['ID']) if ID in ID_detections][0]
-#     duration_deployment = int(deploy['durations_deployments'][rank].total_seconds())
-#     dt_deployment_beg = dt.datetime.strftime(dt.datetime.combine(deploy['Date début déploiement'][rank], deploy['Heure début déploiement'][rank]), '%d/%m/%Y %H:%M:%S')
-#     dt_deployment_end = dt.datetime.strftime(dt.datetime.combine(deploy['Date fin déploiement'][rank], deploy['Heure fin déploiement'][rank]), '%d/%m/%Y %H:%M:%S')
-#     ID = deploy['ID'][rank]
-#     net_len = int(deploy['Longueur (m)'][rank])
-#     n_instru = deploy['nb ST/filet'][rank] if type(deploy['nb ST/filet'][rank]) is int else int(deploy['nb ST/filet'][rank][0])
+    [ID_detections] = list(set(df_detections['dataset']))
+    ID_detections = ID_detections.replace('_', ' ')
+    rank = [i for i, ID in enumerate(deploy['ID']) if ID in ID_detections][0]
+    duration_deployment = int(deploy['durations_deployments'][rank].total_seconds())
+    dt_deployment_beg = dt.datetime.strftime(dt.datetime.combine(deploy['Date début déploiement'][rank], deploy['Heure début déploiement'][rank]), '%d/%m/%Y %H:%M:%S')
+    dt_deployment_end = dt.datetime.strftime(dt.datetime.combine(deploy['Date fin déploiement'][rank], deploy['Heure fin déploiement'][rank]), '%d/%m/%Y %H:%M:%S')
+    ID = deploy['ID'][rank]
+    net_len = int(deploy['Longueur (m)'][rank])
+    n_instru = deploy['nb ST/filet'][rank] if type(deploy['nb ST/filet'][rank]) is int else int(deploy['nb ST/filet'][rank][0])
     
-#     wav_files = glob.glob(os.path.join(Path(i).parents[2], "**/*.wav"), recursive=True)
-#     wav_names = [os.path.basename(file) for file in wav_files]
-#     [wav_folder] = list(set([os.path.dirname(file) for file in wav_files]))
-#     test_wav = [j in sorted(list(set([i.split('_')[0] for i in df_detections['filename']]))) for j in [i.split('.wav')[0] for i in wav_names]]
-#     wav_names, wav_files = zip(*[(wav_names[i], wav_files[i]) for i in range(len(wav_names)) if test_wav[i]]) #only the wav files corresponding to the detections are kept
-#     durations = [read_header(file)[-1] for file in wav_files]
+    wav_files = glob.glob(os.path.join(Path(i).parents[2], "**/*.wav"), recursive=True)
+    wav_names = [os.path.basename(file) for file in wav_files]
+    [wav_folder] = list(set([os.path.dirname(file) for file in wav_files]))
+    
+    test_wav = [j in sorted(list(set([i.split('_')[0] for i in df_detections['filename']]))) for j in [i.split('.wav')[0] for i in wav_names]]
+    
+    arg1 = [extract_datetime(dt_from_filename, tz='Etc/GMT-1') for dt_from_filename in df_detections['filename']]
+    arg2 = [extract_datetime(wav_name,tz='Etc/GMT-1') for wav_name in wav_names]
+    
+    test_wav2 = [j in arg1 for j in arg2]
     
     
     
-#     metadata =  {'detection_file': i, 'wav_folder': wav_folder, 'deploy_ID' : ID, 'beg_deployment': dt_deployment_beg, 'end_deployment': dt_deployment_end, 'duration_deployment': duration_deployment, 'fmax': fmax, 'timebin': time_bin, 'annotators': annotators, 'net_length': net_len, 'n_instru': n_instru, 'labels': labels, 'wav_path': wav_files, 'durations': durations}
+    wav_names, wav_files = zip(*[(wav_names[i], wav_files[i]) for i in range(len(wav_names)) if test_wav[i]]) #only the wav files corresponding to the detections are kept
+    durations = [read_header(file)[-1] for file in wav_files]
     
-#     out_file = open(os.path.join(Path(i).parents[0], 'metadata.json'), 'w+')
-#     json.dump(metadata, out_file, indent=4)
-#     out_file.close()
+    
+    
+    metadata =  {'detection_file': i, 'wav_folder': wav_folder, 'deploy_ID' : ID, 'beg_deployment': dt_deployment_beg, 'end_deployment': dt_deployment_end, 'duration_deployment': duration_deployment, 'fmax': fmax, 'timebin': time_bin, 'annotators': annotators, 'net_length': net_len, 'n_instru': n_instru, 'labels': labels, 'wav_path': wav_files, 'durations': durations}
+    
+    out_file = open(os.path.join(Path(i).parents[0], 'metadata.json'), 'w+')
+    json.dump(metadata, out_file, indent=4)
+    out_file.close()
 
 
 

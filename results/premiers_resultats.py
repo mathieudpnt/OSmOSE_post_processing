@@ -1,6 +1,4 @@
 import datetime as dt
-from tkinter import filedialog
-from tkinter import Tk
 import pandas as pd
 import numpy as np
 import easygui
@@ -276,13 +274,16 @@ print('Pourcentage d\'accord entre [{0}/{1}] & [{2}/{3}] : {4:.0f}%'.format(anno
 # scatter
 df_corr = pd.DataFrame(hist_plot[0]/n_annot_max, index=[annot_ref1, annot_ref2]).transpose()
 plot = sns.lmplot(x=annot_ref1, y=annot_ref2, data=df_corr, scatter_kws={'s': 10, 'color': 'teal'}, fit_reg=True, markers='.', line_kws={'lw': 1,'color': 'teal'})
+plt.xlabel('{0}\n{1}'.format(annot_ref1, label_ref1))
+plt.ylabel('{0}\n{1}'.format(annot_ref2, label_ref2))
+
 plt.xlim(0, 1)
 plt.ylim(0, 1)
 
 def annotate(data, **kws):
     r, p = stats.pearsonr(data[annot_ref1], data[annot_ref2])
     ax = plt.gca()
-    ax.text(.05, .8, '{1}\nR²={0:.2f}'.format(r*r, label_ref),
+    ax.text(.05, .8, 'R²={0:.2f}'.format(r*r),
             transform=ax.transAxes)
     
 plot.map_dataframe(annotate)

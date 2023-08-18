@@ -102,9 +102,9 @@ end
 Firstname = char(WavFolderInfo.wavNames(1));
 WavFolderInfo.txt_filename = string(Firstname(1,1:end-4));
 
-clc;disp(strcat("1st wav : ", WavFolderInfo.wavList(1).name))
-disp(strcat("last wav : ", WavFolderInfo.wavList(end).name))
-disp(strcat(num2str(length(WavFolderInfo.wavList)),"/", num2str(n_file_tot), " files"))
+% clc;disp(strcat("1st wav : ", WavFolderInfo.wavList(1).name))
+% disp(strcat("last wav : ", WavFolderInfo.wavList(end).name))
+% disp(strcat(num2str(length(WavFolderInfo.wavList)),"/", num2str(n_file_tot), " files"))
 
 
 % Export PG data
