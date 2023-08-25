@@ -13,17 +13,26 @@ from post_processing_detections.utilities.def_func import get_detection_files, e
 #%% User inputs
 
 files_list = get_detection_files(2)
-timestamps_file = get_timestamps()
 df_detections, t_detections = sorting_detections(files_list)
 
 time_bin = list(set(t_detections['max_time']))
 fmax = list(set(t_detections['max_freq']))
 annotators = list(set(t_detections['annotators'].explode()))
 labels = list(set(t_detections['labels'].explode()))
-
 tz_data = df_detections['start_datetime'][0].tz
 
-wav_names = timestamps_file['filename']
+dt_mode = 'manual'
+
+if dt_mode == 'manual' :
+    begin_deploy = extract_datetime('335556632.220706235947.wav', tz_data)
+    end_deploy = extract_datetime('335556632.220707235938.wav', tz_data)
+elif dt_mode == 'auto':
+    timestamps_file = get_timestamps()
+    wav_names = timestamps_file['filename']
+    begin_deploy = extract_datetime(wav_names.iloc[0], tz_data)
+    end_deploy = extract_datetime(wav_names.iloc[-1], tz_data)
+
+
 
 print("\ntime_bin : ", str(time_bin), "s", end='')
 print("\nfmax : ", str(fmax), "Hz", end='')
@@ -92,14 +101,16 @@ ax2.set_title('Number of annotations per annotator', color='w', fontdict=title_f
 
 annot_ref = easygui.buttonbox('Select an annotator', 'Single plot', annotators) if len(annotators)>1 else annotators[0]
 list_labels = t_detections[t_detections['annotators'].apply(lambda x: annot_ref in x)]['labels'].iloc[0]
-label_ref = easygui.buttonbox('Select an annotator', 'Single plot', list_labels) if len(list_labels)>1 else list_labels[0]
+# label_ref = easygui.buttonbox('Select an annotator', 'Single plot', list_labels) if len(list_labels)>1 else list_labels[0]
+label_ref = easygui.buttonbox('Select an annotator', 'Single plot', list_labels) if isinstance(list_labels, str)==0 else list_labels
 time_bin_ref = int(t_detections[t_detections['annotators'].apply(lambda x: annot_ref in x)]['max_time'].iloc[0])
 file_ref = t_detections[t_detections['annotators'].apply(lambda x: annot_ref in x)]['file'].iloc[0]
 
 
 res_min = easygui.integerbox('Enter the bin size (min) ', 'Time resolution', default=10, lowerbound=1, upperbound=86400)
     
-delta, start_vec, end_vec = dt.timedelta(seconds=60*res_min), t_rounder(extract_datetime(wav_names.iloc[0], tz_data),res = 600), t_rounder(extract_datetime(wav_names.iloc[-1], tz_data) + dt.timedelta(seconds=time_bin_ref),res = 600)
+# delta, start_vec, end_vec = dt.timedelta(seconds=60*res_min), t_rounder(extract_datetime(wav_names.iloc[0], tz_data),res = 600), t_rounder(extract_datetime(wav_names.iloc[-1], tz_data) + dt.timedelta(seconds=time_bin_ref),res = 600)
+delta, start_vec, end_vec = dt.timedelta(seconds=60*res_min), t_rounder(begin_deploy,res = 600), t_rounder(end_deploy + dt.timedelta(seconds=time_bin_ref),res = 600)
 
 time_vector = [start_vec + i * delta for i in range(int((end_vec - start_vec) / delta) + 1)]
 

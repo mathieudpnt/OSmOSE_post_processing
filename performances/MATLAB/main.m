@@ -12,7 +12,7 @@ addpath(genpath(fullfile(fileparts(fileparts(pwd)), 'utilities')))
 %info written on Aplose csv file
 infoAplose.annotator = 'PAMGuard';
 infoAplose.annotation = 'Whistle and moan detector';
-infoAplose.dataset = 'C7D14_ST7190';
+infoAplose.dataset = 'C3D1_ST335556632';
 
 
 % Get files - Automatic
@@ -20,8 +20,7 @@ mode = 'file';
 % mode = 'folder';
 
 if isequal(mode, 'file')
-%     [GeneralFolderWav0, GeneralFolderWav] = uigetfile('*.wav', 'select waves', 'Multiselect', 'on', 'L:\acoustock\Bioacoustique\DATASETS');
-    [GeneralFolderWav0, GeneralFolderWav] = uigetfile('*.wav', 'select waves', 'Multiselect', 'on', 'Y:\Bioacoustique\APOCADO2\Campagne 7\Gwalarn II\7190\wav');
+    [GeneralFolderWav0, GeneralFolderWav] = uigetfile('*.wav', 'select waves', 'Multiselect', 'on', 'L:\acoustock\Bioacoustique\DATASETS');
     GeneralFolderWav = {fileparts(GeneralFolderWav)};
     PathWaves=[];
     for i = 1:numel(GeneralFolderWav0)

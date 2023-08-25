@@ -166,15 +166,17 @@ g = sns.lmplot(
 )
 
 color_leg = [g.ax.lines[i].get_color() for i in range(len(g.ax.lines))]
-
+from scipy.stats import linregress
 for i,n in enumerate(sorted(list(set(data_corr['net_len'])))):
     r, p = stats.pearsonr(data_corr[data_corr['net_len']==n]['ST1'], data_corr[data_corr['net_len']==n]['ST2'])
+  
+    slope, intercept, r_value, p_value, std_err = linregress(data_corr[data_corr['net_len'] == n]['ST1'], data_corr[data_corr['net_len'] == n]['ST2'])
   
     ax = plt.gca()
     ax.text(
             0.02,
             0.95-(i*0.05),
-            '{}m - R²={:.3f}'.format(n, r*r),
+            '{}m - s={:.2f} - R²={:.3f}'.format(n, slope, r*r),
             transform=ax.transAxes,
             color = color_leg[i],
             size = 14,

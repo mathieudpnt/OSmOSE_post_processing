@@ -1,23 +1,28 @@
 import os
-from post_processing_detections.utilities.def_func import read_header, sorting_detections, get_season, histo_detect
 import glob
 from pathlib import Path
 import json
 import pandas as pd
+import math
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 import datetime as dt
 from tqdm import tqdm
 import numpy as np
 import statistics as stat
+import re
+from post_processing_detections.utilities.def_func import read_header, sorting_detections, get_season, histo_detect, get_tz, get_timestamps, t_rounder, extract_datetime
 
-from post_processing_detections.utilities.def_func import extract_datetime
-#%% import csv deployment
+
+#%% Import csv deployments
 
 deploy = pd.read_excel('L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/APOCADO - Suivi déploiements.xlsx', skiprows=[0])
+deploy = deploy.loc[~((deploy['N° campagne'] == 1)), :] #deleting C1
 deploy = deploy.loc[~((deploy['N° campagne'] == 4) & (deploy['N° déploiement'] == 9)), :] #deleting C4D9
-deploy = deploy.loc[~((deploy['N° campagne'] == 7) & (deploy['N° déploiement'] == 1)), :]
+deploy = deploy.loc[~((deploy['N° campagne'] == 7) & (deploy['N° déploiement'] == 1)), :] #deleting C7D1
 deploy = deploy.reset_index(drop=True)
+
 
 deploy['durations_deployments'] = [dt.datetime.combine(deploy['Date fin déploiement'][i], deploy['Heure fin déploiement'][i])\
                                     -dt.datetime.combine(deploy['Date début déploiement'][i], deploy['Heure début déploiement'][i]) for i in range(len(deploy))]
@@ -25,108 +30,152 @@ deploy['durations_deployments'] = [dt.datetime.combine(deploy['Date fin déploie
 deploy['season'] = [get_season(i)[:-5] for i in deploy['Date début déploiement']]
 deploy['season_year'] = [get_season(i)[-4:] for i in deploy['Date début déploiement']]
 
-print('\n#### RESULTS DEPLOYMENTS ####')
-print('-total duration: ', sum(deploy['durations_deployments'], dt.timedelta()))
+#%% First results from deployments csv
 
-print('\n# Duration per season #')
+print('\n#### RESULTS DEPLOYMENTS ####')
+#t_tot : duration_deployement divided by 2 if 2 ST are used in the deployment
+t_tot = int(sum(deploy[deploy['nb ST/filet'] == 1]['durations_deployments'], dt.timedelta()).total_seconds()/3600) + 0.5*int(sum(deploy[deploy['nb ST/filet'] != 1]['durations_deployments'], dt.timedelta()).total_seconds()/3600)
+print('-total duration: {:.0f} h'.format(t_tot))
+
+print('\n# Observation effort per season #')
 # [print('-{0}:'.format(season), int(sum(deploy[deploy['season']== season]['durations_deployments'], dt.timedelta()).total_seconds()/3600),'h') for season in ['spring', 'summer', 'autumn', 'winter']];
 for y in sorted(list(set(deploy['season_year']))):    
     for s in list(dict.fromkeys(deploy[(deploy['season_year']==y)]['season'])):
-        print('-{0}:'.format(s+' '+y), int(sum(deploy[(deploy['season_year'] == y) & (deploy['season'] == s)]['durations_deployments'], dt.timedelta()).total_seconds()/3600),'h')
+        
+        #t : duration_deployement divided by 2 if 2 ST are used in the deployment
+        t = int(sum(deploy[(deploy['season_year'] == y) & (deploy['season'] == s) & (deploy['nb ST/filet'] == 1)]['durations_deployments'], dt.timedelta()).total_seconds()/3600)+ int(sum(deploy[(deploy['season_year'] == y) & (deploy['season'] == s) & (deploy['nb ST/filet'] != 1)]['durations_deployments'], dt.timedelta()).total_seconds()/3600)*0.5
+        print('-{0}: {1:.0f}% - {2:.0f} h'.format(s+' '+y, 100*(t/t_tot), t))
 
 print('\n# Duration per net #')
-[print('-Filet {0}:'.format(filet), int(sum(deploy[deploy['Filet']== filet]['durations_deployments'], dt.timedelta()).total_seconds()/3600),'h') for filet in sorted(list(set(deploy['Filet'])))];
+[print('-Filet {0}:'.format(filet), int(sum(deploy[(deploy['Filet']== filet) & (deploy['nb ST/filet'] == 1)]['durations_deployments'], dt.timedelta()).total_seconds()/3600)+ 0.5*int(sum(deploy[(deploy['Filet']== filet) & (deploy['nb ST/filet'] != 1)]['durations_deployments'], dt.timedelta()).total_seconds()/3600),'h') for filet in sorted(list(set(deploy['Filet'])))];
 
 print('\n# Mean duration of a deployment per net type #')
 [print('-Filet {0}:'.format(filet), round(np.mean(deploy[deploy['Filet']== filet]['durations_deployments']).total_seconds()/3600,1), 'h +/-', round(np.std(deploy[deploy['Filet']== filet]['durations_deployments']).total_seconds()/3600,1), 'h') for filet in sorted(list(set(deploy['Filet'])))];
 
 print('\n# Duration per net length #')
 [print('-{:.0f}'.format(L),'m :', int(sum(deploy[deploy['Longueur (m)']== L]['durations_deployments'], dt.timedelta()).total_seconds()/3600),'h') for L in sorted(list(set(deploy['Longueur (m)'])))];
-#%% Distribution du nombre d'heures enregistrées selon la longueur de filière
 
-x = [str(elem) for elem in sorted(list(set(deploy['Longueur (m)'])))]
-y = [int(sum(deploy[deploy['Longueur (m)']== L]['durations_deployments'], dt.timedelta()).total_seconds()/3600) for L in sorted(list(set(deploy['Longueur (m)'])))]
+#%% write PG_formatteddata files
 
-fig,ax = plt.subplots(figsize=(16,6), facecolor='#36454F')
-ax.bar(x,y); #histo
-ax.set_facecolor('#36454F')
-ax.tick_params(axis='both', colors='w')
-ax.spines['bottom'].set_color('w')
-ax.spines['left'].set_color('w')
-ax.spines['right'].set_visible(False)
-ax.spines['top'].set_visible(False)
-plt.suptitle('', color='w')
-ax.set_ylabel('Heures d\'enregistrement', fontsize = 16, color='w')
-ax.set_xlabel('Longueur filière [m]', fontsize = 16, color='w')
 
-#%% Save metadata
-
-list_csv = glob.glob(os.path.join('L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO', '**/PG_formatteddata**.csv'), recursive=True)\
-            +glob.glob(os.path.join('L:/acoustock2/Bioacoustique/APOCADO2', '**/PG_formatteddata**.csv'), recursive=True)
-
-for i in tqdm(list_csv):
-
-    
-    df_detections, t_detections = sorting_detections(i)
-    fmax = int(list(set(t_detections['max_freq']))[0])
-    time_bin = int(list(set(t_detections['max_time']))[0])
-    labels = list(set(t_detections['labels'].explode()))
-    annotators = list(set(t_detections['annotators'].explode()))
-    
-    [ID_detections] = list(set(df_detections['dataset']))
-    ID_detections = ID_detections.replace('_', ' ')
-    rank = [i for i, ID in enumerate(deploy['ID']) if ID in ID_detections][0]
-    duration_deployment = int(deploy['durations_deployments'][rank].total_seconds())
-    dt_deployment_beg = dt.datetime.strftime(dt.datetime.combine(deploy['Date début déploiement'][rank], deploy['Heure début déploiement'][rank]), '%d/%m/%Y %H:%M:%S')
-    dt_deployment_end = dt.datetime.strftime(dt.datetime.combine(deploy['Date fin déploiement'][rank], deploy['Heure fin déploiement'][rank]), '%d/%m/%Y %H:%M:%S')
-    ID = deploy['ID'][rank]
-    net_len = int(deploy['Longueur (m)'][rank])
-    n_instru = deploy['nb ST/filet'][rank] if type(deploy['nb ST/filet'][rank]) is int else int(deploy['nb ST/filet'][rank][0])
-    
-    wav_files = glob.glob(os.path.join(Path(i).parents[2], "**/*.wav"), recursive=True)
-    wav_names = [os.path.basename(file) for file in wav_files]
-    [wav_folder] = list(set([os.path.dirname(file) for file in wav_files]))
-    
-    test_wav = [j in sorted(list(set([i.split('_')[0] for i in df_detections['filename']]))) for j in [i.split('.wav')[0] for i in wav_names]]
-    
-    arg1 = [extract_datetime(dt_from_filename, tz='Etc/GMT-1') for dt_from_filename in df_detections['filename']]
-    arg2 = [extract_datetime(wav_name,tz='Etc/GMT-1') for wav_name in wav_names]
-    
-    test_wav2 = [j in arg1 for j in arg2]
-    
-    
-    
-    wav_names, wav_files = zip(*[(wav_names[i], wav_files[i]) for i in range(len(wav_names)) if test_wav[i]]) #only the wav files corresponding to the detections are kept
-    durations = [read_header(file)[-1] for file in wav_files]
-    
-    
-    
-    metadata =  {'detection_file': i, 'wav_folder': wav_folder, 'deploy_ID' : ID, 'beg_deployment': dt_deployment_beg, 'end_deployment': dt_deployment_end, 'duration_deployment': duration_deployment, 'fmax': fmax, 'timebin': time_bin, 'annotators': annotators, 'net_length': net_len, 'n_instru': n_instru, 'labels': labels, 'wav_path': wav_files, 'durations': durations}
-    
-    out_file = open(os.path.join(Path(i).parents[0], 'metadata.json'), 'w+')
-    json.dump(metadata, out_file, indent=4)
-    out_file.close()
+list_raw = glob.glob(os.path.join('L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO', '**/PG_rawdata**.csv'), recursive=True)\
+            +glob.glob(os.path.join('L:/acoustock2/Bioacoustique/APOCADO2', '**/PG_rawdata**.csv'), recursive=True)
 
 
 
+# for file in tqdm(list_raw):
 
-#%% load all detection dataframes
+#     tz = get_tz(file)
+#     msg = pd.read_csv(file, usecols=['dataset'])['dataset'].tolist()[0]
+#     path = os.path.join(Path(file).parents[2])
+    
+#     timestamps_file = get_timestamps(tz=tz, f_type='dir', ext= 'wav', choices='No', date_template='%y%m%d%H%M%S', msg=msg, path_dir = path)
+    
+#     df_detections, t_detections = sorting_detections(file, timebin_new=10)
+#     timebin = int(t_detections['max_time'][0])
+    
+#     df_detections['start_datetime'].iloc[-1].strftime('%y%m%d')
+    
+#     PG2Ap_str = "/PG_formatteddata_" + df_detections['start_datetime'][0].strftime('%y%m%d') + '_' + df_detections['start_datetime'].iloc[-1].strftime('%y%m%d') +'_'+ str(t_detections['max_time'][0]) + 's'+ '_V2.csv'
+    
+#     df_detections.to_csv(os.path.dirname(file) + PG2Ap_str, index=False)  
+
+
+#%% Write metadata files
+
+list_csv = glob.glob(os.path.join('L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO', '**/PG_formatteddata**V2.csv'), recursive=True)\
+            +glob.glob(os.path.join('L:/acoustock2/Bioacoustique/APOCADO2', '**/PG_formatteddata**V2.csv'), recursive=True)
+
+# for i in tqdm(list_csv):
+
+#     df_detections, t_detections = sorting_detections(i)
+#     fmax = int(list(set(t_detections['max_freq']))[0])
+#     time_bin = int(list(set(t_detections['max_time']))[0])
+#     labels = list(set(t_detections['labels'].explode()))
+#     annotators = list(set(t_detections['annotators'].explode()))
+#     [tz] = list(set([dt.tz for dt in df_detections['start_datetime']]))
+    
+#     [ID0] = list(set(df_detections['dataset']))
+#     ID1 = re.search(r'C\d{1,2}D\d{1,2}', ID0).group() #campaign and deployment identifier
+#     ID2 = re.search(r'ST\d+', ID0).group() #instrument identifier
+#     ID_detections = ID1 + ' ' + ID2
+
+#     rank = [i for i, ID in enumerate(deploy['ID']) if ID in ID_detections][0]
+#     duration_deployment = int(deploy['durations_deployments'][rank].total_seconds())
+#     dt_deployment_beg = pd.Timestamp(dt.datetime.combine(deploy['Date début déploiement'][rank], deploy['Heure début déploiement'][rank]), tz=tz)
+#     dt_deployment_end = pd.Timestamp(dt.datetime.combine(deploy['Date fin déploiement'][rank], deploy['Heure fin déploiement'][rank]), tz=tz)
+        
+#     net_len = int(deploy['Longueur (m)'][rank])
+#     n_instru = deploy['nb ST/filet'][rank] if type(deploy['nb ST/filet'][rank]) is int else int(deploy['nb ST/filet'][rank][0])
+    
+#     wav_files = glob.glob(os.path.join(Path(i).parents[2], "**/*.wav"), recursive=True)
+#     wav_names = [os.path.basename(file) for file in wav_files]
+#     [wav_folder] = list(set([os.path.dirname(file) for file in wav_files]))
+    
+#     arg1 = [extract_datetime(dt_from_filename, tz=tz) for dt_from_filename in df_detections['filename']]
+#     arg2 = [extract_datetime(wav_name, tz=tz) for wav_name in wav_names]
+#     test_wav = [j in arg1 for j in arg2]
+    
+#     wav_names, wav_files = zip(*[(wav_names[i], wav_files[i]) for i in range(len(wav_names)) if test_wav[i]]) #only the wav files corresponding to the detections are kept
+#     durations = [read_header(file)[-1] for file in wav_files]
+    
+#     threshold = 0.75
+#     total_detections = len(df_detections)
+#     threshold_detect = round(total_detections * threshold)
+#     bins = pd.date_range(start=dt_deployment_beg, end=dt_deployment_end, freq='1min')
+#     hist, _ = np.histogram([dt.timestamp() for dt in df_detections['start_datetime']], bins=[b.timestamp() for b in bins])
+#     cumul_count = np.cumsum(hist)
+#     bin_index = int(np.argmax(cumul_count >= threshold_detect))
+#     dt_thr = bins[bin_index] #datetime of the threshold
+#     min_elapsed = bin_index #elapsed time in minutes to achieve threshold_detect, freq bins is 1min
+#     perc_elapsed = round((dt_thr-bins[0])/(bins[-1]-bins[0]),2) # % of elapsed time to achieve threshold_detect
+    
+
+#     metadata =  {'deploy_ID' : ID_detections,
+#                   'wav_folder': wav_folder, 
+#                   'detection_file': i, 
+#                   'beg_deployment': dt_deployment_beg.strftime('%Y-%m-%dT%H:%M:%S%z'), 
+#                   'end_deployment': dt_deployment_end.strftime('%Y-%m-%dT%H:%M:%S%z'), 
+#                   'duration_deployment (s)': duration_deployment, 
+#                   'fmax': fmax, 
+#                   'annotators': annotators, 
+#                   'labels': labels, 
+#                   'detections number': total_detections, 
+                 
+#                   'threshold75': threshold, 
+#                   'threshold75_detections': threshold_detect, 
+#                   'threshold75 elapsed time (min)': min_elapsed,
+#                   'threshold75 % elapsed': perc_elapsed,
+                 
+#                   'timebin': time_bin, 
+#                   'net_length (m)': net_len, 
+#                   'n_instru': n_instru, 
+#                   'wav_path': list(wav_files), 
+#                   'durations': durations}
+    
+#     out_file = open(os.path.join(Path(i).parents[0], 'metadata.json'), 'w+')
+#     json.dump(metadata, out_file, indent=4)
+#     out_file.close()
+
+
+
+
+#%% Load all metadata files
 
 list_json = glob.glob(os.path.join('L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO', "**/metadata.json"), recursive=True)\
             +glob.glob(os.path.join('L:/acoustock2/Bioacoustique/APOCADO2', '**/metadata.json'), recursive=True)               
 
 data=[]
-for i in range(len(list_json)):
+for i in tqdm(range(len(list_json))):
     r_file = open(list_json[i], 'r')
     data.append(json.load(r_file))
     r_file.close()
 data = pd.DataFrame.from_dict(data)
-data['df_detections'] = [sorting_annot_boxes(i)[-1] for i in data['detection_file']]
+data['df_detections'] = [sorting_detections(i)[0] for i in tqdm(data['detection_file'])]
 
 for i in range(len(data)):
-    tz_deploy = data['df_detections'][i]['start_datetime'][0].tz
-    data['df_detections'][i]['start_deploy'] = tz_deploy.localize(dt.datetime.strptime(data['beg_deployment'][i], '%d/%m/%Y %H:%M:%S'))
-    data['df_detections'][i]['end_deploy'] = tz_deploy.localize(dt.datetime.strptime(data['end_deployment'][i], '%d/%m/%Y %H:%M:%S'))
+    data['df_detections'][i]['start_deploy'] = pd.to_datetime(data['beg_deployment'][i])
+    data['df_detections'][i]['end_deploy'] = pd.to_datetime(data['end_deployment'][i])
 
 deploy['detection_num'] = [len(data.loc[data['deploy_ID']==ID, 'df_detections'].reset_index(drop=True)[0]) for ID in deploy['ID']]
 deploy['deploy_num_win'] = [deploy['durations_deployments'][i].total_seconds()/10 for i in range(len(deploy))] #num of 10s win
@@ -137,7 +186,90 @@ deploy['season'] = [get_season(deploy['Date début déploiement'][i]) for i in r
 
 print('\n#### Hourly positive detection rate (whistles)####')
 print('-Total: {:.1f}%'.format(np.mean(deploy['detection_rate'])))
-[print('-{0}: {1}%'.format(season, round(np.mean(deploy[deploy['season']== season ]['detection_rate']),1)) ) for season in list(set(deploy['season']))];
+
+print('\n# Observation effort per season #')
+for s in list(dict.fromkeys(deploy['season'])):
+    print('{0} : {1:.0f}%'.format(s, np.mean(deploy[deploy['season']== s]['detection_rate'])))
+
+
+test = data['threshold75 % elapsed']
+np.mean(test)
+fig,ax = plt.subplots(figsize=(20,9))
+ax.hist(test, bins=25, density=True)
+plt.xlabel('Threshold 75% elapsed')
+plt.ylabel('Density')
+plt.title('% of time elapsed to achieve 75% of the detections')
+plt.grid(True)
+plt.show()
+
+#%% Distribution du nombre d'heures enregistrées selon la longueur de filière
+
+x = [str(elem) for elem in sorted(list(set(deploy['Longueur (m)'])))]
+# y = [int(sum(deploy[deploy['Longueur (m)']== L]['durations_deployments'], dt.timedelta()).total_seconds()/3600) for L in sorted(list(set(deploy['Longueur (m)'])))]
+y = [int(sum(deploy[(deploy['Longueur (m)']== L) & (deploy['nb ST/filet'] != 1)]['durations_deployments'], dt.timedelta()).total_seconds()*0.5/3600)+ int(sum(deploy[(deploy['Longueur (m)']== L) & (deploy['nb ST/filet'] == 1)]['durations_deployments'], dt.timedelta()).total_seconds()/3600) for L in sorted(list(set(deploy['Longueur (m)'])))]
+
+fig,ax = plt.subplots(figsize=(16,6), facecolor='#36454F')
+ax.bar(x,y); #histo
+ax.set_facecolor('#36454F')
+ax.tick_params(axis='both', colors='w')
+ax.spines['bottom'].set_color('w')
+ax.spines['left'].set_color('w')
+ax.spines['right'].set_visible(False)
+ax.spines['top'].set_visible(False)
+plt.grid(visible=False)
+plt.suptitle('', color='w')
+ax.set_ylabel('Heures d\'enregistrement', fontsize = 16, color='w')
+ax.set_xlabel('Longueur filière [m]', fontsize = 16, color='w')
+
+
+#%% Cumulated histo 
+
+df_detections = data['df_detections'][50]
+threshold = 0.75
+
+[ID0] = list(set(df_detections['dataset']))
+ID1 = re.search(r'C\d{1,2}D\d{1,2}', ID0).group() #campaign and deployment identifier
+ID2 = re.search(r'ST\d+', ID0).group() #instrument identifier
+ID_test = ID1 + ' ' + ID2
+
+data_histo= df_detections['start_datetime'] #detections datetimes
+tb= df_detections['end_time'][0] #timebin
+deploy_dt = [df_detections['start_deploy'][0], df_detections['end_deploy'][0]] #beginning and end of deployment
+
+res_min = 1
+delta, start_vec, end_vec = dt.timedelta(seconds=60*res_min),  deploy_dt[0], deploy_dt[1]
+bins = pd.date_range(start=deploy_dt[0], end=deploy_dt[1], freq='1min')
+n_annot_max = (res_min*60)/tb #max nb of annoted time_bin max per res_min slice
+
+total_detections = len(data_histo)
+threshold_detect = round(total_detections * threshold)
+
+hist, _ = np.histogram([dt.timestamp() for dt in data_histo], bins=[b.timestamp() for b in bins])
+cumul_count = np.cumsum(hist)
+bin_index = int(np.argmax(cumul_count >= threshold_detect))
+dt_thr = bins[bin_index] #datetime of the threshold
+min_elapsed = bin_index #elapsed time in minutes to achieve threshold_detect, freq bins is 1min
+perc_elapsed = round((dt_thr-bins[0])/(bins[-1]-bins[0]),2) # % of elapsed time to achieve threshold_detect
+
+bin_height = cumul_count[bin_index] / total_detections
+
+min_elapsed = bin_index*res_min #elapsed time in minutes to achieve threshold_detect 
+perc_elapsed = (dt_thr-bins[0])/(bins[-1]-bins[0]) # % of elapsed time to achieve threshold_detect
+
+fig,ax = plt.subplots(figsize=(20,9))
+ax.hist(data_histo, bins, cumulative=True) #histo
+# vline = ax.axvline(x=dt_thr, ymax = bin_height*0.92 ,color='r', linestyle='-', label='75% of Detections')
+vline = ax.axvline(x=dt_thr, ymax = 1 ,color='r', linestyle='-', label='75% of Detections')
+# hline = ax.axhline(y=threshold_detect, xmax = (dt_thr-bins[0])/(bins[-1]-bins[0]), color='r', linestyle='-', label='75% of Detections')
+hline = ax.axhline(y=threshold_detect, xmax = 1, color='r', linestyle='-', label='75% of Detections')
+ax.set_ylabel("Detection rate [%] ("+str(res_min)+"min)", fontsize = 20)
+ax.grid(color='k', linestyle='-', linewidth=0.2, axis='both')
+ax.text(bins[bin_index+10], 50, '{0} min - {1:.0f}%'.format(min_elapsed, 100*perc_elapsed), color='r', ha='left', fontsize=16, fontweight='bold')
+ax.text(bins[0], threshold*total_detections*1.02 + 2, '{0} detections'.format(threshold_detect), color='r', ha='left', fontsize=16, fontweight='bold')
+tz_data = deploy_dt[0].tz
+ax.xaxis.set_major_locator(mdates.HourLocator(interval=1))
+ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M', tz=tz_data))  
+fig.suptitle('Cumulated detections - {0}\n{1} - {2}'.format(ID_test, deploy_dt[0].strftime('%d/%m/%y'), deploy_dt[1].strftime('%d/%m/%y')), fontsize = 24, y=0.98)
 
 #%% test pentes detection_rate
 test = data['df_detections'][40]
@@ -165,9 +297,6 @@ ax.set_ylabel("Detection rate [%] ("+str(res_min)+"min)", fontsize = 20)
 ax.axvline(x = bins2[-1][-1], color = 'r')
 [ax.axvline(x = bins2[i][0], color = 'g') for i in range(len(bins2))]
 ax.grid(color='k', linestyle='-', linewidth=0.2, axis='both')
-
-
-
 
 
 
