@@ -1,10 +1,10 @@
 import os
-from post_processing_detections.utilities.def_func import get_detection_files, sorting_detections, t_rounder, get_timestamps
+from post_processing_detections.utilities.def_func import get_detection_files, sorting_detections, t_rounder, get_timestamps, get_tz
 
 #%% LOAD DATA - User inputs
 
 files_list = get_detection_files(1)
-timestamps_file = get_timestamps(tz='Etc/GMT-1', f_type='dir', ext= 'wav')
+timestamps_file = get_timestamps(tz=get_tz(files_list), f_type='file', ext= 'wav')
 wav_names = timestamps_file['filename']
 wav_datetimes = timestamps_file['timestamp']
 df_detections, t_detections = sorting_detections(files_list)

@@ -9,6 +9,7 @@ import seaborn as sns
 from scipy import stats
 import sys
 import pytz
+from collections import OrderedDict
 from post_processing_detections.utilities.def_func import get_detection_files, extract_datetime, sorting_detections, t_rounder, get_timestamps
 
 #%% User inputs 
@@ -41,12 +42,13 @@ def input_date(msg, tz_data):
     
     return date_dt
 
-files_list = get_detection_files(1)
-df_detections, t_detections = sorting_detections(files_list)
+
+files_list = get_detection_files(2)
+df_detections, t_detections = sorting_detections(files_list,timebin_new=60)
 
 time_bin = list(set(t_detections['max_time']))
 fmax = list(set(t_detections['max_freq']))
-annotators = list(set(t_detections['annotators'].explode()))
+annotators = list(OrderedDict.fromkeys(t_detections['annotators']))
 labels = list(set(t_detections['labels'].explode()))
 tz_data = df_detections['start_datetime'][0].tz
 
@@ -74,7 +76,7 @@ elif dt_mode == 'input' :
     begin_deploy=input_date(msg, tz_data)
     msg='Enter end date of Figure'
     end_deploy=input_date(msg, tz_data)
-    
+
 print("\ntime_bin : ", str(time_bin), "s", end='')
 print("\nfmax : ", str(fmax), "Hz", end='')
 print('\nannotators :',str(annotators), end='')
@@ -260,10 +262,10 @@ else:
 
 list_labels = t_detections[t_detections['annotators'].apply(lambda x: annot_ref1 in x)]['labels'].iloc[0]
 if isinstance(list_labels, str)==0:
-    label_ref1 = easygui.buttonbox('Select a label for annotator 2 : {0}'.format(annot_ref1), 'Single plot', list_labels)
+    label_ref1 = easygui.buttonbox('Select a label for annotator 1 : {0}'.format(annot_ref1), 'Single plot', list_labels)
 else:
     label_ref1 = list_labels
-    easygui.msgbox('Only one label available for annotator 2, {0} : {1}'.format(annot_ref2, list_labels[0]))
+    easygui.msgbox('Only one label available for annotator 1, {0} : {1}'.format(annot_ref1, list_labels))
 list_labels = t_detections[t_detections['annotators'].apply(lambda x: annot_ref2 in x)]['labels'].iloc[0]
 if isinstance(list_labels, str)==0:
     label_ref2 = easygui.buttonbox('Select a label for annotator 2 : {0}'.format(annot_ref2), 'Single plot', list_labels)
@@ -279,7 +281,7 @@ else:
     sys.exit('The timebin of the detections {0}/{1} is {2}s whereas the timebin for {3}/{4} is {5}s!'.format(annot_ref1, label_ref1, time_bin_ref1, annot_ref2, label_ref2, time_bin_ref2))
 
 file_ref1 = t_detections[t_detections['annotators'].apply(lambda x: annot_ref1 in x)]['file'].iloc[0]
-file_ref2 = t_detections[t_detections['annotators'].apply(lambda x: annot_ref2 in x)]['file'].iloc[0]
+file_ref2 = t_detections[t_detections['annotators'].apply(lambda x: annot_ref2 in x)]['file'].iloc[1]
 
 res_min = easygui.integerbox('Enter the bin size (min) ', 'Time resolution', default=10, lowerbound=1, upperbound=86400)
 
@@ -289,8 +291,8 @@ time_vector = [start_vec + i * delta for i in range(int((end_vec - start_vec) / 
 
 n_annot_max = (res_min*60)/time_bin_ref #max nb of annoted time_bin max per res_min slice
 
-df1_1annot_1label, _ = sorting_detections(file_ref1, annotator = annot_ref1, label = label_ref1, timebin_new = time_bin_ref)
-df2_1annot_1label, _ = sorting_detections(file_ref2, annotator = annot_ref2, label = label_ref2, timebin_new = time_bin_ref)
+df1_1annot_1label, _ = sorting_detections(files=file_ref1, annotator = annot_ref1, label = label_ref1, timebin_new = time_bin_ref)
+df2_1annot_1label, _ = sorting_detections(files=file_ref2, annotator = annot_ref2, label = label_ref2, timebin_new = time_bin_ref)
 
 fig,ax = plt.subplots(figsize=(16,6), facecolor='#36454F')
 ax.set_facecolor('#36454F')
@@ -306,7 +308,7 @@ ax.set_ylabel('positive detection rate\n({0} min)'.format(res_min), fontsize = 2
 ax.tick_params(axis='y')
 fig.suptitle('[{0}/{1}] VS [{2}/{3}]'.format(annot_ref1, label_ref1, annot_ref2, label_ref2), color='w', fontsize = 24, y=1.02);
  
-ax.xaxis.set_major_locator(mdates.HourLocator(interval=1))
+ax.xaxis.set_major_locator(mdates.HourLocator(interval=4))
 ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M', tz=tz_data))
 plt.xlim(time_vector[0], time_vector[-1])
 # plt.xlim(time_vector[0], dt.datetime.strptime('2022-07-07T22-00-00', '%Y-%m-%dT%H-%M-%S'))
@@ -320,9 +322,7 @@ ax.spines['bottom'].set_color('w')
 ax.spines['left'].set_color('w')
 
 # accord inter-annot
-list1 = list(sorting_detections(file_ref1, annotator = annot_ref1, label = label_ref1, timebin_new = time_bin_ref)[0]['filename'])
 list1 = list(sorting_detections(file_ref1, annotator = annot_ref1, label = label_ref1, timebin_new = time_bin_ref)[0]['start_datetime'])
-list2 = list(sorting_detections(file_ref2, annotator = annot_ref2, label = label_ref2, timebin_new = time_bin_ref)[0]['filename'])
 list2 = list(sorting_detections(file_ref2, annotator = annot_ref2, label = label_ref2, timebin_new = time_bin_ref)[0]['start_datetime'])
 
 test1 = sorting_detections(file_ref1, annotator = annot_ref1, label = label_ref1, timebin_new = time_bin_ref)[0]
