@@ -14,8 +14,8 @@ from post_processing_detections.utilities.def_func import get_detection_files, e
 
 #%% User inputs 
 
-files_list = get_detection_files(2)
-df_detections, t_detections = sorting_detections(files_list,timebin_new=60)
+files_list = get_detection_files(1)
+df_detections, t_detections = sorting_detections(files_list)
 
 time_bin = list(set(t_detections['max_time']))
 fmax = list(set(t_detections['max_freq']))
@@ -110,7 +110,7 @@ ax1.set_title('Number of annotations per label', color='w', fontdict=title_font,
 ax2.set_title('Number of annotations per annotator', color='w', fontdict=title_font, pad=5)
 
 
-#%% Single plot 
+#%% Single seasonality plot 
 
 annot_ref = easygui.buttonbox('Select an annotator', 'Single plot', annotators) if len(annotators)>1 else annotators[0]
 list_labels = t_detections[t_detections['annotators'].apply(lambda x: annot_ref in x)]['labels'].iloc[0]
@@ -121,7 +121,7 @@ file_ref = t_detections[t_detections['annotators'].apply(lambda x: annot_ref in 
 
 
 res_min = easygui.integerbox('Enter the bin size (min) ', 'Time resolution', default=10, lowerbound=1, upperbound=86400)
-    
+# Est-ce que c'est utile de garder start_vec et end_vec sachant qu'ils sont égaux à begin_deploy et end_deploy non ?
 delta, start_vec, end_vec = dt.timedelta(seconds=60*res_min), t_rounder(begin_deploy,res = 600), t_rounder(end_deploy + dt.timedelta(seconds=time_bin_ref),res = 600)
 
 time_vector = [start_vec + i * delta for i in range(int((end_vec - start_vec) / delta) + 1)]
