@@ -11,8 +11,9 @@ import sys
 import pytz
 from post_processing_detections.utilities.def_func import get_detection_files, extract_datetime, sorting_detections, t_rounder, get_timestamps
 
-#%% User inputs
+#%% User inputs 
 
+#Fonction à mettre dans def_func
 def input_date(msg, tz_data):
     # input : 
         # msg : Message to tell the user what date they have to enter (begin, end...)
