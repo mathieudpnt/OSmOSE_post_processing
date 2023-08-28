@@ -12,8 +12,8 @@ from post_processing_detections.utilities.def_func import get_detection_files, e
 
 #%% User inputs
 
-files_list = get_detection_files(2)
-df_detections, t_detections = sorting_detections(files_list)
+files_list = get_detection_files(1)
+df_detections, t_detections = sorting_detections(files_list,timebin_new=60)
 
 time_bin = list(set(t_detections['max_time']))
 fmax = list(set(t_detections['max_freq']))
@@ -24,8 +24,8 @@ tz_data = df_detections['start_datetime'][0].tz
 dt_mode = 'manual'
 
 if dt_mode == 'manual' :
-    begin_deploy = extract_datetime('335556632.220706235947.wav', tz_data)
-    end_deploy = extract_datetime('335556632.220707235938.wav', tz_data)
+    begin_deploy = extract_datetime('335556632.220706210000.wav', tz_data)
+    end_deploy = extract_datetime('335556632.220708040000.wav', tz_data)
 elif dt_mode == 'auto':
     timestamps_file = get_timestamps()
     wav_names = timestamps_file['filename']
@@ -109,7 +109,6 @@ file_ref = t_detections[t_detections['annotators'].apply(lambda x: annot_ref in 
 
 res_min = easygui.integerbox('Enter the bin size (min) ', 'Time resolution', default=10, lowerbound=1, upperbound=86400)
     
-# delta, start_vec, end_vec = dt.timedelta(seconds=60*res_min), t_rounder(extract_datetime(wav_names.iloc[0], tz_data),res = 600), t_rounder(extract_datetime(wav_names.iloc[-1], tz_data) + dt.timedelta(seconds=time_bin_ref),res = 600)
 delta, start_vec, end_vec = dt.timedelta(seconds=60*res_min), t_rounder(begin_deploy,res = 600), t_rounder(end_deploy + dt.timedelta(seconds=time_bin_ref),res = 600)
 
 time_vector = [start_vec + i * delta for i in range(int((end_vec - start_vec) / delta) + 1)]
@@ -160,11 +159,12 @@ elif len(annotators)==1:
 list_labels = t_detections[t_detections['annotators'].apply(lambda x: annot_ref in x)]['labels'].iloc[0]
 time_bin_ref = int(t_detections[t_detections['annotators'].apply(lambda x: annot_ref in x)]['max_time'].iloc[0])
 file_ref = t_detections[t_detections['annotators'].apply(lambda x: annot_ref in x)]['file'].iloc[0]
-if len(list_labels)>1:
+if isinstance(list_labels,str)==0:
     selected_labels = list_labels[0:3] #TODO : checkbox to select desired labels to plot ?
 
     res_min = easygui.integerbox('Enter the bin size (min) ', 'Time resolution', default=10, lowerbound=1, upperbound=86400)
-    delta, start_vec, end_vec = dt.timedelta(seconds=60*res_min), t_rounder(extract_datetime(wav_names[0], tz_data),res = 600), t_rounder(extract_datetime(wav_names.iloc[-1], tz_data) + dt.timedelta(seconds=time_bin_ref),res = 600)
+    delta, start_vec, end_vec = dt.timedelta(seconds=60*res_min), t_rounder(begin_deploy,res = 600), t_rounder(end_deploy + dt.timedelta(seconds=time_bin_ref),res = 600)
+
     time_vector = [start_vec + i * delta for i in range(int((end_vec - start_vec) / delta) + 1)]
     
     
@@ -200,7 +200,7 @@ if len(list_labels)>1:
     
     fig.suptitle('Annotator : {0}'.format(annot_ref), fontsize = 25, y=0.98, color='w', weight= 'bold')
 
-else: sys.exit('Not enough labels')
+else: sys.exit('Multilabel plot cancelled, annotator {0} only has one label : {1}'.format(annot_ref, list_labels))
 
 #%% Multi-user plot
 
@@ -208,27 +208,27 @@ if len(annotators)>2:
     annot_ref1 = easygui.buttonbox('Select annotator 1', 'Plot label', annotators)
     annot_ref2 = easygui.buttonbox('Select an annotator', 'Plot label', [elem for elem in annotators if elem != annot_ref1])
 elif len(annotators)<2:
-    sys.exit('Not enough annotators to make a comparison')
+    sys.exit('Multi-user plot cancelled, not enough annotators to make a comparison')
 
 else:
     annot_ref1 = annotators[0]
     annot_ref2 = annotators[1]
 
 list_labels = t_detections[t_detections['annotators'].apply(lambda x: annot_ref1 in x)]['labels'].iloc[0]
-if len(list_labels)>1:
+if isinstance(list_labels, str)==0:
     label_ref1 = easygui.buttonbox('Select a label for annotator 2 : {0}'.format(annot_ref1), 'Single plot', list_labels)
 else:
-    label_ref1 = list_labels[0]
+    label_ref1 = list_labels
     easygui.msgbox('Only one label available for annotator 2, {0} : {1}'.format(annot_ref2, list_labels[0]))
 list_labels = t_detections[t_detections['annotators'].apply(lambda x: annot_ref2 in x)]['labels'].iloc[0]
-if len(list_labels)>1:
+if isinstance(list_labels, str)==0:
     label_ref2 = easygui.buttonbox('Select a label for annotator 2 : {0}'.format(annot_ref2), 'Single plot', list_labels)
 else:
-    label_ref2 = list_labels[0]
-    easygui.msgbox('Only one label available for annotator 2, {0} : {1}'.format(annot_ref2, list_labels[0]))
+    label_ref2 = list_labels
+    easygui.msgbox('Only one label available for annotator 2, {0} : {1}'.format(annot_ref2, list_labels))
 
-time_bin_ref1 = int(t_detections[t_detections['annotators'].apply(lambda x: annot_ref1 in x)]['max_time'][0])
-time_bin_ref2 = int(t_detections[t_detections['annotators'].apply(lambda x: annot_ref2 in x)]['max_time'][0])
+time_bin_ref1 = int(t_detections[t_detections['annotators'].apply(lambda x: annot_ref1 in x)]['max_time'].iloc[0])
+time_bin_ref2 = int(t_detections[t_detections['annotators'].apply(lambda x: annot_ref2 in x)]['max_time'].iloc[0])
 if time_bin_ref1==time_bin_ref2:
     time_bin_ref = time_bin_ref1  
 else:
@@ -239,7 +239,7 @@ file_ref2 = t_detections[t_detections['annotators'].apply(lambda x: annot_ref2 i
 
 res_min = easygui.integerbox('Enter the bin size (min) ', 'Time resolution', default=10, lowerbound=1, upperbound=86400)
 
-delta, start_vec, end_vec = dt.timedelta(seconds=60*res_min), t_rounder(extract_datetime(wav_names.iloc[0], tz_data), res=600), t_rounder(extract_datetime(wav_names.iloc[-1], tz_data) + dt.timedelta(seconds=time_bin_ref), res=600)
+delta, start_vec, end_vec = dt.timedelta(seconds=60*res_min), t_rounder(begin_deploy,res = 600), t_rounder(end_deploy + dt.timedelta(seconds=time_bin_ref),res = 600)
 
 time_vector = [start_vec + i * delta for i in range(int((end_vec - start_vec) / delta) + 1)]
 
@@ -277,7 +277,13 @@ ax.spines['left'].set_color('w')
 
 # accord inter-annot
 list1 = list(sorting_detections(file_ref1, annotator = annot_ref1, label = label_ref1, timebin_new = time_bin_ref)[0]['filename'])
+list1 = list(sorting_detections(file_ref1, annotator = annot_ref1, label = label_ref1, timebin_new = time_bin_ref)[0]['start_datetime'])
 list2 = list(sorting_detections(file_ref2, annotator = annot_ref2, label = label_ref2, timebin_new = time_bin_ref)[0]['filename'])
+list2 = list(sorting_detections(file_ref2, annotator = annot_ref2, label = label_ref2, timebin_new = time_bin_ref)[0]['start_datetime'])
+
+test1 = sorting_detections(file_ref1, annotator = annot_ref1, label = label_ref1, timebin_new = time_bin_ref)[0]
+test2 = sorting_detections(file_ref2, annotator = annot_ref2, label = label_ref2, timebin_new = time_bin_ref)[0]
+
 unique_annotations = len([elem for elem in list1 if elem not in list2 ]) + len([elem for elem in list2 if elem not in list1 ])
 common_annotations = len([elem for elem in list1 if elem in list2 ])
 print('Pourcentage d\'accord entre [{0}/{1}] & [{2}/{3}] : {4:.0f}%'.format(annot_ref1, label_ref1, annot_ref2, label_ref2, 100*((common_annotations)/(unique_annotations + common_annotations))))

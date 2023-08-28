@@ -194,10 +194,13 @@ def sorting_detections(files: List[str], tz: pytz._FixedOffset = None, date_begi
     info, result_df = pd.DataFrame(), pd.DataFrame()
     for file in files:
         df = pd.read_csv(file)
+        
         max_freq = int(max(df['end_frequency']))
+
         if box is False:
             max_time = int(max(df['end_time']))
             df = df.loc[(df['start_time'] == 0) & (df['end_time'] == max_time) & (df['end_frequency'] == max_freq)]
+            
             if len(df) == 0:
                 if timebin_new is None :
                     df = reshape_timebin(file)
@@ -206,7 +209,14 @@ def sorting_detections(files: List[str], tz: pytz._FixedOffset = None, date_begi
                     df = reshape_timebin(file, timebin_new=timebin_new)
                     max_time = timebin_new
         else:
-            max_time = 0
+            max_time = int(max(df['end_time']))
+            
+        if timebin_new is not None :
+            df = reshape_timebin(file, timebin_new=timebin_new)
+            max_time = timebin_new
+
+
+
 
         df = df.sort_values('start_datetime')
         df['start_datetime'] = pd.to_datetime(df['start_datetime'], format='%Y-%m-%dT%H:%M:%S.%f%z')
