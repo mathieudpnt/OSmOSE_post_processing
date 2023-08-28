@@ -824,12 +824,17 @@ def get_tz(file):
         else:print('error tz')
 
 def input_date(msg, tz_data):
-    # input : 
-        # msg : Message to tell the user what date they have to enter (begin, end...)
-        # tz_data : UTC object of pytz module 
-    # output : 
-        # date_dt : aware dataframe of the date entered by the user
-        
+    """ Based on selection_type, ask the user a folder and yields all the wav files inside it or ask the user multiple wav files
+
+    Parameters :
+        msg : Message to tell the user what date they have to enter (begin, end...)
+        tz_data : UTC object of pytz module 
+
+    
+    Returns :
+        date_dt : aware dataframe of the date entered by the user
+
+    """    
     title = "Date"
     fieldNames = ["Year", "Month", "Day", "Hour", "Minute", "Second"]
     fieldValues = []  # we start with blanks for the values

@@ -10,11 +10,11 @@ from scipy import stats
 import sys
 import pytz
 from collections import OrderedDict
-from post_processing_detections.utilities.def_func import get_detection_files, extract_datetime, sorting_detections, t_rounder, get_timestamps
+from post_processing_detections.utilities.def_func import get_detection_files, extract_datetime, sorting_detections, t_rounder, get_timestamps, input_date
 
 #%% User inputs 
 
-files_list = get_detection_files(2)
+files_list = get_detection_files(1)
 df_detections, t_detections = sorting_detections(files_list,timebin_new=60)
 
 time_bin = list(set(t_detections['max_time']))
@@ -28,11 +28,12 @@ tz_data = df_detections['start_datetime'][0].tz
     # input : you will fill a dialog box with the start and end date of the Figure you want to make
     # auto : the script automatically extract the timestamp from the timestamp.csv file or from the wav files of the Figure you want to make
     # fixed : you directly fill the script lines 41 and 42 with the start and end date (or wav name) of the Figure you want to make 
-dt_mode = 'input'
+
+dt_mode = 'fixed'
 
 if dt_mode == 'fixed' :
     # if you work with wav names
-    begin_deploy = extract_datetime('335556632.220706210000.wav', tz_data)
+    begin_deploy = extract_datetime('335556632.220707000000.wav', tz_data)
     end_deploy = extract_datetime('335556632.220708040000.wav', tz_data)
     # or if you work with a fixed date
     # begin_deploy = dt.datetime(2011, 8, 15, 8, 15, 12, 0, tz_data)
@@ -161,7 +162,6 @@ fig.suptitle('annotateur : '+annot_ref +'\n'+ 'label : ' + label_ref, fontsize =
 ax.xaxis.set_major_locator(mdates.MonthLocator(interval=1))
 ax.xaxis.set_major_formatter(mdates.DateFormatter('%B', tz=tz_data))
 plt.xlim(time_vector[0], time_vector[-1])
-# plt.xlim(time_vector[0], dt.datetime.strptime('2022-07-07T22-00-00', '%Y-%m-%dT%H-%M-%S'))
 ax.grid(color='w', linestyle='--', linewidth=0.2, axis='both')
 
 
