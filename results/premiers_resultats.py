@@ -8,12 +8,40 @@ from collections import Counter
 import seaborn as sns
 from scipy import stats
 import sys
+import pytz
 from post_processing_detections.utilities.def_func import get_detection_files, extract_datetime, sorting_detections, t_rounder, get_timestamps
 
 #%% User inputs
 
+def input_date(msg, tz_data):
+    # input : 
+        # msg : Message to tell the user what date they have to enter (begin, end...)
+        # tz_data : UTC object of pytz module 
+    # output : 
+        # date_dt : aware dataframe of the date entered by the user
+        
+    title = "Date"
+    fieldNames = ["Year", "Month", "Day", "Hour", "Minute", "Second"]
+    fieldValues = []  # we start with blanks for the values
+    fieldValues = easygui.multenterbox(msg,title, fieldNames)
+    
+    # make sure that none of the fields was left blank
+    while 1:
+      if fieldValues == None: break
+      errmsg = ""
+      for i in range(len(fieldNames)):
+        if fieldValues[i].strip() == "":
+          errmsg = errmsg + ('"%s" is a required field.\n\n' % fieldNames[i])
+      if errmsg == "": break # no problems found
+      fieldValues = easygui.multpasswordbox(errmsg, title, fieldNames, fieldValues)
+    print("Reply was:", fieldValues) 
+    date_dt = dt.datetime(*map(int, fieldValues),0 ,tz_data)
+    
+    
+    return date_dt
+
 files_list = get_detection_files(1)
-df_detections, t_detections = sorting_detections(files_list,timebin_new=60)
+df_detections, t_detections = sorting_detections(files_list)
 
 time_bin = list(set(t_detections['max_time']))
 fmax = list(set(t_detections['max_freq']))
@@ -21,19 +49,31 @@ annotators = list(set(t_detections['annotators'].explode()))
 labels = list(set(t_detections['labels'].explode()))
 tz_data = df_detections['start_datetime'][0].tz
 
-dt_mode = 'manual'
 
-if dt_mode == 'manual' :
+# Chose your mode :
+    # input : you will fill a dialog box with the start and end date of the Figure you want to make
+    # auto : the script automatically extract the timestamp from the timestamp.csv file or from the wav files of the Figure you want to make
+    # fixed : you directly fill the script lines 41 and 42 with the start and end date (or wav name) of the Figure you want to make 
+dt_mode = 'input'
+
+if dt_mode == 'fixed' :
+    # if you work with wav names
     begin_deploy = extract_datetime('335556632.220706210000.wav', tz_data)
     end_deploy = extract_datetime('335556632.220708040000.wav', tz_data)
+    # or if you work with a fixed date
+    # begin_deploy = dt.datetime(2011, 8, 15, 8, 15, 12, 0, tz_data)
+    # end_deploy = dt.datetime(2011, 8, 15, 8, 15, 12, 0, tz_data)
 elif dt_mode == 'auto':
     timestamps_file = get_timestamps()
     wav_names = timestamps_file['filename']
     begin_deploy = extract_datetime(wav_names.iloc[0], tz_data)
     end_deploy = extract_datetime(wav_names.iloc[-1], tz_data)
-
-
-
+elif dt_mode == 'input' :
+    msg='Enter begin date of Figure'
+    begin_deploy=input_date(msg, tz_data)
+    msg='Enter end date of Figure'
+    end_deploy=input_date(msg, tz_data)
+    
 print("\ntime_bin : ", str(time_bin), "s", end='')
 print("\nfmax : ", str(fmax), "Hz", end='')
 print('\nannotators :',str(annotators), end='')
@@ -97,7 +137,6 @@ ax2.set_title('Number of annotations per annotator', color='w', fontdict=title_f
 
 
 #%% Single plot 
-#%TODO date spécifié par utilisateur, de miniut à minuit
 
 annot_ref = easygui.buttonbox('Select an annotator', 'Single plot', annotators) if len(annotators)>1 else annotators[0]
 list_labels = t_detections[t_detections['annotators'].apply(lambda x: annot_ref in x)]['labels'].iloc[0]
@@ -115,7 +154,8 @@ time_vector = [start_vec + i * delta for i in range(int((end_vec - start_vec) / 
 
 n_annot_max = (res_min*60)/time_bin_ref #max nb of annoted time_bin max per res_min slice
 
-df_1annot_1label, _  = sorting_detections(file_ref, annotator = annot_ref, label = label_ref, timebin_new = time_bin_ref)
+# df_1annot_1label, _  = sorting_detections(file_ref, annotator = annot_ref, label = label_ref, timebin_new = time_bin_ref)
+df_1annot_1label, _  = sorting_detections(file_ref, annotator = annot_ref, label = label_ref)
 
 fig,ax = plt.subplots(figsize=(20,9), facecolor='#36454F')
 ax.hist(df_1annot_1label['start_datetime'], bins=time_vector, color='crimson', edgecolor='black', linewidth=1)
@@ -123,12 +163,15 @@ ax.hist(df_1annot_1label['start_datetime'], bins=time_vector, color='crimson', e
 #facecolor
 ax.set_facecolor('#36454F')
 
-ax.tick_params(axis='y', colors='w', rotation=0,  labelsize=20)
-ax.tick_params(axis='x', colors='w', rotation=60, labelsize=15)
+# ax.tick_params(axis='y', colors='w', rotation=0,  labelsize=20)
+# ax.tick_params(axis='x', colors='w', rotation=60, labelsize=15)
 
 bars = range(0,110,10) #from 0 to 100 step 10
 y_pos = np.linspace(0,n_annot_max, num=len(bars))
-ax.set_yticks(y_pos, bars)
+# Ask the user if they want to visualize the Figure in % or in raw values
+choice_percentage = easygui.buttonbox(msg='Do you want your results plot in % or in raw values ?', choices =('Percentage', 'Raw values'))
+if choice_percentage == 'Percentage' :
+    ax.set_yticks(y_pos, bars)
 
 ax.set_ylabel('positive detection rate\n({0} min)'.format(res_min), fontsize = 20, color='w')
 
@@ -141,8 +184,8 @@ ax.spines['left'].set_color('w')
 #titles
 fig.suptitle('annotateur : '+annot_ref +'\n'+ 'label : ' + label_ref, fontsize = 24, y=0.98, color='w')
  
-ax.xaxis.set_major_locator(mdates.HourLocator(interval=1))
-ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M', tz=tz_data))
+ax.xaxis.set_major_locator(mdates.MonthLocator(interval=1))
+ax.xaxis.set_major_formatter(mdates.DateFormatter('%B', tz=tz_data))
 plt.xlim(time_vector[0], time_vector[-1])
 # plt.xlim(time_vector[0], dt.datetime.strptime('2022-07-07T22-00-00', '%Y-%m-%dT%H-%M-%S'))
 ax.grid(color='w', linestyle='--', linewidth=0.2, axis='both')
