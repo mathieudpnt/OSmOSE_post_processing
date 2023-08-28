@@ -1,6 +1,6 @@
 import numpy as np
 import easygui
-from post_processing_detections.utilities.def_func import get_detection_files, extract_datetime, sorting_detections, get_timestamps
+from post_processing_detections.utilities.def_func import get_detection_files, extract_datetime, sorting_detections, get_timestamps, get_tz
 import pytz
 import pandas as pd
 #%% LOAD DATA - User inputs
@@ -11,8 +11,7 @@ choice_ref = easygui.buttonbox('Select the reference', '{0}'.format(files_list[0
 if files_list[0].split('/')[-1] != choice_ref:
     files_list[0],  files_list[1] = files_list[1],  files_list[0] 
 
-timestamps_file = get_timestamps(tz='Etc/GMT-2')
-
+timestamps_file = get_timestamps(tz=get_tz(files_list), f_type='file', ext= 'wav')
 
 df_detections, t_detections = sorting_detections(files=files_list)
 timebin_detections = int(list(set(t_detections['max_time']))[0])
@@ -21,7 +20,7 @@ annotators_detections = list(set(t_detections['annotators'].explode()))
 
 # first_date = df_detections['start_datetime'][0] #1st detection
 # last_date = df_detections['start_datetime'].iloc[-1] #last detection
-first_date = pd.Timestamp('2022-07-07 21:00:00+0200', tz=pytz.FixedOffset(120))
+first_date = pd.Timestamp('2022-07-07 00:00:00+0200', tz=pytz.FixedOffset(120))
 last_date = pd.Timestamp('2022-07-07 23:59:00+0200', tz=pytz.FixedOffset(120))
 
 tz_data = timestamps_file['timestamp'][0].tz
