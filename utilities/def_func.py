@@ -823,7 +823,32 @@ def get_tz(file):
             print('More than one timezone present in file')
         else:print('error tz')
 
-
+def input_date(msg, tz_data):
+    # input : 
+        # msg : Message to tell the user what date they have to enter (begin, end...)
+        # tz_data : UTC object of pytz module 
+    # output : 
+        # date_dt : aware dataframe of the date entered by the user
+        
+    title = "Date"
+    fieldNames = ["Year", "Month", "Day", "Hour", "Minute", "Second"]
+    fieldValues = []  # we start with blanks for the values
+    fieldValues = easygui.multenterbox(msg,title, fieldNames)
+    
+    # make sure that none of the fields was left blank
+    while 1:
+      if fieldValues == None: break
+      errmsg = ""
+      for i in range(len(fieldNames)):
+        if fieldValues[i].strip() == "":
+          errmsg = errmsg + ('"%s" is a required field.\n\n' % fieldNames[i])
+      if errmsg == "": break # no problems found
+      fieldValues = easygui.multpasswordbox(errmsg, title, fieldNames, fieldValues)
+    print("Reply was:", fieldValues) 
+    date_dt = dt.datetime(*map(int, fieldValues),0 ,tz_data)
+    
+    
+    return date_dt
 
 
 
