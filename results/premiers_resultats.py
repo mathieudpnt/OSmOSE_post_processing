@@ -119,14 +119,25 @@ label_ref = easygui.buttonbox('Select an annotator', 'Single plot', list_labels)
 time_bin_ref = int(t_detections[t_detections['annotators'].apply(lambda x: annot_ref in x)]['max_time'].iloc[0])
 file_ref = t_detections[t_detections['annotators'].apply(lambda x: annot_ref in x)]['file'].iloc[0]
 
+# Ask user if their resolution_bin is in minutes or in months
+resolution_bin = easygui.buttonbox(msg='Do you want to chose your resolution bin in minutes or in month ?', choices =('Minutes', 'Months'))
+if resolution_bin == 'Minutes' :
+    
+    res_min = easygui.integerbox('Enter the bin size (min) (e.g. 1 day = 1440 minutes)', 'Time resolution', default=10, lowerbound=1, upperbound=86400)
+    n_annot_max = (res_min*60)/time_bin_ref #max nb of annoted time_bin max per res_min slice
+    
+    # Est-ce que c'est utile de garder start_vec et end_vec sachant qu'ils sont égaux à begin_deploy et end_deploy non ?
+    delta, start_vec, end_vec = dt.timedelta(seconds=60*res_min), t_rounder(begin_deploy,res = 600), t_rounder(end_deploy + dt.timedelta(seconds=time_bin_ref),res = 600)
 
-res_min = easygui.integerbox('Enter the bin size (min) ', 'Time resolution', default=10, lowerbound=1, upperbound=86400)
-# Est-ce que c'est utile de garder start_vec et end_vec sachant qu'ils sont égaux à begin_deploy et end_deploy non ?
-delta, start_vec, end_vec = dt.timedelta(seconds=60*res_min), t_rounder(begin_deploy,res = 600), t_rounder(end_deploy + dt.timedelta(seconds=time_bin_ref),res = 600)
+    time_vector = [start_vec + i * delta for i in range(int((end_vec - start_vec) / delta) + 1)]
+    y_label_txt = 'Number of detections\n({0} min)'.format(res_min)
+else :
+    # Compute the time_vector for a monthly resolution
+    time_vector_ts = pd.date_range(begin_deploy,end_deploy, freq='MS', tz=tz_data)
+    time_vector = [timestamp.date() for timestamp in time_vector_ts ]
+    n_annot_max = (31*24*60*60)/time_bin_ref
+    y_label_txt = 'Number of detections per month'
 
-time_vector = [start_vec + i * delta for i in range(int((end_vec - start_vec) / delta) + 1)]
-
-n_annot_max = (res_min*60)/time_bin_ref #max nb of annoted time_bin max per res_min slice
 
 # df_1annot_1label, _  = sorting_detections(file_ref, annotator = annot_ref, label = label_ref, timebin_new = time_bin_ref)
 df_1annot_1label, _  = sorting_detections(file_ref, annotator = annot_ref, label = label_ref)
@@ -141,13 +152,17 @@ ax.set_facecolor('#36454F')
 # ax.tick_params(axis='x', colors='w', rotation=60, labelsize=15)
 
 bars = range(0,110,10) #from 0 to 100 step 10
+#Du coup c'est pas totalement exact par ce que j'ai calculé qu'un seul n_annot_max alors qu'en vrai il est différent chaque mois vu que tous les mois n'ont pas la même durée...
 y_pos = np.linspace(0,n_annot_max, num=len(bars))
+ax.set_ylabel(y_label_txt, fontsize = 20, color='w')
 # Ask the user if they want to visualize the Figure in % or in raw values
 choice_percentage = easygui.buttonbox(msg='Do you want your results plot in % or in raw values ?', choices =('Percentage', 'Raw values'))
 if choice_percentage == 'Percentage' :
     ax.set_yticks(y_pos, bars)
-
-ax.set_ylabel('positive detection rate\n({0} min)'.format(res_min), fontsize = 20, color='w')
+    if resolution_bin=='Minutes' :
+        ax.set_ylabel('Detection rate % \n({0} min)'.format(res_min), fontsize = 20, color='w')
+    else :
+        ax.set_ylabel('Detection rate % per month', fontsize = 20, color='w')
 
 #spines
 ax.spines['right'].set_color('w')
