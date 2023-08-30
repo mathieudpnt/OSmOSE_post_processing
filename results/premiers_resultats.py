@@ -17,7 +17,6 @@ from post_processing_detections.utilities.def_func import get_detection_files, e
 #%% User inputs 
 
 files_list = get_detection_files(1)
-#df_detections, t_detections = sorting_detections(files_list,timebin_new=60)
 df_detections, t_detections = sorting_detections(files_list)
 
 time_bin = list(set(t_detections['max_time']))

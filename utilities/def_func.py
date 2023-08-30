@@ -18,7 +18,7 @@ import easygui
 import glob
 from typing import Union
 import sys
-
+import bisect
 
 def get_detection_files(num_files: int) -> List[str]:
     """Opens a file dialog multiple times to get X APLOSE formatted detection files.
@@ -179,12 +179,14 @@ def reshape_timebin(detections_file: str, timebin_new:int=None) -> pd.DataFrame:
             tz = df_detect_prov['start_datetime'][0].tz
             ts_filenames = [extract_datetime(filename, tz=tz).timestamp()for filename in filenames]
             
-            import bisect
-
             filename_vector = []
             for ts in time_vector:
                 index = bisect.bisect_left(ts_filenames, ts)
-                if index > 0:
+                if index == 0:
+                    filename_vector.append(filenames[index])
+                elif index == len(ts_filenames):
+                    filename_vector.append(filenames[index - 1])
+                else:
                     filename_vector.append(filenames[index - 1])
             
             
@@ -357,7 +359,7 @@ def extract_datetime(var:str, tz:pytz._FixedOffset, formats=None) -> Union[dt.da
             dt_format = '%Y-%m-%d %H:%M:%S'
         date_obj = dt.datetime.strptime(dt_string, dt_format)
         
-        if type(tz) is pytz._FixedOffset: date_obj = tz.localize(date_obj)
+        if type(tz) is pytz._FixedOffset or tz is pytz.UTC : date_obj = tz.localize(date_obj)
         else: date_obj = pytz.timezone(tz).localize(date_obj)  
         
         return date_obj
