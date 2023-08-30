@@ -9,13 +9,15 @@ import seaborn as sns
 from scipy import stats
 import sys
 import pytz
+from astral.sun import sun
+import astral
 from collections import OrderedDict
 from post_processing_detections.utilities.def_func import get_detection_files, extract_datetime, sorting_detections, t_rounder, get_timestamps, input_date
 
 #%% User inputs 
 
 files_list = get_detection_files(1)
-df_detections, t_detections = sorting_detections(files_list,timebin_new=60)
+#df_detections, t_detections = sorting_detections(files_list,timebin_new=60)
 df_detections, t_detections = sorting_detections(files_list)
 
 time_bin = list(set(t_detections['max_time']))
@@ -30,7 +32,7 @@ tz_data = df_detections['start_datetime'][0].tz
     # auto : the script automatically extract the timestamp from the timestamp.csv file or from the wav files of the Figure you want to make
     # fixed : you directly fill the script lines 41 and 42 with the start and end date (or wav name) of the Figure you want to make 
 
-dt_mode = 'fixed'
+dt_mode = 'input'
 
 if dt_mode == 'fixed' :
     # if you work with wav names
@@ -179,6 +181,72 @@ ax.xaxis.set_major_locator(mdates.MonthLocator(interval=1))
 ax.xaxis.set_major_formatter(mdates.DateFormatter('%B', tz=tz_data))
 plt.xlim(time_vector[0], time_vector[-1])
 ax.grid(color='w', linestyle='--', linewidth=0.2, axis='both')
+
+#%% Single diel pattern plot 
+
+def suntime_hour(date_beg, date_end, timeZ, lat,lon,tz):
+    # Infos sur la localisation
+    gps = astral.LocationInfo( timezone=timeZ,latitude=lat, longitude=lon)
+    # List of days during when the data were recorded
+    list_time = pd.date_range(date_beg, date_end)
+    h_sunrise = []
+    h_sunset = []
+    # For each day : find time of sunset, sun rise, begin dawn and dusk
+    for day in list_time:
+        suntime = sun(gps.observer,date=day, dawn_dusk_depression = astral.Depression)
+        
+        dawn_dt=(suntime['dawn'])
+        
+        dusk_dt=(suntime['dusk'])
+        
+        day_dt=(suntime['sunrise'])
+        
+        night_dt=(suntime['sunset'])
+        
+        day_hour = tz+day_dt.hour+day_dt.minute/60
+        night_hour = tz+night_dt.hour+night_dt.minute/60
+        h_sunrise.append(day_hour)
+        h_sunset.append(night_hour)
+        hour_sunrise = h_sunrise[0:len(h_sunrise)-1]
+        hour_sunset = h_sunset[0:len(h_sunset)-1]
+    return hour_sunrise, hour_sunset
+
+
+date_beg = begin_deploy.strftime('%Y-%m-%d')
+date_end = end_deploy.strftime('%Y-%m-%d')
+
+x_data = np.arange(date_beg,date_end,dtype="M8[D]")
+
+
+t_detections_dt = [x.to_pydatetime() for x in df_detections['start_datetime']]
+
+Day_det = t_detections_dt
+Hour_det = [x.hour + x.minute/60 for x in t_detections_dt] 
+
+#x_data = [dt.datetime.strptime(np.array2string(x_data[i]), "'%Y-%m-%d'") for i in range(0,len(x_data))]
+
+timeZ = tz_data#'UTC'
+# A MODIFIER : décalage horaire entre UTC et heure locale
+tz = 0
+# A MODIFIER : coordonnées géographiques
+lat = "48°31′N"
+lon = "5°7'W"
+# A MODIFIER : nom du jeu de données
+dataset_name = 'CETIROISE_POINT_A'
+# Nautical dawn and dusk start when the sun is 12° below the horizon
+astral.Depression = 12
+# Calcul des heures de lever et coucher du soleil à la position du jeu de données
+[hour_sunrise, hour_sunset] = suntime_hour(date_beg, date_end, timeZ, lat,lon,tz)
+
+# Plot figure
+fig, ax = plt.subplots(figsize=(20,10))
+plt.plot(x_data,hour_sunrise, color='k')
+plt.plot(x_data,hour_sunset, color='k')
+plt.scatter(Day_det,Hour_det)
+locator = mdates.DayLocator(interval=7)
+ax.xaxis.set_major_locator(locator)
+ax.xaxis.set_major_formatter(mdates.DateFormatter('%D'))
+ax.grid(color='k', linestyle='-', linewidth=0.2)
 
 
 #%% Multilabel plot
