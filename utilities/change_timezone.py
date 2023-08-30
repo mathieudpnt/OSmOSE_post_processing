@@ -12,44 +12,30 @@ Convert time zone of the detections contained in an APLOSE format csv to UTC
    Returns :
        csv file containing the detections in the new time zone format
 """
-import datetime as dt
-import pandas as pd
-import numpy as np
-import easygui
-import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
-from collections import Counter
-import seaborn as sns
-from scipy import stats
-import sys
-import pytz
-from collections import OrderedDict
-from post_processing_detections.utilities.def_func import get_detection_files, extract_datetime, sorting_detections, t_rounder, get_timestamps, input_date
 
+import pandas as pd
+import pytz
+from post_processing_detections.utilities.def_func import get_detection_files
+
+# Read csv file
 detection_file = get_detection_files(1)
 df = pd.read_csv(detection_file[0])
-
+# Read start and end time of each detection
 start_dt = pd.to_datetime(df['start_datetime'], format='%Y-%m-%dT%H:%M:%S.%f%z').tolist()
 end_dt = pd.to_datetime(df['end_datetime'], format='%Y-%m-%dT%H:%M:%S.%f%z').tolist()
 
-
+# Convert timezone to UTC and rewrite time to good timeformat
 start_dt_utc = [s.tz_convert(pytz.utc) for s in start_dt]
 start_dt_utc_str = [s.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3]+s.strftime('%z')[:-2]+':00' for s in start_dt_utc]
 
 end_dt_utc = [s.tz_convert(pytz.utc) for s in end_dt]
 end_dt_utc_str = [s.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3]+s.strftime('%z')[:-2]+':00' for s in end_dt_utc]
+# Replace new start and end time in the Dataframe
+df['start_datetime']=start_dt_utc_str
+df['end_datetime']=end_dt_utc_str
 
+# Write the new UTC dataframe in csv
 
-# end_dt = df['end_datetime']
-# b=end_dt[0]
-# b_dt = dt.datetime.strptime(b, '%Y-%m-%dT%H:%M:%S.%f%z')
-# #b_dt_utc = b.replace(tzinfo=pytz.utc)
-# utc = pytz.timezone('UTC')
-# b_dt_utc = utc.localize(b_dt)
-# c=b_dt.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3]+b_dt.strftime('%z')[:-2]+':00'
-
-#df_detections, t_detections = sorting_detections(detection_file)
-
-
-
+new_filename = detection_file[0][:-4] +'_UTC.csv'
+df.to_csv(new_filename, index=None)
 
