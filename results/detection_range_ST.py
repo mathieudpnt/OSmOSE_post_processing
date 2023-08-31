@@ -12,9 +12,7 @@ import json
 
 #%% Load data
 list_json = glob.glob(os.path.join('L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO', "**/metadata.json"), recursive=True)\
-            + glob.glob(os.path.join('L:/acoustock2/Bioacoustique/APOCADO2', "**/metadata.json"), recursive=True)\
-               # +glob.glob(os.path.join('D:/', "**/metadata.json"), recursive=True)
-
+            + glob.glob(os.path.join('L:/acoustock2/Bioacoustique/APOCADO2', "**/metadata.json"), recursive=True)
 
 data=[]
 for i in range(len(list_json)):

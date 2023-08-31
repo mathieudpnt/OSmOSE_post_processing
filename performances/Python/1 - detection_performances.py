@@ -1,3 +1,8 @@
+# This script is used in order to compute the detection performances of a detection file
+# the computed metrics are so far precision and recall
+# it takes as an input 2 APLOSE formatted detection/annotation files
+# the user has to select one of the 2 files as the reference/"ground truth" to calcultate the performance of the second file
+
 import numpy as np
 import easygui
 from post_processing_detections.utilities.def_func import get_detection_files, extract_datetime, sorting_detections, get_timestamps, get_tz
