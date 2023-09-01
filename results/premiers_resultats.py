@@ -218,19 +218,18 @@ def suntime_hour(begin_deploy, end_deploy, timeZ, lat,lon):
     """    
     # Infos sur la localisation
     gps = astral.LocationInfo( timezone=timeZ,latitude=lat, longitude=lon)
-    print(gps)
     # List of days during when the data were recorded
     list_time = pd.date_range(begin_deploy, end_deploy)
     h_sunrise = []
     h_sunset = []
     # For each day : find time of sunset, sun rise, begin dawn and dusk
     for day in list_time:
-        print(day)
-        suntime = sun(gps.observer,date=day, dawn_dusk_depression = astral.Depression)
+
+        # suntime = sun(gps.observer,date=day, dawn_dusk_depression = astral.Depression)
+        suntime = sun(gps.observer,date=day)
+        #dawn_dt=(suntime['dawn'])
         
-        dawn_dt=(suntime['dawn'])
-        
-        dusk_dt=(suntime['dusk'])
+        #dusk_dt=(suntime['dusk'])
         
         day_dt=(suntime['sunrise'])
         
@@ -258,7 +257,7 @@ Hour_det = [x.hour + x.minute/60 for x in t_detections_dt]
 
 
 # We define nautical dawn and dusk start when the sun is 12° below the horizon
-astral.Depression = 12
+# astral.Depression = 12
 # Calcul des heures de lever et coucher du soleil à la position du jeu de données
 [hour_sunrise, hour_sunset] = suntime_hour(begin_deploy, end_deploy, tz_data, lat,lon)
 
