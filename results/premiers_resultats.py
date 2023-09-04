@@ -183,27 +183,6 @@ ax.grid(color='w', linestyle='--', linewidth=0.2, axis='both')
 
 #%% Single diel pattern plot 
 
-# User input : gps coordinates in Decimal Degrees
-title = "Coordinates en degree° minute' "
-msg="Latitudes (N/S) then longitudes (E/W)"
-fieldNames = ["Lat Decimal Degree", "Lon Decimal Degree "]
-fieldValues = []  # we start with blanks for the values
-fieldValues = easygui.multenterbox(msg,title, fieldNames)
-
-# make sure that none of the fields was left blank
-while 1:
-  if fieldValues == None: break
-  errmsg = ""
-  for i in range(len(fieldNames)):
-    if fieldValues[i].strip() == "":
-      errmsg = errmsg + ('"%s" is a required field.\n\n' % fieldNames[i])
-  if errmsg == "": break # no problems found
-  fieldValues = easygui.multpasswordbox(errmsg, title, fieldNames, fieldValues)
-print("Reply was:", fieldValues) 
-
-lat = fieldValues[0] 
-lon = fieldValues[1] 
-
 def suntime_hour(begin_deploy, end_deploy, timeZ, lat,lon):
     """ Fetch sunrise and sunset hours for dates between date_beg and date_end
     Parameters :
@@ -222,11 +201,14 @@ def suntime_hour(begin_deploy, end_deploy, timeZ, lat,lon):
     list_time = pd.date_range(begin_deploy, end_deploy)
     h_sunrise = []
     h_sunset = []
+    dt_dusk = []
+    dt_dawn = []
+    astral.Depression = 12 # nautical twilight see def here : https://www.timeanddate.com/astronomy/nautical-twilight.html
     # For each day : find time of sunset, sun rise, begin dawn and dusk
     for day in list_time:
 
-        # suntime = sun(gps.observer,date=day, dawn_dusk_depression = astral.Depression)
-        suntime = sun(gps.observer,date=day)
+        suntime = sun(gps.observer,date=day, dawn_dusk_depression = astral.Depression)
+        # suntime = sun(gps.observer,date=day)
         dawn_dt=(suntime['dawn'])
         
         dusk_dt=(suntime['dusk'])
@@ -239,11 +221,34 @@ def suntime_hour(begin_deploy, end_deploy, timeZ, lat,lon):
         night_hour = night_dt.hour+night_dt.minute/60
         h_sunrise.append(day_hour)
         h_sunset.append(night_hour)
-        hour_sunrise = h_sunrise[0:len(h_sunrise)-1]
-        hour_sunset = h_sunset[0:len(h_sunset)-1]
-    return hour_sunrise, hour_sunset
+        dt_dusk.append(dusk_dt)
+        dt_dawn.append(dawn_dt)
+    return hour_sunrise, hour_sunset, dt_dusk, dt_dawn
 
-[hour_sunrise, hour_sunset] = suntime_hour(begin_deploy, end_deploy, tz_data, lat,lon)
+
+# User input : gps coordinates in Decimal Degrees
+title = "Coordinates en degree° minute' "
+msg="Latitudes (N/S) and longitudes (E/W)"
+fieldNames = ["Lat Decimal Degree", "Lon Decimal Degree "]
+fieldValues = []  # we start with blanks for the values
+fieldValues = easygui.multenterbox(msg,title, fieldNames)
+
+# make sure that none of the fields was left blank
+while 1:
+  if fieldValues == None: break
+  errmsg = ""
+  for i in range(len(fieldNames)):
+    if fieldValues[i].strip() == "":
+      errmsg = errmsg + ('"%s" is a required field.\n\n' % fieldNames[i])
+  if errmsg == "": break # no problems found
+  fieldValues = easygui.multpasswordbox(errmsg, title, fieldNames, fieldValues)
+print("Reply was:", fieldValues) 
+
+lat = fieldValues[0] 
+lon = fieldValues[1] 
+# Compute sunrise and sunet decimal hour at the dataset location
+[hour_sunrise, hour_sunset, _, _] = suntime_hour(begin_deploy, end_deploy, tz_data, lat,lon)
+[hour_sunrise, hour_sunset, a, b] = suntime_hour(begin_deploy, end_deploy, tz_data, lat,lon)
 
 date_beg = begin_deploy.strftime('%Y-%m-%d')
 date_end = end_deploy.strftime('%Y-%m-%d')
@@ -257,9 +262,6 @@ Day_det = t_detections_dt
 Hour_det = [x.hour + x.minute/60 for x in t_detections_dt] 
 
 
-# We define nautical dawn and dusk start when the sun is 12° below the horizon
-# astral.Depression = 12
-# Calcul des heures de lever et coucher du soleil à la position du jeu de données
 
 # Plot figure
 fig, ax = plt.subplots(figsize=(20,10))
