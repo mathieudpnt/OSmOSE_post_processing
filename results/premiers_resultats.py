@@ -183,10 +183,53 @@ ax.grid(color='w', linestyle='--', linewidth=0.2, axis='both')
 
 #%% Single diel pattern plot 
 
-# User input : gps coordinates
+def suntime_hour(begin_deploy, end_deploy, timeZ, lat,lon):
+    """ Fetch sunrise and sunset hours for dates between date_beg and date_end
+    Parameters :
+        date_beg : str Date in format 'YYYY-mm-dd'. Start date of when to fetch sun hour
+        date_end : str Date in format 'YYYY-mm-dd'. End date of when to fetch sun hour
+        timeZ : tz_data, FixedOffset object of pytz module
+        lat : str latitude in Decimal Degrees
+        lon : str longitude in Decimal Degrees
+    Returns :
+        hour_sunrise : list of float with sunrise decimal hours for each day between date_beg and date_end 
+        hour_sunset : list of float with sunset decimal hours for each day between date_beg and date_end 
+    """    
+    # Infos sur la localisation
+    gps = astral.LocationInfo( timezone=timeZ,latitude=lat, longitude=lon)
+    # List of days during when the data were recorded
+    list_time = pd.date_range(begin_deploy, end_deploy)
+    h_sunrise = []
+    h_sunset = []
+    dt_dusk = []
+    dt_dawn = []
+    astral.Depression = 12 # nautical twilight see def here : https://www.timeanddate.com/astronomy/nautical-twilight.html
+    # For each day : find time of sunset, sun rise, begin dawn and dusk
+    for day in list_time:
+
+        suntime = sun(gps.observer,date=day, dawn_dusk_depression = astral.Depression)
+        # suntime = sun(gps.observer,date=day)
+        dawn_dt=(suntime['dawn'])
+        
+        dusk_dt=(suntime['dusk'])
+        
+        day_dt=(suntime['sunrise'])
+        
+        night_dt=(suntime['sunset'])
+        
+        day_hour = day_dt.hour+day_dt.minute/60
+        night_hour = night_dt.hour+night_dt.minute/60
+        h_sunrise.append(day_hour)
+        h_sunset.append(night_hour)
+        dt_dusk.append(dusk_dt)
+        dt_dawn.append(dawn_dt)
+    return hour_sunrise, hour_sunset, dt_dusk, dt_dawn
+
+
+# User input : gps coordinates in Decimal Degrees
 title = "Coordinates en degree° minute' "
-msg="Latitudes (N/S) then longitudes (E/W)"
-fieldNames = ["Lat Degree ", "Lat Minute (')", "N or S", "Lon Degree ", "Lon Minute (')", "E or W"]
+msg="Latitudes (N/S) and longitudes (E/W)"
+fieldNames = ["Lat Decimal Degree", "Lon Decimal Degree "]
 fieldValues = []  # we start with blanks for the values
 fieldValues = easygui.multenterbox(msg,title, fieldNames)
 
@@ -200,49 +243,12 @@ while 1:
   if errmsg == "": break # no problems found
   fieldValues = easygui.multpasswordbox(errmsg, title, fieldNames, fieldValues)
 print("Reply was:", fieldValues) 
-lat = fieldValues[0] + '°' + fieldValues[1] + "'" + fieldValues[2] + '"'
-lon = fieldValues[3] + '°' + fieldValues[4] + "'" + fieldValues[5] + '"'
 
-
-def suntime_hour(begin_deploy, end_deploy, timeZ, lat,lon):
-    """ Fetch sunrise and sunset hours for dates between date_beg and date_end
-    Parameters :
-        date_beg : str Date in format 'YYYY-mm-dd'. Start date of when to fetch sun hour
-        date_end : str Date in format 'YYYY-mm-dd'. End date of when to fetch sun hour
-        timeZ : tz_data, FixedOffset object of pytz module
-        lat : str latitude in format DD°mm'N/S"
-        lon : str longitude in format DD°mm'E/W"
-    Returns :
-        hour_sunrise : list of float with sunrise decimal hours for each day between date_beg and date_end 
-        hour_sunset : list of float with sunset decimal hours for each day between date_beg and date_end 
-    """    
-    # Infos sur la localisation
-    gps = astral.LocationInfo( timezone=timeZ,latitude=lat, longitude=lon)
-    # List of days during when the data were recorded
-    list_time = pd.date_range(begin_deploy, end_deploy)
-    h_sunrise = []
-    h_sunset = []
-    # For each day : find time of sunset, sun rise, begin dawn and dusk
-    for day in list_time:
-
-        # suntime = sun(gps.observer,date=day, dawn_dusk_depression = astral.Depression)
-        suntime = sun(gps.observer,date=day)
-        #dawn_dt=(suntime['dawn'])
-        
-        #dusk_dt=(suntime['dusk'])
-        
-        day_dt=(suntime['sunrise'])
-        
-        night_dt=(suntime['sunset'])
-        
-        day_hour = day_dt.hour+day_dt.minute/60
-        night_hour = night_dt.hour+night_dt.minute/60
-        h_sunrise.append(day_hour)
-        h_sunset.append(night_hour)
-        hour_sunrise = h_sunrise[0:len(h_sunrise)-1]
-        hour_sunset = h_sunset[0:len(h_sunset)-1]
-    return hour_sunrise, hour_sunset
-
+lat = fieldValues[0] 
+lon = fieldValues[1] 
+# Compute sunrise and sunet decimal hour at the dataset location
+[hour_sunrise, hour_sunset, _, _] = suntime_hour(begin_deploy, end_deploy, tz_data, lat,lon)
+[hour_sunrise, hour_sunset, a, b] = suntime_hour(begin_deploy, end_deploy, tz_data, lat,lon)
 
 date_beg = begin_deploy.strftime('%Y-%m-%d')
 date_end = end_deploy.strftime('%Y-%m-%d')
@@ -256,10 +262,6 @@ Day_det = t_detections_dt
 Hour_det = [x.hour + x.minute/60 for x in t_detections_dt] 
 
 
-# We define nautical dawn and dusk start when the sun is 12° below the horizon
-# astral.Depression = 12
-# Calcul des heures de lever et coucher du soleil à la position du jeu de données
-[hour_sunrise, hour_sunset] = suntime_hour(begin_deploy, end_deploy, tz_data, lat,lon)
 
 # Plot figure
 fig, ax = plt.subplots(figsize=(20,10))
