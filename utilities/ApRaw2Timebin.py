@@ -1,13 +1,14 @@
 import os
+from tqdm import tqdm
 from post_processing_detections.utilities.def_func import get_detection_files, sorting_detections, t_rounder, get_timestamps, get_tz
 
 #%% LOAD DATA - User inputs
 
-files_list = get_detection_files(1)
-timestamps_file = get_timestamps(tz=get_tz(files_list), f_type='file', ext= 'wav')
+files_list = get_detection_files(3)
+timestamps_file = get_timestamps(tz=get_tz(files_list[0]), f_type='dir', ext= 'wav', n_dir=2)
 wav_names = timestamps_file['filename']
 wav_datetimes = timestamps_file['timestamp']
-df_detections, t_detections = sorting_detections(files_list)
+df_detections, t_detections = sorting_detections(files_list, timebin_new=10)
 timebin = int(t_detections['max_time'][0])
 
 ## EXPORT RESHAPPED DETECTIONS
@@ -15,7 +16,8 @@ timebin = int(t_detections['max_time'][0])
 # APLOSE FORMAT
 dataset_str = list(set(df_detections['dataset']))
 PG2Ap_str = "/PG_formatteddata_" + t_rounder(timestamps_file['timestamp'][0], res=600).strftime('%y%m%d') + '_' + t_rounder(timestamps_file['timestamp'].iloc[-1], res=600).strftime('%y%m%d') +'_'+ str(t_detections['max_time'][0]) + 's'+ '.csv'
-
+df_detections['start_datetime'] = [i.strftime('%Y-%m-%dT%H:%M:%S')+ '.'+ i.strftime('%f')[:3]+ i.strftime('%z')[:3] + i.strftime('%z')[3:] for i in df_detections['start_datetime']]
+df_detections['end_datetime'] = [i.strftime('%Y-%m-%dT%H:%M:%S')+ '.'+ i.strftime('%f')[:3]+ i.strftime('%z')[:3] + i.strftime('%z')[3:] for i in df_detections['end_datetime']]
 df_detections.to_csv(os.path.dirname(files_list[0]) + PG2Ap_str, index=False)  
 print('\n\nAplose formatted data file exported to '+ os.path.dirname(files_list[0]))
 
