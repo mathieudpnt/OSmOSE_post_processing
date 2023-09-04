@@ -716,7 +716,8 @@ def get_timestamps(tz:str=None, f_type:str=None, ext:str=None, choices:str=None,
             DESCRIPTION.
 
     """
-    if type(tz) is not pytz._FixedOffset: tz=pytz.timezone(tz)
+    if tz is not None:
+        if type(tz) is not pytz._FixedOffset: tz=pytz.timezone(tz)
     
     if choices not in ('Yes', 'No', None):
         raise ValueError('choices must be ''Yes'', ''No'', or None')
@@ -759,7 +760,7 @@ def get_timestamps(tz:str=None, f_type:str=None, ext:str=None, choices:str=None,
             filename_raw_audio.append(filename)
             
         df_timestamps = pd.DataFrame(
-                {'filename': filename_raw_audio, 'timestamp': timestamp, 'path': list_wav_paths})#, "timezone": timezone}
+                {'filename': filename_raw_audio, 'timestamp': timestamp, 'path': list_wav_paths})
         df_timestamps.sort_values(by=["timestamp"], inplace=True)
     
     if tz is not None:

@@ -9,13 +9,13 @@ import time
 import datetime as dt
 import pandas as pd
 import pytz
-from post_processing_detections.utilities.def_func import read_header, get_timestamps2, sorting_detections, get_detection_files, extract_datetime, t_rounder, pick_datetimes, export2Raven, n_random_hour
+from post_processing_detections.utilities.def_func import input_date, get_tz, read_header, get_timestamps, sorting_detections, get_detection_files, extract_datetime, t_rounder, pick_datetimes, export2Raven, n_random_hour
 
 #%% LOAD DATA - User inputs
 
 #PAMGuard detections
 pamguard_path = get_detection_files(1)
-df_pamguard, t_pamguard = sorting_detections(files=pamguard_path[0])
+df_pamguard, t_pamguard = sorting_detections(files=pamguard_path)
 
 time_bin = t_pamguard['max_time'][0]
 fmax = t_pamguard['max_freq'][0]
@@ -24,9 +24,35 @@ labels = t_pamguard['labels'][0]
 tz_data = df_pamguard['start_datetime'][0].tz
 
 #WAV files 
-timestamps_file = get_timestamps2(tz='Etc/GMT-2', f_type='dir', ext='wav')
+# Chose your mode :
+    # input : you will fill a dialog box with the start and end date of the Figure you want to make
+    # auto : the script automatically extract the timestamp from the timestamp.csv file or from the selected wav files of the Figure you want to make
+    # fixed : you directly fill the script lines 41 and 42 with the start and end date (or wav name) of the Figure you want to make 
+
+dt_mode = 'auto'
+
+if dt_mode == 'fixed' :
+    # if you work with wav names
+    begin_deploy = extract_datetime('335556632.220707000000.wav', tz_data)
+    end_deploy = extract_datetime('335556632.220708040000.wav', tz_data)
+    # or if you work with a fixed date
+    # begin_deploy = dt.datetime(2011, 8, 15, 8, 15, 12, 0, tz_data)
+    # end_deploy = dt.datetime(2011, 8, 15, 8, 15, 12, 0, tz_data)
+elif dt_mode == 'auto':
+    timestamps_file = get_timestamps(ext='wav', f_type='dir')
+    wav_names = timestamps_file['filename']
+    begin_deploy = extract_datetime(wav_names.iloc[0], tz_data)
+    end_deploy = extract_datetime(wav_names.iloc[-1], tz_data)
+elif dt_mode == 'input' :
+    msg='Enter begin date'
+    begin_deploy=input_date(msg, tz_data)
+    msg='Enter end date'
+    end_deploy=input_date(msg, tz_data)
+
+
 wav_names = timestamps_file['filename']
 wav_datetimes = timestamps_file['timestamp']
+
 wav_path = timestamps_file['path']
 
 durations = [read_header(i)[-1] for i in wav_path]
