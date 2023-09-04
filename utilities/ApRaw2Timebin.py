@@ -4,10 +4,10 @@ from post_processing_detections.utilities.def_func import get_detection_files, s
 #%% LOAD DATA - User inputs
 
 files_list = get_detection_files(3)
-timestamps_file = get_timestamps(tz=get_tz(files_list[0]), f_type='dir', ext= 'wav')
+timestamps_file = get_timestamps(tz=get_tz(files_list[0]), f_type='dir', ext= 'wav', n_dir=2)
 wav_names = timestamps_file['filename']
 wav_datetimes = timestamps_file['timestamp']
-df_detections, t_detections = sorting_detections(files_list)
+df_detections, t_detections = sorting_detections(files_list, timebin_new=10)
 timebin = int(t_detections['max_time'][0])
 
 ## EXPORT RESHAPPED DETECTIONS

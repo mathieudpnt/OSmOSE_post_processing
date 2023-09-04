@@ -31,12 +31,12 @@ tz_data = df_detections['start_datetime'][0].tz
     # auto : the script automatically extract the timestamp from the timestamp.csv file or from the wav files of the Figure you want to make
     # fixed : you directly fill the script lines 41 and 42 with the start and end date (or wav name) of the Figure you want to make 
 
-dt_mode = 'auto'
+dt_mode = 'fixed'
 
 if dt_mode == 'fixed' :
     # if you work with wav names
-    begin_deploy = extract_datetime('335556632.220707000000.wav', tz_data)
-    end_deploy = extract_datetime('335556632.220708040000.wav', tz_data)
+    begin_deploy = extract_datetime('335556632.220501000000.wav', tz_data)
+    end_deploy = extract_datetime('335556632.230228235959.wav', tz_data)
     # or if you work with a fixed date
     # begin_deploy = dt.datetime(2011, 8, 15, 8, 15, 12, 0, tz_data)
     # end_deploy = dt.datetime(2011, 8, 15, 8, 15, 12, 0, tz_data)
@@ -120,7 +120,7 @@ list_labels = t_detections[t_detections['annotators'].apply(lambda x: annot_ref 
 # label_ref = easygui.buttonbox('Select an annotator', 'Single plot', list_labels) if len(list_labels)>1 else list_labels[0]
 label_ref = easygui.buttonbox('Select an annotator', 'Single plot', list_labels) if isinstance(list_labels, str)==0 else list_labels
 time_bin_ref = int(t_detections[t_detections['annotators'].apply(lambda x: annot_ref in x)]['max_time'].iloc[0])
-file_ref = t_detections[t_detections['annotators'].apply(lambda x: annot_ref in x)]['file'].iloc[0]
+file_ref = t_detections[t_detections['annotators'].apply(lambda x: annot_ref in x)]['file']
 
 # Ask user if their resolution_bin is in minutes or in months
 resolution_bin = easygui.buttonbox(msg='Do you want to chose your resolution bin in minutes or in month ?', choices =('Minutes', 'Months'))
@@ -143,7 +143,11 @@ else :
 
 
 # df_1annot_1label, _  = sorting_detections(file_ref, annotator = annot_ref, label = label_ref, timebin_new = time_bin_ref)
-df_1annot_1label, _  = sorting_detections(file_ref, annotator = annot_ref, label = label_ref)
+df_1annot_1label, _  = sorting_detections(file_ref, annotator = annot_ref, label = label_ref, timebin_new = time_bin_ref)
+
+
+
+
 
 fig,ax = plt.subplots(figsize=(20,9), facecolor='#36454F')
 ax.hist(df_1annot_1label['start_datetime'], bins=time_vector, color='crimson', edgecolor='black', linewidth=1)
@@ -293,7 +297,7 @@ elif len(annotators)==1:
 
 list_labels = t_detections[t_detections['annotators'].apply(lambda x: annot_ref in x)]['labels'].iloc[0]
 time_bin_ref = int(t_detections[t_detections['annotators'].apply(lambda x: annot_ref in x)]['max_time'].iloc[0])
-file_ref = t_detections[t_detections['annotators'].apply(lambda x: annot_ref in x)]['file'].iloc[0]
+file_ref = t_detections[t_detections['annotators'].apply(lambda x: annot_ref in x)]['file']
 if isinstance(list_labels,str)==0:
     selected_labels = list_labels[0:3] #TODO : checkbox to select desired labels to plot ?
 
@@ -369,8 +373,8 @@ if time_bin_ref1==time_bin_ref2:
 else:
     sys.exit('The timebin of the detections {0}/{1} is {2}s whereas the timebin for {3}/{4} is {5}s!'.format(annot_ref1, label_ref1, time_bin_ref1, annot_ref2, label_ref2, time_bin_ref2))
 
-file_ref1 = t_detections[t_detections['annotators'].apply(lambda x: annot_ref1 in x)]['file'].iloc[0]
-file_ref2 = t_detections[t_detections['annotators'].apply(lambda x: annot_ref2 in x)]['file'].iloc[1]
+file_ref1 = t_detections[t_detections['annotators'].apply(lambda x: annot_ref1 in x)]['file']
+file_ref2 = t_detections[t_detections['annotators'].apply(lambda x: annot_ref2 in x)]['file']
 
 res_min = easygui.integerbox('Enter the bin size (min) ', 'Time resolution', default=10, lowerbound=1, upperbound=86400)
 

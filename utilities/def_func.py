@@ -697,7 +697,7 @@ def convert_template_to_re(date_template: str) -> str:
     return res
 
 
-def get_timestamps(tz:str=None, f_type:str=None, ext:str=None, choices:str=None, date_template:str=None, path_dir:str=None, msg:str=None)-> None:
+def get_timestamps(tz:str=None, f_type:str=None, n_dir:int=1, ext:str=None, choices:str=None, date_template:str=None, path_dir:str=None, msg:str=None)-> None:
     """  
     
     Parameters : 
@@ -717,7 +717,7 @@ def get_timestamps(tz:str=None, f_type:str=None, ext:str=None, choices:str=None,
 
     """
     if tz is not None:
-        if type(tz) is pytz._FixedOffset : tz=pytz.timezone(tz)
+        if type(tz) is pytz._FixedOffset or tz is not pytz.UTC: tz=pytz.timezone(tz)
         
     if choices not in ('Yes', 'No', None):
         raise ValueError('choices must be ''Yes'', ''No'', or None')
@@ -738,7 +738,7 @@ def get_timestamps(tz:str=None, f_type:str=None, ext:str=None, choices:str=None,
         df_timestamps.columns=['filename', 'timestamp']
             
     elif reply=='No':
-        if path_dir is None: list_wav_paths = find_files(f_type=f_type, ext=ext)
+        if path_dir is None: list_wav_paths = find_files(f_type=f_type, ext=ext, n_dir=n_dir)
         else : list_wav_paths = find_files(f_type=f_type, ext=ext, path=path_dir, msg=msg)
         
         if date_template is None:
@@ -768,7 +768,7 @@ def get_timestamps(tz:str=None, f_type:str=None, ext:str=None, choices:str=None,
     
     return df_timestamps
 
-def find_files(f_type:str, ext:str, path:str=None, msg:str=None)->list:
+def find_files(f_type:str, ext:str, path:str=None, msg:str=None, n_dir:int=1)->list:
     """ Based on selection_type, ask the user a folder and yields all the wav files inside it or ask the user multiple wav files
 
     Parameters :
@@ -791,10 +791,16 @@ def find_files(f_type:str, ext:str, path:str=None, msg:str=None)->list:
 
     if f_type == 'dir':
         
-        if path is None: directory = filedialog.askdirectory(initialdir = path, title='Select {0} folder'.format(ext))
-        else: directory = os.path.join(path,'wav')
+        directory=[]
+        if path is None:
+            for i in range(n_dir):
+                directory.append(filedialog.askdirectory(initialdir = path, title='Select {0} folder {1}'.format(ext, i+1)))
+
+        else: 
+            directory = os.path.join(path,'wav')
         
-        if directory: selected_files.extend(glob.glob(os.path.join(directory, '**/*.{0}'.format(ext)), recursive=True))
+        if directory:
+            [selected_files.extend(glob.glob(os.path.join(d, '**/*.{0}'.format(ext)), recursive=True)) for d in directory]
             
     elif f_type == 'file':
         # If the user wants to select multiple files, show the file dialog
