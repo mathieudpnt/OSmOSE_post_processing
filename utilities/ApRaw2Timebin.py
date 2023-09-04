@@ -1,4 +1,5 @@
 import os
+from tqdm import tqdm
 from post_processing_detections.utilities.def_func import get_detection_files, sorting_detections, t_rounder, get_timestamps, get_tz
 
 #%% LOAD DATA - User inputs
@@ -15,7 +16,7 @@ timebin = int(t_detections['max_time'][0])
 # APLOSE FORMAT
 dataset_str = list(set(df_detections['dataset']))
 PG2Ap_str = "/PG_formatteddata_" + t_rounder(timestamps_file['timestamp'][0], res=600).strftime('%y%m%d') + '_' + t_rounder(timestamps_file['timestamp'].iloc[-1], res=600).strftime('%y%m%d') +'_'+ str(t_detections['max_time'][0]) + 's'+ '.csv'
-
+df_detections['start_datetime'] = [i.strftime('%Y-%m-%dT%H:%M:%S')+ '.'+ i.strftime('%f')[:3]+ i.strftime('%z')[:3] + i.strftime('%z')[3:] for i in df_detections['start_datetime']]
 df_detections.to_csv(os.path.dirname(files_list[0]) + PG2Ap_str, index=False)  
 print('\n\nAplose formatted data file exported to '+ os.path.dirname(files_list[0]))
 
