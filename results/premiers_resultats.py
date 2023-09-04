@@ -227,9 +227,9 @@ def suntime_hour(begin_deploy, end_deploy, timeZ, lat,lon):
 
         # suntime = sun(gps.observer,date=day, dawn_dusk_depression = astral.Depression)
         suntime = sun(gps.observer,date=day)
-        #dawn_dt=(suntime['dawn'])
+        dawn_dt=(suntime['dawn'])
         
-        #dusk_dt=(suntime['dusk'])
+        dusk_dt=(suntime['dusk'])
         
         day_dt=(suntime['sunrise'])
         
