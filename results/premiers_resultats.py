@@ -17,7 +17,7 @@ from post_processing_detections.utilities.def_func import get_detection_files, e
 #%% User inputs 
 
 files_list = get_detection_files(1)
-df_detections, t_detections = sorting_detections(files_list)
+df_detections, t_detections = sorting_detections(files_list, timebin_new=60)
 
 time_bin = list(set(t_detections['max_time']))
 fmax = list(set(t_detections['max_freq']))
@@ -31,7 +31,8 @@ tz_data = df_detections['start_datetime'][0].tz
     # auto : the script automatically extract the timestamp from the timestamp.csv file or from the wav files of the Figure you want to make
     # fixed : you directly fill the script lines 41 and 42 with the start and end date (or wav name) of the Figure you want to make 
 
-dt_mode = 'fixed'
+dt_mode = 'input'
+
 
 if dt_mode == 'fixed' :
     # if you work with wav names
@@ -115,6 +116,21 @@ ax2.set_title('Number of annotations per annotator', color='w', fontdict=title_f
 
 #%% Single seasonality plot 
 
+# ----------- User set mdate time xticks-----------------------------
+# One tick per month
+#mdate1 = mdates.MonthLocator(interval=1)
+#mdate2 = mdates.DateFormatter('%B', tz=tz_data)
+# One tick every 2 weeks
+mdate1 = mdates.DayLocator(interval=15,tz=tz_data)
+mdate2 = mdates.DateFormatter('%d-%B', tz=tz_data)
+# One tick every day
+#mdate1 = mdates.DayLocator(interval=1,tz=tz_data)
+#mdate2 = mdates.DateFormatter('%d-%m', tz=tz_data)
+# One tick every hour
+#mdate1 = mdates.HourLocator(interval=1,tz=tz_data)
+#mdate2 = mdates.DateFormatter('%H:%M', tz=tz_data)
+# ----------------------------------------------------------------------------
+
 annot_ref = easygui.buttonbox('Select an annotator', 'Single plot', annotators) if len(annotators)>1 else annotators[0]
 list_labels = t_detections[t_detections['annotators'].apply(lambda x: annot_ref in x)]['labels'].iloc[0]
 # label_ref = easygui.buttonbox('Select an annotator', 'Single plot', list_labels) if len(list_labels)>1 else list_labels[0]
@@ -123,17 +139,30 @@ time_bin_ref = int(t_detections[t_detections['annotators'].apply(lambda x: annot
 file_ref = t_detections[t_detections['annotators'].apply(lambda x: annot_ref in x)]['file']
 
 # Ask user if their resolution_bin is in minutes or in months
-resolution_bin = easygui.buttonbox(msg='Do you want to chose your resolution bin in minutes or in month ?', choices =('Minutes', 'Months'))
+resolution_bin = easygui.buttonbox(msg='Do you want to chose your resolution bin in minutes or in month ?', choices =('Minutes', 'Days', 'Weeks', 'Months'))
 if resolution_bin == 'Minutes' :
     
-    res_min = easygui.integerbox('Enter the bin size (min) (e.g. 1 day = 1440 minutes)', 'Time resolution', default=10, lowerbound=1, upperbound=86400)
-    n_annot_max = (res_min*60)/time_bin_ref #max nb of annoted time_bin max per res_min slice
-    
+    res_min = easygui.integerbox('Enter the bin size (min)', 'Time resolution', default=10, lowerbound=1, upperbound=86400)
+    n_annot_max = (res_min*60)/time_bin_ref #max nb of annoted time_bin max per res_min slice    
     # Est-ce que c'est utile de garder start_vec et end_vec sachant qu'ils sont égaux à begin_deploy et end_deploy non ?
     delta, start_vec, end_vec = dt.timedelta(seconds=60*res_min), t_rounder(begin_deploy,res = 600), t_rounder(end_deploy + dt.timedelta(seconds=time_bin_ref),res = 600)
-
     time_vector = [start_vec + i * delta for i in range(int((end_vec - start_vec) / delta) + 1)]
     y_label_txt = 'Number of detections\n({0} min)'.format(res_min)
+    
+elif resolution_bin == 'Days' :
+    
+    time_vector_ts = pd.date_range(begin_deploy,end_deploy, freq='D', tz=tz_data)
+    time_vector = [timestamp.date() for timestamp in time_vector_ts ]
+    n_annot_max = (24*60*60)/time_bin_ref
+    y_label_txt = 'Number of detections per day'    
+    
+elif resolution_bin == 'Weeks' :
+    
+    time_vector_ts = pd.date_range(begin_deploy,end_deploy, freq='W-MON', tz=tz_data)
+    time_vector = [timestamp.date() for timestamp in time_vector_ts ]
+    n_annot_max = (24*60*60*7)/time_bin_ref
+    y_label_txt = 'Number of detections per week (starting every Monday)' 
+    
 else :
     # Compute the time_vector for a monthly resolution
     time_vector_ts = pd.date_range(begin_deploy,end_deploy, freq='MS', tz=tz_data)
@@ -142,12 +171,7 @@ else :
     y_label_txt = 'Number of detections per month'
 
 
-# df_1annot_1label, _  = sorting_detections(file_ref, annotator = annot_ref, label = label_ref, timebin_new = time_bin_ref)
 df_1annot_1label, _  = sorting_detections(file_ref, annotator = annot_ref, label = label_ref, timebin_new = time_bin_ref)
-
-
-
-
 
 fig,ax = plt.subplots(figsize=(20,9), facecolor='#36454F')
 ax.hist(df_1annot_1label['start_datetime'], bins=time_vector, color='crimson', edgecolor='black', linewidth=1)
@@ -166,6 +190,7 @@ ax.set_ylabel(y_label_txt, fontsize = 20, color='w')
 choice_percentage = easygui.buttonbox(msg='Do you want your results plot in % or in raw values ?', choices =('Percentage', 'Raw values'))
 if choice_percentage == 'Percentage' :
     ax.set_yticks(y_pos, bars)
+    y_pos = np.linspace(0,100, num=len(bars))
     if resolution_bin=='Minutes' :
         ax.set_ylabel('Detection rate % \n({0} min)'.format(res_min), fontsize = 20, color='w')
     else :
@@ -180,12 +205,27 @@ ax.spines['left'].set_color('w')
 #titles
 fig.suptitle('annotateur : '+annot_ref +'\n'+ 'label : ' + label_ref, fontsize = 24, y=0.98, color='w')
  
-ax.xaxis.set_major_locator(mdates.MonthLocator(interval=1))
-ax.xaxis.set_major_formatter(mdates.DateFormatter('%B', tz=tz_data))
+ax.xaxis.set_major_locator(mdate1)
+ax.xaxis.set_major_formatter(mdate2)
 plt.xlim(time_vector[0], time_vector[-1])
 ax.grid(color='w', linestyle='--', linewidth=0.2, axis='both')
 
 #%% Single diel pattern plot 
+
+# ----------- User set mdate time xticks-----------------------------
+# One tick per month
+#mdate1 = mdates.MonthLocator(interval=1)
+#mdate2 = mdates.DateFormatter('%B', tz=tz_data)
+# One tick every 2 weeks
+#mdate1 = mdates.DayLocator(interval=15,tz=tz_data)
+#mdate2 = mdates.DateFormatter('%d-%B', tz=tz_data)
+# One tick every day
+#mdate1 = mdates.DayLocator(interval=1,tz=tz_data)
+#mdate2 = mdates.DateFormatter('%d-%m', tz=tz_data)
+# One tick every hour
+mdate1 = mdates.HourLocator(interval=1,tz=tz_data)
+mdate2 = mdates.DateFormatter('%H:%M', tz=tz_data)
+# ----------------------------------------------------------------------------
 
 def suntime_hour(begin_deploy, end_deploy, timeZ, lat,lon):
     """ Fetch sunrise and sunset hours for dates between date_beg and date_end
@@ -227,7 +267,7 @@ def suntime_hour(begin_deploy, end_deploy, timeZ, lat,lon):
         h_sunset.append(night_hour)
         dt_dusk.append(dusk_dt)
         dt_dawn.append(dawn_dt)
-    return hour_sunrise, hour_sunset, dt_dusk, dt_dawn
+    return h_sunrise, h_sunset, dt_dusk, dt_dawn
 
 
 # User input : gps coordinates in Decimal Degrees
@@ -275,13 +315,15 @@ plt.scatter(Day_det,Hour_det)
 
 plt.xlim(begin_deploy, end_deploy)
 
-ax.xaxis.set_major_locator(mdates.MonthLocator(interval=1))
-ax.xaxis.set_major_formatter(mdates.DateFormatter('%B', tz=tz_data))
+ax.xaxis.set_major_locator(mdate1)
+ax.xaxis.set_major_formatter(mdate2)
 #plt.xlim(time_vector[0], time_vector[-1])
 ax.grid(color='k', linestyle='-', linewidth=0.2)
 
 plt.yticks(fontsize=20)
 plt.xticks(fontsize=20)
+ax.tick_params(axis='y', rotation=0,  labelsize=20)
+ax.tick_params(axis='x', rotation=60, labelsize=15)
 
 ax.set_ylabel('Hour (UTC)', fontsize = 30)
 ax.set_xlabel('Date', fontsize = 30)
