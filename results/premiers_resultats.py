@@ -21,7 +21,7 @@ df_detections, t_detections = sorting_detections(files_list)
 
 time_bin = list(set(t_detections['max_time']))
 fmax = list(set(t_detections['max_freq']))
-annotators = list(OrderedDict.fromkeys(t_detections['annotators']))
+annotators = list(set(t_detections['annotators'].explode()))
 labels = list(set(t_detections['labels'].explode()))
 tz_data = df_detections['start_datetime'][0].tz
 
@@ -31,7 +31,7 @@ tz_data = df_detections['start_datetime'][0].tz
     # auto : the script automatically extract the timestamp from the timestamp.csv file or from the wav files of the Figure you want to make
     # fixed : you directly fill the script lines 41 and 42 with the start and end date (or wav name) of the Figure you want to make 
 
-dt_mode = 'input'
+dt_mode = 'auto'
 
 if dt_mode == 'fixed' :
     # if you work with wav names
@@ -108,9 +108,9 @@ ax1.set_axisbelow(True)
 ax2.set_axisbelow(True)
 
 #titles
-title_font = {'fontsize': 15, 'color': 'w', 'fontweight': 'bold'}
-ax1.set_title('Number of annotations per label', color='w', fontdict=title_font, pad=5)
-ax2.set_title('Number of annotations per annotator', color='w', fontdict=title_font, pad=5)
+title_font = {'fontsize': 15, 'color': 'w', 'fontweight': 'bold'};
+ax1.set_title('Number of annotations per label', color='w', fontdict=title_font, pad=5);
+ax2.set_title('Number of annotations per annotator', color='w', fontdict=title_font, pad=5);
 
 
 #%% Single seasonality plot 
@@ -151,8 +151,8 @@ ax.hist(df_1annot_1label['start_datetime'], bins=time_vector, color='crimson', e
 #facecolor
 ax.set_facecolor('#36454F')
 
-# ax.tick_params(axis='y', colors='w', rotation=0,  labelsize=20)
-# ax.tick_params(axis='x', colors='w', rotation=60, labelsize=15)
+ax.tick_params(axis='y', colors='w', rotation=0,  labelsize=20)
+ax.tick_params(axis='x', colors='w', rotation=60, labelsize=15)
 
 bars = range(0,110,10) #from 0 to 100 step 10
 #Du coup c'est pas totalement exact par ce que j'ai calculé qu'un seul n_annot_max alors qu'en vrai il est différent chaque mois vu que tous les mois n'ont pas la même durée...
