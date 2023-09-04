@@ -886,6 +886,8 @@ def suntime_hour(begin_deploy, end_deploy, timeZ, lat,lon):
     h_sunset = []
     dt_dusk = []
     dt_dawn = []
+    dt_day = []
+    dt_night = []
     astral.Depression = 12 # nautical twilight see def here : https://www.timeanddate.com/astronomy/nautical-twilight.html
     # For each day : find time of sunset, sun rise, begin dawn and dusk
     for day in list_time:
@@ -906,7 +908,9 @@ def suntime_hour(begin_deploy, end_deploy, timeZ, lat,lon):
         h_sunset.append(night_hour)
         dt_dusk.append(dusk_dt)
         dt_dawn.append(dawn_dt)
-    return h_sunrise, h_sunset, dt_dusk, dt_dawn
+        dt_day.append(day_dt)
+        dt_night.append(night_dt)
+    return h_sunrise, h_sunset, dt_dusk, dt_dawn, dt_day, dt_night
 
 
 

@@ -247,7 +247,7 @@ print("Reply was:", fieldValues)
 lat = fieldValues[0] 
 lon = fieldValues[1] 
 # Compute sunrise and sunet decimal hour at the dataset location
-[hour_sunrise, hour_sunset, _, _] = suntime_hour(begin_deploy, end_deploy, tz_data, lat,lon)
+[hour_sunrise, hour_sunset, _, _, _, _] = suntime_hour(begin_deploy, end_deploy, tz_data, lat,lon)
 
 date_beg = begin_deploy.strftime('%Y-%m-%d')
 date_end = end_deploy.strftime('%Y-%m-%d')
