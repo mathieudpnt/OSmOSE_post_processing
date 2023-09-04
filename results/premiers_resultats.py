@@ -16,8 +16,8 @@ from post_processing_detections.utilities.def_func import get_detection_files, e
 
 #%% User inputs 
 
-files_list = get_detection_files(1)
-df_detections, t_detections = sorting_detections(files_list)
+files_list = get_detection_files(2)
+df_detections, t_detections = sorting_detections(files_list, timebin_new=60)
 
 time_bin = list(set(t_detections['max_time']))
 fmax = list(set(t_detections['max_freq']))
@@ -31,7 +31,7 @@ tz_data = df_detections['start_datetime'][0].tz
     # auto : the script automatically extract the timestamp from the timestamp.csv file or from the wav files of the Figure you want to make
     # fixed : you directly fill the script lines 41 and 42 with the start and end date (or wav name) of the Figure you want to make 
 
-dt_mode = 'auto'
+dt_mode = 'input'
 
 if dt_mode == 'fixed' :
     # if you work with wav names
@@ -142,8 +142,8 @@ else :
     y_label_txt = 'Number of detections per month'
 
 
-# df_1annot_1label, _  = sorting_detections(file_ref, annotator = annot_ref, label = label_ref, timebin_new = time_bin_ref)
-df_1annot_1label, _  = sorting_detections(file_ref, annotator = annot_ref, label = label_ref)
+df_1annot_1label, _  = sorting_detections(file_ref, annotator = annot_ref, label = label_ref, timebin_new = time_bin_ref)
+#df_1annot_1label, _  = sorting_detections(file_ref, annotator = annot_ref, label = label_ref)
 
 fig,ax = plt.subplots(figsize=(20,9), facecolor='#36454F')
 ax.hist(df_1annot_1label['start_datetime'], bins=time_vector, color='crimson', edgecolor='black', linewidth=1)
@@ -223,7 +223,7 @@ def suntime_hour(begin_deploy, end_deploy, timeZ, lat,lon):
         h_sunset.append(night_hour)
         dt_dusk.append(dusk_dt)
         dt_dawn.append(dawn_dt)
-    return hour_sunrise, hour_sunset, dt_dusk, dt_dawn
+    return h_sunrise, h_sunset, dt_dusk, dt_dawn
 
 
 # User input : gps coordinates in Decimal Degrees
