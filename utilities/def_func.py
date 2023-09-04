@@ -717,12 +717,12 @@ def get_timestamps(tz:str=None, f_type:str=None, ext:str=None, choices:str=None,
 
     """
     if tz is not None:
-        if type(tz) is not pytz._FixedOffset or tz is pytz.UTC: tz=pytz.timezone(tz)
+        if type(tz) is pytz._FixedOffset : tz=pytz.timezone(tz)
         
     if choices not in ('Yes', 'No', None):
         raise ValueError('choices must be ''Yes'', ''No'', or None')
-    
-    if choices is None:
+
+    if choices is None or (ext is None and f_type is None):
         msg_ch = 'Do you already have the timestamp.csv  ?'
         choices = ['Yes','No']
         reply = easygui.buttonbox(msg_ch, choices=choices)
