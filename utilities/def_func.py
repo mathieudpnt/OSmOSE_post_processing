@@ -717,8 +717,8 @@ def get_timestamps(tz:str=None, f_type:str=None, ext:str=None, choices:str=None,
 
     """
     if tz is not None:
-        if type(tz) is not pytz._FixedOffset: tz=pytz.timezone(tz)
-    
+        if type(tz) is not pytz._FixedOffset or tz is pytz.UTC: tz=pytz.timezone(tz)
+        
     if choices not in ('Yes', 'No', None):
         raise ValueError('choices must be ''Yes'', ''No'', or None')
     
