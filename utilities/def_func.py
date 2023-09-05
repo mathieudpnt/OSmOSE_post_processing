@@ -8,8 +8,6 @@ import random
 import numpy as np
 from tqdm import tqdm
 import os
-import matplotlib.dates as mdates
-import matplotlib.pyplot as plt
 from tkinter import filedialog
 from tkinter import Tk
 import gzip
