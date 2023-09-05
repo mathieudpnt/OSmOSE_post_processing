@@ -12,6 +12,7 @@ import pytz
 from post_processing_detections.utilities.def_func import input_date, get_tz, read_header, get_timestamps, sorting_detections, get_detection_files, extract_datetime, t_rounder, pick_datetimes, export2Raven, n_random_hour
 
 #%% LOAD DATA - User inputs
+# /!\ warning : the file_metadata.csv OR the wav files are necessary for this scipt /!\
 
 #PAMGuard detections
 pamguard_path = get_detection_files(1)[0]
