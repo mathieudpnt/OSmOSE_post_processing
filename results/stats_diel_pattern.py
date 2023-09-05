@@ -94,5 +94,43 @@ dusk_duration = [b-a for a,b in zip(dt_night, dt_dusk)]
 night_duration = [dt.timedelta(hours=24) - dawn - day - dusk for dawn, day, dusk in zip(dawn_duration, day_duration, dusk_duration)]
 
 # Assign a light regime to each detection
-# Count the number of detection per light regime
-# 
+# : 1 = night ; 2 = dawn ; 3 = day ; 4 = dusk
+day_det = [start_datetime.date() for start_datetime in df_detections['start_datetime']]
+light_regime = []
+for idx_day, day in enumerate(list_days):
+    for idx_det, d in enumerate(day_det):
+        # If the detection occured during 'day'
+        if d == day :
+            if df_detections['start_datetime'][idx_det] > dt_dawn[idx_day] and df_detections['start_datetime'][idx_det] < dt_day[idx_day] :
+                l=2
+                light_regime.append(l)
+            elif df_detections['start_datetime'][idx_det] > dt_day[idx_day] and df_detections['start_datetime'][idx_det] < dt_night[idx_day] :
+                l=3
+                light_regime.append(l)
+            elif df_detections['start_datetime'][idx_det] > dt_day[idx_day] and df_detections['start_datetime'][idx_det] < dt_night[idx_day] :
+                l=4
+                light_regime.append(l)
+            else:
+                l=1
+                light_regime.append(l)
+        
+                 
+
+# For each day, count the number of detection per light regime
+
+#for idx_day, day in enumerate(list_days):
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
