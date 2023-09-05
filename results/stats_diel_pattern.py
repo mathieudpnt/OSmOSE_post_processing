@@ -43,7 +43,7 @@ if dt_mode == 'fixed' :
     #end_deploy = extract_datetime('335556632.230228235959.wav', tz_data)
     # or if you work with a fixed date
     begin_deploy = dt.datetime(2022, 5, 1, 0, 0, 0, 0, tz_data)
-    end_deploy = dt.datetime(2022, 8, 24, 0, 0, 0, 0, tz_data)
+    end_deploy = dt.datetime(2023, 4, 24, 0, 0, 0, 0, tz_data)
 elif dt_mode == 'auto':
     timestamps_file = get_timestamps()
     wav_names = timestamps_file['filename']
@@ -130,6 +130,7 @@ nb_det_dawn = []
 nb_det_day = []
 nb_det_dusk = []
 for idx_day, day in enumerate(list_days) :
+    # Find index of detections that occured during 'day'
     idx_det = [idx for idx, det in enumerate(day_det) if det == day]
     if idx_det == []:
         l=0
@@ -150,8 +151,36 @@ nb_det_dawn_corr = [(nb/d) for nb,d in zip(nb_det_dawn, dawn_duration_dec)]
 nb_det_day_corr = [(nb/d) for nb,d in zip(nb_det_day, day_duration_dec)]   
 nb_det_dusk_corr = [(nb/d) for nb,d in zip(nb_det_dusk, dusk_duration_dec)]      
 
-LIGHTR = [nb_det_night_corr, nb_det_dawn_corr, nb_det_day_corr, nb_det_dusk_corr]
+# Normalize by daily average number of detection per hour
+av_daily_nbdet = []
+nb_det_night_corr_norm = []
+nb_det_dawn_corr_norm = []
+nb_det_day_corr_norm = []
+nb_det_dusk_corr_norm = []
+
+for idx_day, day in enumerate(list_days) :
+    # Find index of detections that occured during 'day'
+    idx_det = [idx for idx, det in enumerate(day_det) if det == day]
+    # Compute daily average number of detections per hour
+    a = len(idx_det)/24
+    av_daily_nbdet.append(a)
+    if a == 0:
+        nb_det_night_corr_norm.append(0)
+        nb_det_dawn_corr_norm.append(0)
+        nb_det_day_corr_norm.append(0)
+        nb_det_dusk_corr_norm.append(0)
+    else : 
+        nb_det_night_corr_norm.append(nb_det_night_corr[idx_day]-a)
+        nb_det_dawn_corr_norm.append(nb_det_dawn_corr[idx_day]-a)
+        nb_det_day_corr_norm.append(nb_det_day_corr[idx_day]-a)
+        nb_det_dusk_corr_norm.append(nb_det_dusk_corr[idx_day]-a)
+        
+
+LIGHTR = [nb_det_night_corr_norm, nb_det_dawn_corr_norm, nb_det_day_corr_norm, nb_det_dusk_corr_norm]
 BoxName = ['Night', 'Dawn', 'Day', 'Dusk']
 
-plt.boxplot(LIGHTR) 
+fig, ax = plt.subplots()
+ax.boxplot(LIGHTR, showfliers=False) 
+plt.ylim(-5,5)
 pylab.xticks([1,2,3,4], BoxName)
+
