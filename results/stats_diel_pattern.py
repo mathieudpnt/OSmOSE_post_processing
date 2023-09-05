@@ -85,10 +85,14 @@ lon = fieldValues[1]
 # Compute sunrise and sunet decimal hour at the dataset location
 [_, _, dt_dusk, dt_dawn, dt_day, dt_night] = suntime_hour(begin_deploy, end_deploy, tz_data, lat,lon)
 
-list_days = 
+# List of days in the dataset
+list_days = [dt.date(d.year, d.month, d.day) for d in dt_day]
+# Compute dusk_duration, dawn_duration, day_duration, night_duration
+dawn_duration = [b-a for a,b in zip(dt_dawn, dt_day)]
+day_duration = [b-a for a,b in zip(dt_day, dt_night)]
+dusk_duration = [b-a for a,b in zip(dt_night, dt_dusk)]
+night_duration = [dt.timedelta(hours=24) - dawn - day - dusk for dawn, day, dusk in zip(dawn_duration, day_duration, dusk_duration)]
 
-# For each day
-# Compute dusk_duration, dawn_duration, light_duration, dark_duration
 # Assign a light regime to each detection
 # Count the number of detection per light regime
 # 
