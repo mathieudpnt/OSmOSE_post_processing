@@ -6,6 +6,7 @@ Created on Mon Sep  4 16:50:38 2023
 """
 
 import datetime as dt
+import pylab
 import pandas as pd
 import numpy as np
 import easygui
@@ -25,7 +26,7 @@ from post_processing_detections.utilities.def_func import get_detection_files, e
 #%% Read and format detection file
 
 files_list = get_detection_files(1)
-df_detections, t_detections = sorting_detections(files_list, timebin_new=60)
+df_detections, t_detections = sorting_detections(files_list)
 
 time_bin = list(set(t_detections['max_time']))
 fmax = list(set(t_detections['max_freq']))
@@ -92,6 +93,13 @@ dawn_duration = [b-a for a,b in zip(dt_dawn, dt_day)]
 day_duration = [b-a for a,b in zip(dt_day, dt_night)]
 dusk_duration = [b-a for a,b in zip(dt_night, dt_dusk)]
 night_duration = [dt.timedelta(hours=24) - dawn - day - dusk for dawn, day, dusk in zip(dawn_duration, day_duration, dusk_duration)]
+# Convert to decimal
+dawn_duration_dec = [dawn_d.total_seconds()/3600 for dawn_d in dawn_duration]
+day_duration_dec = [day_d.total_seconds()/3600 for day_d in day_duration]
+dusk_duration_dec = [dusk_d.total_seconds()/3600 for dusk_d in dusk_duration]
+night_duration_dec = [night_d.total_seconds()/3600 for night_d in night_duration]
+
+
 
 # Assign a light regime to each detection
 # : 1 = night ; 2 = dawn ; 3 = day ; 4 = dusk
@@ -135,17 +143,15 @@ for idx_day, day in enumerate(list_days) :
         nb_det_day.append(light_regime[idx_det[0]:idx_det[-1]].count(3))
         nb_det_dusk.append(light_regime[idx_det[0]:idx_det[-1]].count(4))
     
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
+# For each day :  compute number of detection per light regime corrected by ligh regime duration
+ 
+nb_det_night_corr = [(nb/d) for nb,d in zip(nb_det_night, night_duration_dec)]    
+nb_det_dawn_corr = [(nb/d) for nb,d in zip(nb_det_dawn, dawn_duration_dec)]   
+nb_det_day_corr = [(nb/d) for nb,d in zip(nb_det_day, day_duration_dec)]   
+nb_det_dusk_corr = [(nb/d) for nb,d in zip(nb_det_dusk, dusk_duration_dec)]      
+
+LIGHTR = [nb_det_night_corr, nb_det_dawn_corr, nb_det_day_corr, nb_det_dusk_corr]
+BoxName = ['Night', 'Dawn', 'Day', 'Dusk']
+
+plt.boxplot(LIGHTR) 
+pylab.xticks([1,2,3,4], BoxName)
