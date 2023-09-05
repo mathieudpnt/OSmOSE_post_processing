@@ -19,6 +19,8 @@ import glob
 from typing import Union
 import sys
 import bisect
+import csv
+
 
 def get_detection_files(num_files: int) -> List[str]:
     """Opens a file dialog multiple times to get X APLOSE formatted detection files.
@@ -70,7 +72,16 @@ def sorting_detections(files: List[str], tz: pytz._FixedOffset = None, date_begi
 
     info, result_df = pd.DataFrame(), pd.DataFrame()
     for file in files:
-        df = pd.read_csv(file)
+        
+        with open(file, 'r', newline='') as csv_file:
+            try:
+                temp_lines = csv_file.readline() + '\n' + csv_file.readline()
+                dialect = csv.Sniffer().sniff(temp_lines, delimiters=',;')  
+                delimiter = dialect.delimiter
+            except csv.Error:
+                delimiter = ','
+     
+        df = pd.read_csv(file, sep=delimiter)
         
         max_freq = int(max(df['end_frequency']))
 
@@ -89,7 +100,7 @@ def sorting_detections(files: List[str], tz: pytz._FixedOffset = None, date_begi
             max_time = 0
             
             
-        if timebin_new is not None :
+        if timebin_new is not None and timebin_new!= max_time:
             df = reshape_timebin(file, timebin_new=timebin_new)
             max_time = timebin_new
 
@@ -699,6 +710,7 @@ def convert_template_to_re(date_template: str) -> str:
 
 def get_timestamps(tz:str=None, f_type:str=None, n_dir:int=1, ext:str=None, choices:str=None, date_template:str=None, path_dir:str=None, msg:str=None)-> None:
     """  
+    Read infos from APLOSE files timestamps.csv OR file_metadata.csv
     
     Parameters : 
         tz : str, optional, ex: tz='Etc/GMT-2'
@@ -734,8 +746,12 @@ def get_timestamps(tz:str=None, f_type:str=None, n_dir:int=1, ext:str=None, choi
         timestampcsv_path = filedialog.askopenfilename(title='Select the timestamp csv file', filetypes=[("CSV files", "*.csv")]) # show an "Open" dialog box and return the path to the selected file
         root = Tk()
         root.withdraw()
-        df_timestamps = pd.read_csv(timestampcsv_path, header=None)
-        df_timestamps.columns=['filename', 'timestamp']
+        
+        if os.path.basename(timestampcsv_path) == 'file_metadata.csv':
+            df_timestamps = pd.read_csv(timestampcsv_path)
+        elif os.path.basename(timestampcsv_path) == 'timestamp.csv':
+            df_timestamps = pd.read_csv(timestampcsv_path, header=None)
+            df_timestamps.columns=['filename', 'timestamp']
             
     elif reply=='No':
         if path_dir is None: list_wav_paths = find_files(f_type=f_type, ext=ext, n_dir=n_dir)

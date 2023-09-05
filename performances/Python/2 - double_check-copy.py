@@ -38,11 +38,14 @@ if dt_mode == 'fixed' :
     # or if you work with a fixed date
     # begin_deploy = dt.datetime(2011, 8, 15, 8, 15, 12, 0, tz_data)
     # end_deploy = dt.datetime(2011, 8, 15, 8, 15, 12, 0, tz_data)
+    
 elif dt_mode == 'auto':
-    timestamps_file = get_timestamps(ext='wav', f_type='dir')
-    wav_names = timestamps_file['filename']
-    begin_deploy = extract_datetime(wav_names.iloc[0], tz_data)
-    end_deploy = extract_datetime(wav_names.iloc[-1], tz_data)
+    timestamps_file = get_timestamps(ext='wav', f_type='file')
+    
+    begin_deploy = extract_datetime(timestamps_file['filename'].iloc[0], tz_data)
+    if 'duration' in timestamps_file:
+        end_deploy = extract_datetime(timestamps_file['filename'].iloc[-1], tz_data) + dt.timedelta(seconds=timestamps_file['duration'].iloc[-1])  
+         
 elif dt_mode == 'input' :
     msg='Enter begin date'
     begin_deploy=input_date(msg, tz_data)
@@ -50,12 +53,19 @@ elif dt_mode == 'input' :
     end_deploy=input_date(msg, tz_data)
 
 
-wav_names = timestamps_file['filename']
+wav_names = ['filename']
 wav_datetimes = timestamps_file['timestamp']
 
+#selection manuelle
 wav_path = timestamps_file['path']
-
 durations = [read_header(i)[-1] for i in wav_path]
+
+#file_metadata
+durations = timestamps_file['duration']
+
+#timestamp
+#???
+
 
 #%% FORMAT DATA
 
