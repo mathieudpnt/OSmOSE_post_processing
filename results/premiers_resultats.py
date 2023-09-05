@@ -17,7 +17,7 @@ from post_processing_detections.utilities.def_func import get_detection_files, e
 #%% User inputs 
 
 files_list = get_detection_files(1)
-df_detections, t_detections = sorting_detections(files_list, timebin_new=60)
+df_detections, t_detections = sorting_detections(files_list, timebin_new=3600)
 
 time_bin = list(set(t_detections['max_time']))
 fmax = list(set(t_detections['max_freq']))
@@ -32,7 +32,6 @@ tz_data = df_detections['start_datetime'][0].tz
     # fixed : you directly fill the script lines 41 and 42 with the start and end date (or wav name) of the Figure you want to make 
 
 dt_mode = 'input'
-
 
 if dt_mode == 'fixed' :
     # if you work with wav names

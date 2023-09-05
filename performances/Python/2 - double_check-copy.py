@@ -26,50 +26,30 @@ tz_data = df_pamguard['start_datetime'][0].tz
 #WAV files 
 # Chose your mode :
     # input : you will fill a dialog box with the start and end date of the Figure you want to make
-    # auto : the script automatically extract the timestamp from the timestamp.csv file or from the selected wav files of the Figure you want to make
-    # fixed : you directly fill the script lines 41 and 42 with the start and end date (or wav name) of the Figure you want to make 
+    # auto : the script automatically extract the timestamp from the file_metadata.csv file or from the selected wav files of the Figure you want to make
 
 dt_mode = 'auto'
 
-if dt_mode == 'fixed' :
-    # if you work with wav names
-    begin_deploy = extract_datetime('335556632.220707000000.wav', tz_data)
-    end_deploy = extract_datetime('335556632.220708040000.wav', tz_data)
-    # or if you work with a fixed date
-    # begin_deploy = dt.datetime(2011, 8, 15, 8, 15, 12, 0, tz_data)
-    # end_deploy = dt.datetime(2011, 8, 15, 8, 15, 12, 0, tz_data)
-    
-elif dt_mode == 'auto':
-    timestamps_file = get_timestamps(ext='wav', f_type='file')
-    
+if dt_mode == 'auto':
+    timestamps_file = get_timestamps(choices='Yes')
     begin_deploy = extract_datetime(timestamps_file['filename'].iloc[0], tz_data)
-    if 'duration' in timestamps_file:
-        end_deploy = extract_datetime(timestamps_file['filename'].iloc[-1], tz_data) + dt.timedelta(seconds=timestamps_file['duration'].iloc[-1])  
-         
-elif dt_mode == 'input' :
-    msg='Enter begin date'
-    begin_deploy=input_date(msg, tz_data)
-    msg='Enter end date'
-    end_deploy=input_date(msg, tz_data)
+    end_deploy = extract_datetime(timestamps_file['filename'].iloc[-1], tz_data) + dt.timedelta(seconds=timestamps_file['duration'].iloc[-1])  
+    durations = timestamps_file['duration']
+        
+elif dt_mode == 'manual' :
+    timestamps_file = get_timestamps(ext='wav', f_type='dir', choices='No')
+    begin_deploy = extract_datetime(timestamps_file['filename'].iloc[0], tz_data)
+    wav_path = timestamps_file['path']
+    durations = [read_header(i)[-1] for i in wav_path]
+    end_deploy = extract_datetime(timestamps_file['filename'].iloc[-1], tz_data) + dt.timedelta(seconds=timestamps_file['duration'].iloc[-1])  
 
 
-wav_names = ['filename']
-wav_datetimes = timestamps_file['timestamp']
-
-#selection manuelle
-wav_path = timestamps_file['path']
-durations = [read_header(i)[-1] for i in wav_path]
-
-#file_metadata
-durations = timestamps_file['duration']
-
-#timestamp
-#???
-
+wav_names = timestamps_file['filename']
+wav_datetimes = [extract_datetime(i, tz=tz_data) for i in timestamps_file['timestamp']]
 
 #%% FORMAT DATA
 
-time_vector = [elem for i in range(len(wav_datetimes)) for elem in wav_datetimes[i].timestamp() + np.arange(0, durations[i], time_bin).astype(int)]
+time_vector = [elem for i in range(len(timestamps_file)) for elem in wav_datetimes[i].timestamp() + np.arange(0, durations[i], time_bin).astype(int)]
 time_vector_str = [str(wav_names[i]).split('.wav')[0]+ '_+'  + str(elem) for i in range(len(wav_names)) for elem in np.arange(0, durations[i], time_bin).astype(int)]
 
 
@@ -105,7 +85,7 @@ selected_time_vector = []
 while True:
 #     # selected_time_vector = [time_vector[i] for i in range(len(time_vector)) if tv_hour[i]%2 == 0] #select even hours
 #     # selected_time_vector, selected_PG_vec, selected_time_vector_str, selected_dates = oneday_per_month(time_vector, time_vector_str, PG_vec) #select randomly one day per month
-    selected_time_vector, selected_time_vector_str, selected_PG_vec, selected_dates = n_random_hour(time_vector, time_vector_str, PG_vec, 3, tz_data, time_bin) #select randomly n hour in the dataset
+    selected_time_vector, selected_time_vector_str, selected_PG_vec, selected_dates = n_random_hour(time_vector_ts=time_vector, time_vector_str=time_vector_str, vec=PG_vec, n_hour=3, tz=tz_data, time_step=time_bin) #select randomly n hour in the dataset
     if round(sum(selected_PG_vec)/len(selected_time_vector),3) > 0.75*round(sum(PG_vec)/len(time_vector),3) and round(sum(selected_PG_vec)/len(selected_time_vector),3) < 1.25*round(sum(PG_vec)/len(time_vector),3):
         break
 
@@ -113,10 +93,10 @@ while True:
 # selected_time_vector, selected_time_vector_str, selected_PG_vec, selected_dates = pick_datetimes(time_vector, time_vector_str, PG_vec, selected_datetimes, selected_durations, tz_data)
 
 
-print('\n', selected_dates)
-print('Taux de détection positives :', end='\n')
-print('selection :', round(sum(selected_PG_vec)/len(selected_time_vector),3))  #proportion de positifs dans les éléments selectionnés randomly
-print('original :', round(sum(PG_vec)/len(time_vector),3)) #proportion de positifs dans les éléments
+print('\n\nselected dates : {0}'.format(selected_dates))
+print('\n%%% Positive detection rate %%%', end='\n')
+print('\t original :', round(sum(PG_vec)/len(time_vector),3)) #proportion de positifs dans les éléments
+print('\tselection :', round(sum(selected_PG_vec)/len(selected_time_vector),3))  #proportion de positifs dans les éléments selectionnés randomly
 
 
 
