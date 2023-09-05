@@ -26,7 +26,7 @@ from post_processing_detections.utilities.def_func import get_detection_files, e
 #%% Read and format detection file
 
 files_list = get_detection_files(1)
-df_detections, t_detections = sorting_detections(files_list)
+df_detections, t_detections = sorting_detections(files_list, tz = pytz.UTC)
 
 time_bin = list(set(t_detections['max_time']))
 fmax = list(set(t_detections['max_freq']))
@@ -34,7 +34,7 @@ annotators = list(set(t_detections['annotators'].explode()))
 labels = list(set(t_detections['labels'].explode()))
 tz_data = df_detections['start_datetime'][0].tz
 
-dt_mode = 'fixed'
+dt_mode = 'auto'
 
 
 if dt_mode == 'fixed' :
@@ -84,6 +84,7 @@ print("Reply was:", fieldValues)
 lat = fieldValues[0] 
 lon = fieldValues[1] 
 # Compute sunrise and sunet decimal hour at the dataset location
+# Seems to only work with UTC data ?
 [_, _, dt_dusk, dt_dawn, dt_day, dt_night] = suntime_hour(begin_deploy, end_deploy, tz_data, lat,lon)
 
 # List of days in the dataset
@@ -181,6 +182,6 @@ BoxName = ['Night', 'Dawn', 'Day', 'Dusk']
 
 fig, ax = plt.subplots()
 ax.boxplot(LIGHTR, showfliers=False) 
-plt.ylim(-5,5)
+plt.ylim(-20,20)
 pylab.xticks([1,2,3,4], BoxName)
 
