@@ -21,24 +21,25 @@ import sys
 import bisect
 from astral.sun import sun
 import astral
+import csv
 
 def get_detection_files(num_files: int) -> List[str]:
-    """Opens a file dialog multiple times to get X APLOSE formatted detection files.
+    '''Opens a file dialog multiple times to get X APLOSE formatted detection files.
 
     Parameters :
         num_files: The number of detection files the user needs to select.
 
     Returns :
         List of file paths selected by the user.
-    """
+    '''
     root = Tk()
     root.withdraw()
 
     file_paths = []
     for _ in range(num_files):
         file_path = filedialog.askopenfilename(
-            title=f"Select APLOSE formatted detection file ({len(file_paths) + 1}/{num_files})",
-            filetypes=[("CSV files", "*.csv")]
+            title=f'Select APLOSE formatted detection file ({len(file_paths) + 1}/{num_files})',
+            filetypes=[('CSV files', '*.csv')]
         )
         if not file_path:
             break  # User cancelled or closed the file dialog
@@ -47,7 +48,7 @@ def get_detection_files(num_files: int) -> List[str]:
     return file_paths
 
 def sorting_detections(files: List[str], tz: pytz._FixedOffset = None, date_begin: dt.datetime = None, date_end: dt.datetime = None, annotator: str = None, label: str = None, box: bool = False, timebin_new:int = None) -> (pd.DataFrame,  pd.DataFrame):
-    """ Filters an Aplose formatted detection file according to user specified filters
+    ''' Filters an Aplose formatted detection file according to user specified filters
         
         Parameters :
             file : list of path(s) to the detection file(s), can be a str too
@@ -66,13 +67,22 @@ def sorting_detections(files: List[str], tz: pytz._FixedOffset = None, date_begi
             labels : list of labels after filtering
             result_df : dataFrame corresponding to the filters applied and containing all the detections
             info : DataFrame containing infos such as max_time/max_freq/annotators/labels corresponding to each detection file
-    """
+    '''
     
     if isinstance(files, str): files = [files]  # Convert the single string to a list with one element
 
     info, result_df = pd.DataFrame(), pd.DataFrame()
     for file in files:
-        df = pd.read_csv(file)
+        
+        with open(file, 'r', newline='') as csv_file:
+            try:
+                temp_lines = csv_file.readline() + '\n' + csv_file.readline()
+                dialect = csv.Sniffer().sniff(temp_lines, delimiters=',;')  
+                delimiter = dialect.delimiter
+            except csv.Error:
+                delimiter = ','
+     
+        df = pd.read_csv(file, sep=delimiter)
         
         max_freq = int(max(df['end_frequency']))
 
@@ -91,7 +101,7 @@ def sorting_detections(files: List[str], tz: pytz._FixedOffset = None, date_begi
             max_time = 0
             
             
-        if timebin_new is not None :
+        if timebin_new is not None and timebin_new!= max_time:
             df = reshape_timebin(file, timebin_new=timebin_new)
             max_time = timebin_new
 
@@ -123,7 +133,7 @@ def sorting_detections(files: List[str], tz: pytz._FixedOffset = None, date_begi
     return result_df, info
 
 def reshape_timebin(detections_file: str, timebin_new:int=None) -> pd.DataFrame:
-    """ Changes the timebin (time resolution) of a detection file
+    ''' Changes the timebin (time resolution) of a detection file
     ex :    -from a raw PAMGuard detection file to a detection file with 10s timebin
             -from an 10s detection file to a 1min / 1h / 24h detection file
 
@@ -133,7 +143,7 @@ def reshape_timebin(detections_file: str, timebin_new:int=None) -> pd.DataFrame:
 
     Returns:
         another dataframe with the new timebin
-    """
+    '''
     
     df_detections, t_detections = sorting_detections(files = detections_file, box=True)
     timebin_orig = t_detections.iloc[0]['max_time']
@@ -178,6 +188,10 @@ def reshape_timebin(detections_file: str, timebin_new:int=None) -> pd.DataFrame:
             
             # #here test to find for each time vector value which filename corresponds
             filenames = sorted(list(set(df_detect_prov['filename'])))
+            if not all(isinstance(filename,str) for filename in filenames):
+                if all(math.isnan(filename) for filename in filenames):
+                    filenames = [i.strftime('%Y-%m-%dT%H:%M:%S%z') for i in df_detect_prov['start_datetime']] #FPOD case: the filenames of a FPOD csv file are NaN values
+                
             tz = df_detect_prov['start_datetime'][0].tz
             ts_filenames = [extract_datetime(filename, tz=tz).timestamp()for filename in filenames]
             
@@ -247,7 +261,7 @@ def reshape_timebin(detections_file: str, timebin_new:int=None) -> pd.DataFrame:
 # def read_header(file:str) -> Tuple[int, int, int, int, int]:
 #     #reads header of a wav file to get info such as duration, samplerate etc...
     
-#     with open(file, "rb") as fh:
+#     with open(file, 'rb') as fh:
 #        _, size, _ = struct.unpack('<4sI4s', fh.read(12))
 
 #        chunk_header = fh.read(8)
@@ -262,7 +276,7 @@ def reshape_timebin(detections_file: str, timebin_new:int=None) -> pd.DataFrame:
 #        return sampwidth, frames, samplerate, channels, frames/samplerate
 
 def read_header(file:str) -> Tuple[int, int, int, int]:
-    """ Reads header of a wav file to get info such as duration, samplerate etc...
+    ''' Reads header of a wav file to get info such as duration, samplerate etc...
     
     Parameter :
         file : path to the wav file
@@ -273,9 +287,9 @@ def read_header(file:str) -> Tuple[int, int, int, int]:
         samplerate
         channels
         frames/samplerate
-    """
+    '''
     
-    with open(file, "rb") as fh:
+    with open(file, 'rb') as fh:
         _, size, _ = struct.unpack('<4sI4s', fh.read(12))
         chunk_header = fh.read(8)
         subchunkid, _ = struct.unpack('<4sI', chunk_header)
@@ -294,7 +308,7 @@ def read_header(file:str) -> Tuple[int, int, int, int]:
             chunkOffset = chunkOffset + subchunk2size + 8
 
         if not found_data:
-            print("No data chunk found while reading the header. Will fallback on the header size.")
+            print('No data chunk found while reading the header. Will fallback on the header size.')
             subchunk2size = (size - 36)
 
         sampwidth = (sampwidth + 7) // 8
@@ -302,15 +316,15 @@ def read_header(file:str) -> Tuple[int, int, int, int]:
         frames = subchunk2size // framesize
 
         if (size - 36) != subchunk2size:
-            print(f"Warning : the size indicated in the header is not the same as the actual file size. This might mean that the file is truncated or otherwise corrupt.\
-                \nSupposed size: {size} bytes \nActual size: {subchunk2size} bytes.")
+            print(f'Warning : the size indicated in the header is not the same as the actual file size. This might mean that the file is truncated or otherwise corrupt.\
+                \nSupposed size: {size} bytes \nActual size: {subchunk2size} bytes.')
 
         return sampwidth, frames, samplerate, channels, frames/samplerate
 
 
 # def get_wav_info(folder):
 #     durations=[]
-#     wav_files = glob.glob(os.path.join(folder, "**/*.wav"), recursive=True)
+#     wav_files = glob.glob(os.path.join(folder, '**/*.wav'), recursive=True)
 #     for file in tqdm(wav_files, 'Getting wav durations...', position=0, leave=True):
 #         try:
 #             with wave.open(file, 'r') as wav_files:
@@ -323,7 +337,7 @@ def read_header(file:str) -> Tuple[int, int, int, int]:
 
 
 def extract_datetime(var:str, tz:pytz._FixedOffset, formats=None) -> Union[dt.datetime, str]:
-    """ Extracts datetime from filename based on the date format
+    ''' Extracts datetime from filename based on the date format
     
         Parameters :
             var : name of the wav file
@@ -333,13 +347,14 @@ def extract_datetime(var:str, tz:pytz._FixedOffset, formats=None) -> Union[dt.da
             
         Returns :
             date_obj : datetime corresponding to the datetime found in var
-    """
+    '''
     
     if formats is None:
         formats = [
                     r'\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}',
                     r'\d{2}\d{2}\d{2}\d{2}\d{2}\d{2}',
                     r'\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}',
+                    r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}',
                     r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}'
                     ] #add more format if necessary
     match = None
@@ -359,6 +374,8 @@ def extract_datetime(var:str, tz:pytz._FixedOffset, formats=None) -> Union[dt.da
             dt_format = '%y%m%d_%H%M%S'        
         elif f == r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}':
             dt_format = '%Y-%m-%d %H:%M:%S'
+        elif f == r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}':
+            dt_format = '%Y-%m-%dT%H:%M:%S'
         date_obj = dt.datetime.strptime(dt_string, dt_format)
         
         if type(tz) is pytz._FixedOffset or tz is pytz.UTC : date_obj = tz.localize(date_obj)
@@ -366,10 +383,10 @@ def extract_datetime(var:str, tz:pytz._FixedOffset, formats=None) -> Union[dt.da
         
         return date_obj
     else:
-        return print("No datetime found")
+        return print('No datetime found')
 
 def t_rounder(t:dt.datetime, res:int):
-    """ Rounds a Timestamp according to the user specified resolution : 10s / 1min / 10 min / 1h / 24h
+    ''' Rounds a Timestamp according to the user specified resolution : 10s / 1min / 10 min / 1h / 24h
 
     Parameter :
         t: Timestamp to round
@@ -377,7 +394,7 @@ def t_rounder(t:dt.datetime, res:int):
 
     Returns :
         t: rounded Timestamp
-    """
+    '''
     
     if res == 600: #10min
         minute = t.minute
@@ -436,9 +453,20 @@ def oneday_per_month(time_vector_ts, time_vector_str, vec)-> Tuple[list, list, l
 
 
 
-def n_random_hour(time_vector_ts, time_vector_str, vec, n_hour, TZ, time_step)-> Tuple[list, list, list, list]:
-    # randomly select n non-overlapping hours from the time vector
-    if type(TZ) is not pytz._FixedOffset: TZ=pytz.timezone(TZ)
+def n_random_hour(time_vector_ts, time_vector_str, vec, n_hour:int, tz, time_step:int)-> Tuple[list, list, list, list]:
+    ''' Randomly select n non-overlapping hours from the time vector
+
+    Parameter :
+        time_vector_ts : vector of timestamps
+        time_vector_str : vector of strings corresponding to the timestamps
+        vec: vector of 0/1 representing the absense/presence of a detection at the corresponding timestamp of the time_vector
+        n_hour: number of hours to select
+        tz : timezone object
+        time_step: time bin of the time vector
+
+    Returns :
+        t: rounded Timestamp    '''
+    if type(tz) is not pytz._FixedOffset and tz is not pytz.utc: tz=pytz.timezone(tz)
     
     if not isinstance(n_hour, int):
         print('n_hour is not an integer')
@@ -450,11 +478,11 @@ def n_random_hour(time_vector_ts, time_vector_str, vec, n_hour, TZ, time_step)->
         rand_idx = random.randrange(len(time_vector_ts))
         rand_datetime = time_vector_ts[rand_idx]
         
+        rand_datetime = np.round(rand_datetime / 3600) * 3600
+        
         selected_dates.append(rand_datetime)
     
         # select all datetimes that fall within the hour following this datetime
-        # possible_datetimes = [time for time in time_vector_ts if rand_datetime < time < rand_datetime + 3600]
-        # possible_datetimes = [(idx, dt) for idx, dt in enumerate(time_vector_ts) if rand_datetime <= dt <= rand_datetime+3600]
         possible_datetimes = time_vector_ts[rand_idx:rand_idx+round(3600/time_step)+1]
         
         # check if any of the selected datetimes overlap with the previously selected datetimes
@@ -476,7 +504,7 @@ def n_random_hour(time_vector_ts, time_vector_str, vec, n_hour, TZ, time_step)->
     # extract the corresponding vectors and time strings
     selected_vec = [vec[time_vector_ts.index(i)] for i in tqdm(selected_time_vector_ts, position=0, leave=True)]
     selected_time_vector_str = [time_vector_str[time_vector_ts.index(i)] for i in tqdm(selected_time_vector_ts, position=0, leave=True)]
-    selected_dates = [dt.datetime.fromtimestamp(i, TZ).strftime('%d/%m/%Y %H:%M:%S') for i in selected_dates]
+    selected_dates = [dt.datetime.fromtimestamp(i, tz).strftime('%d/%m/%Y %H:%M:%S') for i in selected_dates]
 
     return selected_time_vector_ts, selected_time_vector_str, selected_vec, selected_dates
 
@@ -525,7 +553,7 @@ def pick_datetimes(time_vector_ts, time_vector_str, vec, selected_dates, selecte
     return selected_time_vector_ts, selected_time_vector_str, selected_vec, selected_df_out
 
 def export2Raven(tuple_info, time_vec, time_str, bin_height, selection_vec=None) -> pd.DataFrame:
-    """ Export a given vector to Raven formatted table
+    ''' Export a given vector to Raven formatted table
             
         Parameter :
 
@@ -536,7 +564,7 @@ def export2Raven(tuple_info, time_vec, time_str, bin_height, selection_vec=None)
             dur : list of the wav files durations
             bin_height : the maximum frequency of the exported timebins
             selection_vec : if it is set to None, all the timebins are exported, else the selection_vec is used to selec the wanted timebins to export, for instance it corresponds to all the positives timebins, containing detections
-    """
+    '''
     
     #TODO: gérer les dernieres timebin de chaque wav car elles peuvent être < à la timebin duration et donc elles débordent sur le wav suivant pour l'instant
     
@@ -584,14 +612,14 @@ def export2Raven(tuple_info, time_vec, time_str, bin_height, selection_vec=None)
     return df_PG2Raven
 
 def get_season(ts: dt.datetime)-> str:
-    """ "day of year" ranges for the northern hemisphere
+    ''' 'day of year' ranges for the northern hemisphere
     
         Parameter :
             ts : datetime
         
         Returns :
             season : string corresponding to the season and year of the datetime (ex : if datetime is 01/01/2023, returns 'winter 2022')
-    """
+    '''
     winter1 = range(1,80)
     spring = range(80, 172)
     summer = range(172, 264)
@@ -608,17 +636,17 @@ def get_season(ts: dt.datetime)-> str:
 
 
 def load_glider_nav():
-    """ Load the navigation data from glider output files
+    ''' Load the navigation data from glider output files
     
         Parameter :
             
         
         Returns :
             df : dataframe with glider navigation data
-    """
+    '''
     root = Tk()
     root.withdraw()
-    directory = filedialog.askdirectory(title="Select master folder")
+    directory = filedialog.askdirectory(title='Select master folder')
     
     all_rows = [] # Initialize an empty list to store the contents of all CSV files
     yo = []  # List to store the file numbers
@@ -664,29 +692,29 @@ def load_glider_nav():
     return df
 
 __converter = {
-    "%Y": r"[12][0-9]{3}",
-    "%y": r"[0-9]{2}",
-    "%m": r"(0[1-9]|1[0-2])",
-    "%d": r"([0-2][0-9]|3[0-1])",
-    "%H": r"([0-1][0-9]|2[0-4])",
-    "%I": r"(0[1-9]|1[0-2])",
-    "%p": r"(AM|PM)",
-    "%M": r"[0-5][0-9]",
-    "%S": r"[0-5][0-9]",
-    "%f": r"[0-9]{6}",
+    '%Y': r'[12][0-9]{3}',
+    '%y': r'[0-9]{2}',
+    '%m': r'(0[1-9]|1[0-2])',
+    '%d': r'([0-2][0-9]|3[0-1])',
+    '%H': r'([0-1][0-9]|2[0-4])',
+    '%I': r'(0[1-9]|1[0-2])',
+    '%p': r'(AM|PM)',
+    '%M': r'[0-5][0-9]',
+    '%S': r'[0-5][0-9]',
+    '%f': r'[0-9]{6}',
 }
 
 def convert_template_to_re(date_template: str) -> str:
-    """ Converts a template in strftime format to a matching regular expression
+    ''' Converts a template in strftime format to a matching regular expression
 
     Parameter :
         date_template: the template in strftime format
 
     Returns :
         The regular expression matching the template
-    """
+    '''
 
-    res = ""
+    res = ''
     i = 0
     while i < len(date_template):
         if date_template[i : i + 2] in __converter:
@@ -700,7 +728,8 @@ def convert_template_to_re(date_template: str) -> str:
 
 
 def get_timestamps(tz:str=None, f_type:str=None, n_dir:int=1, ext:str=None, choices:str=None, date_template:str=None, path_dir:str=None, msg:str=None)-> None:
-    """  
+    '''  
+    Read infos from APLOSE files timestamps.csv OR file_metadata.csv
     
     Parameters : 
         tz : str, optional, ex: tz='Etc/GMT-2'
@@ -717,14 +746,14 @@ def get_timestamps(tz:str=None, f_type:str=None, n_dir:int=1, ext:str=None, choi
         df_timestamps : TYPE
             DESCRIPTION.
 
-    """
+    '''
     if tz is not None:
         if type(tz) is pytz._FixedOffset or tz is not pytz.UTC: tz=pytz.timezone(tz)
         
     if choices not in ('Yes', 'No', None):
         raise ValueError('choices must be ''Yes'', ''No'', or None')
 
-    if choices is None or (ext is None and f_type is None):
+    if choices is None and (ext is None and f_type is None):
         msg_ch = 'Do you already have the timestamp.csv  ?'
         choices = ['Yes','No']
         reply = easygui.buttonbox(msg_ch, choices=choices)
@@ -733,11 +762,15 @@ def get_timestamps(tz:str=None, f_type:str=None, n_dir:int=1, ext:str=None, choi
     if reply=='Yes':
         root = Tk()
         root.withdraw()
-        timestampcsv_path = filedialog.askopenfilename(title='Select the timestamp csv file', filetypes=[("CSV files", "*.csv")]) # show an "Open" dialog box and return the path to the selected file
+        timestampcsv_path = filedialog.askopenfilename(title='Select the file_metadata/timestamp csv file', filetypes=[('CSV files', '*.csv')]) # show an 'Open' dialog box and return the path to the selected file
         root = Tk()
         root.withdraw()
-        df_timestamps = pd.read_csv(timestampcsv_path, header=None)
-        df_timestamps.columns=['filename', 'timestamp']
+        
+        if os.path.basename(timestampcsv_path) == 'file_metadata.csv':
+            df_timestamps = pd.read_csv(timestampcsv_path)
+        elif os.path.basename(timestampcsv_path) == 'timestamp.csv':
+            df_timestamps = pd.read_csv(timestampcsv_path, header=None)
+            df_timestamps.columns=['filename', 'timestamp']
             
     elif reply=='No':
         if path_dir is None: list_wav_paths = find_files(f_type=f_type, ext=ext, n_dir=n_dir)
@@ -755,15 +788,15 @@ def get_timestamps(tz:str=None, f_type:str=None, n_dir:int=1, ext:str=None, choi
         for i, filename in enumerate(list_audio_file):
             date_extracted = re.search(converted, str(filename))[0]
             date_obj = dt.datetime.strptime(date_extracted, date_template)
-            dates = dt.datetime.strftime(date_obj, "%Y-%m-%dT%H:%M:%S.%f")
+            dates = dt.datetime.strftime(date_obj, '%Y-%m-%dT%H:%M:%S.%f')
     
-            dates_final = dates[:-3] + "Z"
+            dates_final = dates[:-3] + 'Z'
             timestamp.append(dates_final)
             filename_raw_audio.append(filename)
             
         df_timestamps = pd.DataFrame(
                 {'filename': filename_raw_audio, 'timestamp': timestamp, 'path': list_wav_paths})
-        df_timestamps.sort_values(by=["timestamp"], inplace=True)
+        df_timestamps.sort_values(by=['timestamp'], inplace=True)
     
     if tz is not None:
         df_timestamps['timestamp'] = [pd.Timestamp(tz.localize(pd.Timestamp(i.split('Z')[0]))) for i in df_timestamps['timestamp']]
@@ -771,7 +804,7 @@ def get_timestamps(tz:str=None, f_type:str=None, n_dir:int=1, ext:str=None, choi
     return df_timestamps
 
 def find_files(f_type:str, ext:str, path:str=None, msg:str=None, n_dir:int=1)->list:
-    """ Based on selection_type, ask the user a folder and yields all the wav files inside it or ask the user multiple wav files
+    ''' Based on selection_type, ask the user a folder and yields all the wav files inside it or ask the user multiple wav files
 
     Parameters :
         f_type : str, either 'dir' or 'file'
@@ -783,7 +816,7 @@ def find_files(f_type:str, ext:str, path:str=None, msg:str=None, n_dir:int=1)->l
     Returns :
         selected_files : list of the paths of the wav files
 
-    """
+    '''
     root = Tk()
     root.withdraw()
 
@@ -835,7 +868,7 @@ def get_tz(file):
         else:print('error tz')
 
 def input_date(msg, tz_data):
-    """ Based on selection_type, ask the user a folder and yields all the wav files inside it or ask the user multiple wav files
+    ''' Based on selection_type, ask the user a folder and yields all the wav files inside it or ask the user multiple wav files
 
     Parameters :
         msg : Message to tell the user what date they have to enter (begin, end...)
@@ -845,22 +878,22 @@ def input_date(msg, tz_data):
     Returns :
         date_dt : aware dataframe of the date entered by the user
 
-    """    
-    title = "Date"
-    fieldNames = ["Year", "Month", "Day", "Hour", "Minute", "Second"]
+    '''    
+    title = 'Date'
+    fieldNames = ['Year', 'Month', 'Day', 'Hour', 'Minute', 'Second']
     fieldValues = []  # we start with blanks for the values
     fieldValues = easygui.multenterbox(msg,title, fieldNames)
     
     # make sure that none of the fields was left blank
     while 1:
       if fieldValues == None: break
-      errmsg = ""
+      errmsg = ''
       for i in range(len(fieldNames)):
-        if fieldValues[i].strip() == "":
-          errmsg = errmsg + ('"%s" is a required field.\n\n' % fieldNames[i])
-      if errmsg == "": break # no problems found
+        if fieldValues[i].strip() == '':
+          errmsg = errmsg + ("'%s' is a required field.\n\n" % fieldNames[i])
+      if errmsg == '': break # no problems found
       fieldValues = easygui.multpasswordbox(errmsg, title, fieldNames, fieldValues)
-    print("Reply was:", fieldValues) 
+    print('Reply was:', fieldValues) 
     date_dt = dt.datetime(*map(int, fieldValues),0 ,tz_data)
     
     
