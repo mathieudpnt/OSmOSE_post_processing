@@ -28,7 +28,7 @@ tz_data = df_pamguard['start_datetime'][0].tz
     # input : you will fill a dialog box with the start and end date of the Figure you want to make
     # auto : the script automatically extract the timestamp from the file_metadata.csv file or from the selected wav files of the Figure you want to make
 
-dt_mode = 'auto'
+dt_mode = 'manual'
 
 if dt_mode == 'auto':
     timestamps_file = get_timestamps(choices='Yes')
@@ -37,10 +37,10 @@ if dt_mode == 'auto':
     durations = timestamps_file['duration']
         
 elif dt_mode == 'manual' :
-    timestamps_file = get_timestamps(ext='wav', f_type='dir', choices='No')
+    timestamps_file = get_timestamps(ext='wav', f_type='dir', choices='No', n_dir=2)
     begin_deploy = extract_datetime(timestamps_file['filename'].iloc[0], tz_data)
     wav_path = timestamps_file['path']
-    durations = [read_header(i)[-1] for i in wav_path]
+    durations = [read_header(i)[-1] for i in tqdm(wav_path)]
     end_deploy = extract_datetime(timestamps_file['filename'].iloc[-1], tz_data) + dt.timedelta(seconds=timestamps_file['duration'].iloc[-1])  
 
 

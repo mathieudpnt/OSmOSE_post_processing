@@ -187,8 +187,9 @@ def reshape_timebin(detections_file: str, timebin_new:int=None) -> pd.DataFrame:
             
             # #here test to find for each time vector value which filename corresponds
             filenames = sorted(list(set(df_detect_prov['filename'])))
-            if all(math.isnan(filename) for filename in filenames):
-                filenames = [i.strftime('%Y-%m-%dT%H:%M:%S%z') for i in df_detect_prov['start_datetime']]
+            if not all(isinstance(filename,str) for filename in filenames):
+                if all(math.isnan(filename) for filename in filenames):
+                    filenames = [i.strftime('%Y-%m-%dT%H:%M:%S%z') for i in df_detect_prov['start_datetime']] #FPOD case: the filenames of a FPOD csv file are NaN values
                 
             tz = df_detect_prov['start_datetime'][0].tz
             ts_filenames = [extract_datetime(filename, tz=tz).timestamp()for filename in filenames]
