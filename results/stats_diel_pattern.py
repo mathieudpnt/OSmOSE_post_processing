@@ -107,7 +107,7 @@ for idx_day, day in enumerate(list_days):
             elif df_detections['start_datetime'][idx_det] > dt_day[idx_day] and df_detections['start_datetime'][idx_det] < dt_night[idx_day] :
                 l=3
                 light_regime.append(l)
-            elif df_detections['start_datetime'][idx_det] > dt_day[idx_day] and df_detections['start_datetime'][idx_det] < dt_night[idx_day] :
+            elif df_detections['start_datetime'][idx_det] > dt_night[idx_day] and df_detections['start_datetime'][idx_det] < dt_dusk[idx_day] :
                 l=4
                 light_regime.append(l)
             else:
@@ -117,8 +117,23 @@ for idx_day, day in enumerate(list_days):
                  
 
 # For each day, count the number of detection per light regime
-
-#for idx_day, day in enumerate(list_days):
+nb_det_night = []
+nb_det_dawn = []
+nb_det_day = []
+nb_det_dusk = []
+for idx_day, day in enumerate(list_days) :
+    idx_det = [idx for idx, det in enumerate(day_det) if det == day]
+    if idx_det == []:
+        l=0
+        nb_det_night.append(l)
+        nb_det_dawn.append(l)
+        nb_det_day.append(l)
+        nb_det_dusk.append(l)
+    else :
+        nb_det_night.append(light_regime[idx_det[0]:idx_det[-1]].count(1))
+        nb_det_dawn.append(light_regime[idx_det[0]:idx_det[-1]].count(2))
+        nb_det_day.append(light_regime[idx_det[0]:idx_det[-1]].count(3))
+        nb_det_dusk.append(light_regime[idx_det[0]:idx_det[-1]].count(4))
     
     
     
