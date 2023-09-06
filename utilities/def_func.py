@@ -941,7 +941,7 @@ def suntime_hour(begin_deploy, end_deploy, timeZ, lat,lon):
         dt_dawn.append(dawn_dt)
         dt_day.append(day_dt)
         dt_night.append(night_dt)
-    return h_sunrise, h_sunset, dt_dusk, dt_dawn, dt_day, dt_night
+    return h_sunrise[0:-1], h_sunset[0:-1], dt_dusk, dt_dawn, dt_day, dt_night
 
 
 
