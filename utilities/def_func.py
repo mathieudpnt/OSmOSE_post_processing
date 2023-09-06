@@ -1,5 +1,5 @@
 import struct
-from typing import Tuple, List, Dict
+from typing import Tuple, List
 import pytz
 import pandas as pd
 import re
