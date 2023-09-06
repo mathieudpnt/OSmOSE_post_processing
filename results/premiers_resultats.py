@@ -15,8 +15,8 @@ from post_processing_detections.utilities.def_func import get_detection_files, e
 
 #%% User inputs 
 
-files_list = get_detection_files(1)
-df_detections, t_detections = sorting_detections(files_list, timebin_new=3600)
+files_list = get_detection_files(13)
+df_detections, t_detections = sorting_detections(files_list, timebin_new=60)
 
 time_bin = list(set(t_detections['max_time']))
 fmax = list(set(t_detections['max_freq']))
@@ -119,11 +119,11 @@ ax2.set_title('Number of annotations per annotator', color='w', fontdict=title_f
 #mdate1 = mdates.MonthLocator(interval=1)
 #mdate2 = mdates.DateFormatter('%B', tz=tz_data)
 # One tick every 2 weeks
-mdate1 = mdates.DayLocator(interval=15,tz=tz_data)
-mdate2 = mdates.DateFormatter('%d-%B', tz=tz_data)
+# mdate1 = mdates.DayLocator(interval=1,tz=tz_data)
+# mdate2 = mdates.DateFormatter('%d-%B', tz=tz_data)
 # One tick every day
-#mdate1 = mdates.DayLocator(interval=1,tz=tz_data)
-#mdate2 = mdates.DateFormatter('%d-%m', tz=tz_data)
+mdate1 = mdates.DayLocator(interval=1,tz=tz_data)
+mdate2 = mdates.DateFormatter('%d-%m', tz=tz_data)
 # One tick every hour
 #mdate1 = mdates.HourLocator(interval=1,tz=tz_data)
 #mdate2 = mdates.DateFormatter('%H:%M', tz=tz_data)
