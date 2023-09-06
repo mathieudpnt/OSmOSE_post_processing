@@ -15,7 +15,7 @@ from post_processing_detections.utilities.def_func import get_detection_files, e
 
 #%% User inputs 
 
-files_list = get_detection_files(13)
+files_list = get_detection_files(10)
 df_detections, t_detections = sorting_detections(files_list, timebin_new=60)
 
 time_bin = list(set(t_detections['max_time']))
@@ -218,11 +218,11 @@ ax.grid(color='w', linestyle='--', linewidth=0.2, axis='both')
 #mdate1 = mdates.DayLocator(interval=15,tz=tz_data)
 #mdate2 = mdates.DateFormatter('%d-%B', tz=tz_data)
 # One tick every day
-#mdate1 = mdates.DayLocator(interval=1,tz=tz_data)
-#mdate2 = mdates.DateFormatter('%d-%m', tz=tz_data)
+mdate1 = mdates.DayLocator(interval=1,tz=tz_data)
+mdate2 = mdates.DateFormatter('%d-%m', tz=tz_data)
 # One tick every hour
-mdate1 = mdates.HourLocator(interval=1,tz=tz_data)
-mdate2 = mdates.DateFormatter('%H:%M', tz=tz_data)
+# mdate1 = mdates.HourLocator(interval=1,tz=tz_data)
+# mdate2 = mdates.DateFormatter('%H:%M', tz=tz_data)
 # ----------------------------------------------------------------------------
 
 # User input : gps coordinates in Decimal Degrees
