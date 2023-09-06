@@ -72,6 +72,12 @@ def sorting_detections(files: List[str], tz: pytz._FixedOffset = None, date_begi
 
     if isinstance(files, str):
         files = [files]  # Convert the single string to a list with one element
+        
+    if date_begin is not None and date_end is not None:
+        if date_begin >= date_end:
+            print("Error: date_begin > date_end")
+            return
+            
 
     info, result_df = pd.DataFrame(), pd.DataFrame()
     for file in files:
@@ -121,7 +127,8 @@ def sorting_detections(files: List[str], tz: pytz._FixedOffset = None, date_begi
         if label is not None:
             df = df.loc[(df['annotation'] == label)]
         list_annotators = list(df['annotator'].drop_duplicates())
-        annotators = list_annotators if len(list_annotators) > 1 else list_annotators[0]
+        # annotators = list_annotators if len(list_annotators) > 1 else list_annotators[0]
+        annotators = list_annotators if isinstance(list_annotators, str) else list_annotators[0]
 
         list_labels = list(df['annotation'].drop_duplicates())
         labels = list_labels if len(list_labels) > 1 else list_labels[0]
@@ -747,7 +754,7 @@ def get_timestamps(tz: str = None, f_type: str = None, n_dir: int = 1, ext: str 
     if choices not in ('Yes', 'No', None):
         raise ValueError('choices must be ''Yes'', ''No'', or None')
 
-    if choices is None and (ext is None and f_type is None):
+    if choices is None:
         msg_ch = 'Do you already have the timestamp.csv  ?'
         choices = ['Yes', 'No']
         reply = easygui.buttonbox(msg_ch, choices=choices)
@@ -838,7 +845,16 @@ def find_files(f_type: str, ext: str, path: str = None, msg: str = None, n_dir: 
 
 
 def get_tz(file):
+    '''Extract the tz from a detection file list
+    if more than one tz is present UTC is chosen by default
 
+    Parameters :
+        file : list of APLOSE formatted detection files
+
+    Returns:
+        tz: pytz.tz object
+    '''
+    
     tz = []
     if isinstance(file, list):
         if len(file) == 1: [file] = file  # Convert the single string to a list with one element
@@ -848,7 +864,9 @@ def get_tz(file):
                 tz.append(list(set([x.tz for x in dt]))[0])
             tz = list(set(tz))
             if len(tz) == 1: tz = tz[0]
-            else: sys.exit('tz error')
+            else:
+                print('More than one tz present on detection files, UTC is selected')
+                tz = pytz.UTC
         return tz
     else:
         dt = pd.to_datetime(pd.read_csv(file, usecols=['start_datetime'])['start_datetime'].tolist(), format='%Y-%m-%dT%H:%M:%S.%f%z')

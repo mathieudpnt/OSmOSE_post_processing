@@ -15,7 +15,7 @@ from post_processing_detections.utilities.def_func import get_detection_files, e
 
 # %% User inputs
 
-files_list = get_detection_files(10)
+files_list = get_detection_files(2)
 df_detections, t_detections = sorting_detections(files_list, timebin_new=60)
 
 time_bin = list(set(t_detections['max_time']))
@@ -111,7 +111,7 @@ ax1.set_title('Number of annotations per label', color='w', fontdict=title_font,
 ax2.set_title('Number of annotations per annotator', color='w', fontdict=title_font, pad=5)
 
 
-# %% Single seasonality plot 
+# %% Single seasonality plot
 
 # ----------- User set mdate time xticks-----------------------------
 # One tick per month
@@ -121,11 +121,11 @@ ax2.set_title('Number of annotations per annotator', color='w', fontdict=title_f
 # mdate1 = mdates.DayLocator(interval=1, tz=tz_data)
 # mdate2 = mdates.DateFormatter('%d-%B', tz=tz_data)
 # One tick every day
-mdate1 = mdates.DayLocator(interval=1, tz=tz_data)
-mdate2 = mdates.DateFormatter('%d-%m', tz=tz_data)
+# mdate1 = mdates.DayLocator(interval=1, tz=tz_data)
+# mdate2 = mdates.DateFormatter('%d-%m', tz=tz_data)
 # One tick every hour
-# mdate1 = mdates.HourLocator(interval=1, tz=tz_data)
-# mdate2 = mdates.DateFormatter('%H:%M', tz=tz_data)
+mdate1 = mdates.HourLocator(interval=1, tz=tz_data)
+mdate2 = mdates.DateFormatter('%H:%M', tz=tz_data)
 # -------------------------------------------------------------------
 
 annot_ref = easygui.buttonbox('Select an annotator', 'Single plot', annotators) if len(annotators) > 1 else annotators[0]

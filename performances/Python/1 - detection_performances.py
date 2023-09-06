@@ -16,17 +16,15 @@ choice_ref = easygui.buttonbox('Select the reference', '{0}'.format(files_list[0
 if files_list[0].split('/')[-1] != choice_ref:
     files_list[0],  files_list[1] = files_list[1],  files_list[0] 
 
-timestamps_file = get_timestamps(tz=get_tz(files_list), f_type='file', ext= 'wav')
+timestamps_file = get_timestamps(tz=get_tz(files_list), f_type='dir', ext= 'wav')
 
-df_detections, t_detections = sorting_detections(files=files_list)
+df_detections, t_detections = sorting_detections(files=files_list, timebin_new=60)
 timebin_detections = int(list(set(t_detections['max_time']))[0])
 labels_detections = list(set(t_detections['labels'].explode()))
 annotators_detections = list(set(t_detections['annotators'].explode()))
 
-# first_date = df_detections['start_datetime'][0] #1st detection
-# last_date = df_detections['start_datetime'].iloc[-1] #last detection
-first_date = pd.Timestamp('2022-07-07 00:00:00+0200', tz=pytz.FixedOffset(120))
-last_date = pd.Timestamp('2022-07-07 23:59:00+0200', tz=pytz.FixedOffset(120))
+first_date = pd.Timestamp('2022-08-28 00:00:00+0200', tz=pytz.FixedOffset(120))
+last_date = pd.Timestamp('2022-08-28 23:59:00+0200', tz=pytz.FixedOffset(120))
 
 tz_data = timestamps_file['timestamp'][0].tz
 
@@ -41,9 +39,9 @@ df2, t2 = sorting_detections(files=files_list[1], annotator=annotator2, timebin_
 
 labels1 = t1['labels'][0]
 labels2 = [t2['labels'][0]]
-#%% FORMAT DATA
+# %% FORMAT DATA
 
-#selection of waf files according to first and last dates
+# selection of waf files according to first and last dates
 idx_wav_beg = 0 if all(wav_datetimes[i] >= first_date for i in range(len(wav_datetimes))) else [i for i, x in enumerate(wav_datetimes) if x < first_date][-1]
 idx_wav_end = len(wav_files) if all(wav_datetimes[i] <= last_date for i in range(len(wav_datetimes))) else [i for i, x in enumerate(wav_datetimes) if x > last_date][0]
 wav_datetimes, wav_files = wav_datetimes[idx_wav_beg:idx_wav_end], wav_files[idx_wav_beg:idx_wav_end]
@@ -53,12 +51,12 @@ print('last wav : ' + wav_files.iloc[-1], end='\n\n')
 time_vector = [elem for i in range(len(wav_files)) for elem in [extract_datetime(wav_files.iloc[i], tz=tz_data).timestamp()]]
 time_vector_str = [wav_files.iloc[i].split('.wav')[0] for i in range(len(wav_files))]
 
-## df1 - REFERENCE
+# # df1 - REFERENCE
 selected_label1 = easygui.buttonbox('Select a label', 'file 1 : {0}'.format(files_list[0].split('/')[-1]), labels1) if len(labels1)>1 else labels1[0]
-selected_annotations1, _ = sorting_detections(files=files_list[0], timebin_new=timebin_detections, annotator = annotator1, label=selected_label1)
+selected_annotations1, _ = sorting_detections(files=files_list[0], timebin_new=timebin_detections, annotator=annotator1, label=selected_label1, date_begin=first_date, date_end=last_date)
     
-times1_beg = sorted(list(set(x.timestamp() for x in selected_annotations1['start_datetime'])) )
-times1_end = sorted(list(set(y.timestamp() for y in selected_annotations1['end_datetime']))) #set -> Remove recurrent elements ie annotator common annotations in the list, returns a set with random order -> list + sorting
+times1_beg = sorted(list(set(x.timestamp() for x in selected_annotations1['start_datetime'])))
+times1_end = sorted(list(set(y.timestamp() for y in selected_annotations1['end_datetime'])))
 
 vec1, ranks, k = np.zeros(len(time_vector), dtype=int), [], 0
 for i in range(len(times1_beg)):
@@ -73,9 +71,9 @@ ranks = sorted(list(set(ranks)))
 vec1[np.isin(range(len(time_vector)), ranks)] = 1
     
 
-## df2 
+# df2
 selected_label2 = easygui.buttonbox('Select a label', '{0}'.format(files_list[1].split('/')[-1]), labels2) if len(labels2)>1 else labels2[0]
-selected_annotations2, _ = sorting_detections(files=files_list[1], timebin_new=timebin_detections, annotator = annotator2, label=selected_label2)
+selected_annotations2, _ = sorting_detections(files=files_list[1], timebin_new=timebin_detections, annotator = annotator2, label=selected_label2, date_begin=first_date, date_end=last_date)
 
 times2_beg = [i.timestamp() for i in selected_annotations2['start_datetime']]
 times2_end = [i.timestamp() for i in selected_annotations2['end_datetime']]
