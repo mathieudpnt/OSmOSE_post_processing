@@ -15,7 +15,7 @@ from post_processing_detections.utilities.def_func import get_detection_files, e
 
 #%% User inputs 
 
-files_list = get_detection_files(10)
+files_list = get_detection_files(1)
 df_detections, t_detections = sorting_detections(files_list, timebin_new=60)
 
 time_bin = list(set(t_detections['max_time']))
@@ -172,8 +172,10 @@ else :
 df_1annot_1label, _  = sorting_detections(file_ref, annotator = annot_ref, label = label_ref, timebin_new = time_bin_ref)
 
 fig,ax = plt.subplots(figsize=(20,9), facecolor='#36454F')
-ax.hist(df_1annot_1label['start_datetime'], bins=time_vector, color='crimson', edgecolor='black', linewidth=1)
-
+[hist_y, hist_x, _] = ax.hist(df_1annot_1label['start_datetime'], bins=time_vector, color='crimson', edgecolor='black', linewidth=1)
+# Compute df_hist for user to check the values contained in the histogram
+hist_xt = [pd.to_datetime(x*24*60*60, unit='s') for x in hist_x[0:-1]]
+df_hist = pd.DataFrame({'Date' : hist_xt, 'Number of detection' : hist_y.tolist()})
 #facecolor
 ax.set_facecolor('#36454F')
 

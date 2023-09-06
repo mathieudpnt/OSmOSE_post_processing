@@ -7,20 +7,10 @@ Created on Mon Sep  4 16:50:38 2023
 
 import datetime as dt
 import pylab
-import pandas as pd
-import numpy as np
 import easygui
 import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
-from collections import Counter
-import seaborn as sns
-from scipy import stats
-import sys
 import pytz
-from astral.sun import sun
-import astral
-from collections import OrderedDict
-from post_processing_detections.utilities.def_func import get_detection_files, extract_datetime, sorting_detections, t_rounder, get_timestamps, input_date, suntime_hour
+from post_processing_detections.utilities.def_func import get_detection_files, extract_datetime, sorting_detections, get_timestamps, input_date, suntime_hour
 
 
 #%% Read and format detection file
