@@ -20,6 +20,7 @@ import bisect
 from astral.sun import sun
 import astral
 import csv
+import warnings
 
 
 def get_detection_files(num_files: int) -> List[str]:
@@ -48,7 +49,7 @@ def get_detection_files(num_files: int) -> List[str]:
     return file_paths
 
 
-def sorting_detections(files: List[str], tz: pytz._FixedOffset = None, date_begin: dt.datetime = None, date_end: dt.datetime = None, annotator: str = None, label: str = None, box: bool = False, timebin_new: int = None) -> (pd.DataFrame, pd.DataFrame):
+def sorting_detections(files: List[str], tz: pytz._FixedOffset = None, date_begin: dt.datetime = None, date_end: dt.datetime = None, annotator: str = None, label: str = None, box: bool = False, timebin_new: int = None, force_upload: bool=False, user_sel: str='all') -> (pd.DataFrame, pd.DataFrame):
     ''' Filters an Aplose formatted detection file according to user specified filters
 
         Parameters :
@@ -60,6 +61,12 @@ def sorting_detections(files: List[str], tz: pytz._FixedOffset = None, date_begi
             label : string to be specified if the user wants to select the detection of a particular label
             box : if set to True, keeps all the annotations, if False keeps only the absence/presence box (weak detection)
             timebin_new : integer to be specified if the user already know the new time resolution to set the detection file to
+            force_upload : boolean value, in the case where detection files have different timebins, user can choose wether or not to upload the detections
+            user_sel: string to specify to filter detections of a file based on annotators
+                'union' : the common detections of all annotators and the unique detections of each annotators are selected
+                'intersection' : only the common detections of all annotators are selected
+                'all' : all the detections are selected, default value
+
 
         Returns :
             max_time : spectrogram temporal length
@@ -72,16 +79,15 @@ def sorting_detections(files: List[str], tz: pytz._FixedOffset = None, date_begi
 
     if isinstance(files, str):
         files = [files]  # Convert the single string to a list with one element
-        
+
     if date_begin is not None and date_end is not None:
         if date_begin >= date_end:
-            print("Error: date_begin > date_end")
-            return
-            
+            raise ValueError("Error: date_begin > date_end")
 
     info, result_df = pd.DataFrame(), pd.DataFrame()
     for file in files:
 
+        # find the proper delimiter for file
         with open(file, 'r', newline='') as csv_file:
             try:
                 temp_lines = csv_file.readline() + '\n' + csv_file.readline()
@@ -113,25 +119,67 @@ def sorting_detections(files: List[str], tz: pytz._FixedOffset = None, date_begi
             df = reshape_timebin(file, timebin_new=timebin_new)
             max_time = timebin_new
 
-        df = df.sort_values('start_datetime')
         df['start_datetime'] = pd.to_datetime(df['start_datetime'], format='%Y-%m-%dT%H:%M:%S.%f%z')
         df['end_datetime'] = pd.to_datetime(df['end_datetime'], format='%Y-%m-%dT%H:%M:%S.%f%z')
+
         if tz is not None:
             df['start_datetime'] = [x.tz_convert(tz) for x in df['start_datetime']]
             df['end_datetime'] = [x.tz_convert(tz) for x in df['end_datetime']]
+
         if date_begin is not None:
             df = df[df['start_datetime'] >= date_begin]
         if date_end is not None:
             df = df[df['end_datetime'] <= date_end]
-        df = df.reset_index(drop=True)
+
         if annotator is not None:
             df = df.loc[(df['annotator'] == annotator)]
+            list_annotators = [annotator]
+
         if label is not None:
             df = df.loc[(df['annotation'] == label)]
+            list_labels = [label]
 
+        if len(list_annotators) > 1:
+            if user_sel == 'union' or user_sel == 'intersection':
+                df_union = pd.DataFrame()
+                df_inter = pd.DataFrame()
+                for label_sel in list_labels:
+                    df_label = df[df['annotation'] == label_sel]
+                    values = list(df_label['start_datetime'].drop_duplicates())
+                    common_values = []
+                    diff_values = []
+                    for value in values:
+                        if df_label['start_datetime'].to_list().count(value) == 2:
+                            common_values.append(value)
+                        elif df_label['start_datetime'].to_list().count(value) == 1:
+                            diff_values.append(value)
+
+                    df_label_union = df_label[df_label['start_datetime'].isin(common_values)].reset_index(drop=True)
+                    df_label_union = df_label_union.drop_duplicates(subset='start_datetime')
+                    df_union = pd.concat([df_union, df_label_union]).reset_index(drop=True)
+
+                    df_label_inter = df_label[df_label['start_datetime'].isin(diff_values)].reset_index(drop=True)
+                    df_inter = pd.concat([df_inter, df_label_inter]).reset_index(drop=True)
+
+                if user_sel == 'union':
+                    df = df_union
+                    list_annotators = [' U '.join(list_annotators)]
+                elif user_sel == 'intersection':
+                    df = pd.concat([df_inter, df_union]).reset_index(drop=True)
+                    df = df.sort_values('start_datetime')
+                    list_annotators = [' ∩ '.join(list_annotators)]
+                df['annotator'] = list_annotators[0]
+
+        df = df.sort_values('start_datetime')
         result_df = pd.concat([result_df, df]).reset_index(drop=True)
         columns = ['file', 'max_time', 'max_freq', 'annotators', 'labels']
         info = pd.concat([info, pd.DataFrame([[file, int(max_time), max_freq, list_annotators, list_labels]], columns=columns)]).reset_index(drop=True)
+
+    if len(list(set(info['max_time']))) > 1:
+        if force_upload is False:
+            raise Exception("Detection files with different timebins, upload aborted")
+        else:
+            print("\nDetection files with different timebins, forced upload")
 
     return result_df, info
 
@@ -876,15 +924,7 @@ def get_tz(file):
 
 
 # def input_date(msg):
-#     ''' Based on selection_type, ask the user a folder and yields all the wav files inside it or ask the user multiple wav files
-
-#     Parameters :
-#         msg : Message to tell the user what date they have to enter (begin, end...)
-#         tz_data : UTC object of pytz module
-
-#     Returns :
-#         date_dt : aware dataframe of the date entered by the user
-#     '''
+#     
 
 #     title = 'Date'
 #     fieldNames = ['Year [YYYY]', 'Month [m]', 'Day [d]', 'Hour [H]', 'Minute [M]', 'Second [S]', 'Timezone [+/-HHMM]']
@@ -911,6 +951,15 @@ def get_tz(file):
 #     return date_dt
 
 def input_date(msg):
+    ''' Based on selection_type, ask the user a folder and yields all the wav files inside it or ask the user multiple wav files
+
+        Parameters :
+            msg : Message to tell the user what date they have to enter (begin, end...)
+
+        Returns :
+            date_dt : aware datetime entered by the user
+    '''
+
     title = 'Date'
     fieldNames = ['Year [YYYY]', 'Month [m]', 'Day [d]', 'Hour [H]', 'Minute [M]', 'Second [S]', 'Timezone [+/-HHMM]']
     fieldValues = []  # Initialize with empty values
@@ -939,6 +988,7 @@ def input_date(msg):
 
     date_dt = dt.datetime(year, month, day, hour, minute, second, tzinfo=tz)
     return date_dt
+
 
 def suntime_hour(begin_deploy, end_deploy, timeZ, lat, lon):
     """ Fetch sunrise and sunset hours for dates between date_beg and date_end
