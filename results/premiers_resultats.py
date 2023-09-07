@@ -9,15 +9,13 @@ import seaborn as sns
 from scipy import stats
 import sys
 import pytz
-from collections import OrderedDict
 
-from post_processing_detections.utilities.def_func import get_detection_files, extract_datetime, sorting_detections, t_rounder, get_timestamps, input_date, suntime_hour
+from post_processing_detections.utilities.def_func import get_detection_files, sorting_detections, t_rounder, get_timestamps, input_date, suntime_hour
 
 # %% User inputs
 
-
 files_list = get_detection_files(1)
-df_detections, t_detections = sorting_detections(files_list, timebin_new=60)
+df_detections, t_detections = sorting_detections(files_list, tz=pytz.FixedOffset(120))
 
 time_bin = list(set(t_detections['max_time']))
 fmax = list(set(t_detections['max_freq']))
@@ -26,34 +24,29 @@ labels = list(set(t_detections['labels'].explode()))
 tz_data = df_detections['start_datetime'][0].tz
 
 # Chose your mode :
-# input : you will fill a dialog box with the start and end date of the Figure you want to make
-# auto : the script automatically extract the timestamp from the timestamp.csv file or from the wav files of the Figure you want to make
-# fixed : you directly fill the script lines 41 and 42 with the start and end date (or wav name) of the Figure you want to make
+# fixed : hard coded date interval
+# auto : the script automatically extract the timestamp from the timestamp file
+# input : you will fill a dialog box with the start and end date
 
-dt_mode = 'input'
+dt_mode = 'fixed'
 
 if dt_mode == 'fixed':
-    # if you work with wav names
-    begin_deploy = extract_datetime('335556632.220501000000.wav', tz_data)
-    end_deploy = extract_datetime('335556632.230228235959.wav', tz_data)
-    # or if you work with a fixed date
-    # begin_deploy = dt.datetime(2011, 8, 15, 8, 15, 12, 0, tz_data)
-    # end_deploy = dt.datetime(2011, 8, 15, 8, 15, 12, 0, tz_data)
+    begin_date = pd.Timestamp('2022-07-07T00:00:00.000000+0200')
+    end_date = pd.Timestamp('2022-07-08T00:00:00.000000+0200')
 elif dt_mode == 'auto':
     timestamps_file = get_timestamps()
-    wav_names = timestamps_file['filename']
-    begin_deploy = extract_datetime(wav_names.iloc[0], tz_data)
-    end_deploy = extract_datetime(wav_names.iloc[-1], tz_data)
+    begin_date = pd.to_datetime(timestamps_file['timestamp'].iloc[0], format='%Y-%m-%dT%H:%M:%S.%f%z')
+    end_date = pd.to_datetime(timestamps_file['timestamp'].iloc[-1], format='%Y-%m-%dT%H:%M:%S.%f%z') + dt.timedelta(seconds=time_bin[0])
 elif dt_mode == 'input':
-    msg = 'Enter begin date of Figure'
-    begin_deploy = input_date(msg, tz_data)
-    msg = 'Enter end date of Figure'
-    end_deploy = input_date(msg, tz_data)
+    begin_date = input_date('Enter begin date')
+    end_date = input_date('Enter end date')
 
 print("\ntime_bin: ", str(time_bin), "s", end='')
 print("\nfmax: ", str(fmax), "Hz", end='')
 print('\nannotators: ', str(annotators), end='')
-print('\nlabels: ', str(labels), end='\n')
+print('\nlabels: ', str(labels), end='')
+print('\nBegin date: {0}'.format(begin_date))
+print('\nEnd date: {0}'.format(end_date))
 
 # %% Overview plots
 
@@ -131,8 +124,7 @@ mdate2 = mdates.DateFormatter('%H:%M', tz=tz_data)
 
 annot_ref = easygui.buttonbox('Select an annotator', 'Single plot', annotators) if len(annotators) > 1 else annotators[0]
 list_labels = t_detections[t_detections['annotators'].apply(lambda x: annot_ref in x)]['labels'].iloc[0]
-# label_ref = easygui.buttonbox('Select an annotator', 'Single plot', list_labels) if len(list_labels)>1 else list_labels[0]
-label_ref = easygui.buttonbox('Select an annotator', 'Single plot', list_labels) if isinstance(list_labels, str) == 0 else list_labels
+label_ref = easygui.buttonbox('Select a label', 'Single plot', list_labels) if len(list_labels) > 1 else list_labels[0]
 time_bin_ref = int(t_detections[t_detections['annotators'].apply(lambda x: annot_ref in x)]['max_time'].iloc[0])
 file_ref = t_detections[t_detections['annotators'].apply(lambda x: annot_ref in x)]['file']
 
@@ -141,26 +133,26 @@ resolution_bin = easygui.buttonbox(msg='Do you want to chose your resolution bin
 if resolution_bin == 'Minutes':
     res_min = easygui.integerbox('Enter the bin size (min)', 'Time resolution', default=10, lowerbound=1, upperbound=86400)
     n_annot_max = (res_min * 60) / time_bin_ref  # max nb of annoted time_bin max per res_min slice
-    # Est-ce que c'est utile de garder start_vec et end_vec sachant qu'ils sont égaux à begin_deploy et end_deploy non ?
-    delta, start_vec, end_vec = dt.timedelta(seconds=60 * res_min), t_rounder(begin_deploy, res=600), t_rounder(end_deploy + dt.timedelta(seconds=time_bin_ref), res=600)
+    # Est-ce que c'est utile de garder start_vec et end_vec sachant qu'ils sont égaux à begin_date et end_date non ?
+    delta, start_vec, end_vec = dt.timedelta(seconds=60 * res_min), t_rounder(begin_date, res=600), t_rounder(end_date + dt.timedelta(seconds=time_bin_ref), res=600)
     time_vector = [start_vec + i * delta for i in range(int((end_vec - start_vec) / delta) + 1)]
     y_label_txt = 'Number of detections\n({0} min)'.format(res_min)
 
 elif resolution_bin == 'Days':
-    time_vector_ts = pd.date_range(begin_deploy, end_deploy, freq='D', tz=tz_data)
+    time_vector_ts = pd.date_range(begin_date, end_date, freq='D', tz=tz_data)
     time_vector = [timestamp.date() for timestamp in time_vector_ts]
     n_annot_max = (24 * 60 * 60) / time_bin_ref
     y_label_txt = 'Number of detections per day'
 
 elif resolution_bin == 'Weeks':
-    time_vector_ts = pd.date_range(begin_deploy, end_deploy, freq='W-MON', tz=tz_data)
+    time_vector_ts = pd.date_range(begin_date, end_date, freq='W-MON', tz=tz_data)
     time_vector = [timestamp.date() for timestamp in time_vector_ts]
     n_annot_max = (24 * 60 * 60 * 7) / time_bin_ref
     y_label_txt = 'Number of detections per week (starting every Monday)'
 
 else:
     # Compute the time_vector for a monthly resolution
-    time_vector_ts = pd.date_range(begin_deploy, end_deploy, freq='MS', tz=tz_data)
+    time_vector_ts = pd.date_range(begin_date, end_date, freq='MS', tz=tz_data)
     time_vector = [timestamp.date() for timestamp in time_vector_ts]
     n_annot_max = (31 * 24 * 60 * 60) / time_bin_ref
     y_label_txt = 'Number of detections per month'
@@ -170,13 +162,15 @@ df_1annot_1label, _ = sorting_detections(file_ref, annotator=annot_ref, label=la
 
 fig, ax = plt.subplots(figsize=(20, 9), facecolor='#36454F')
 [hist_y, hist_x, _] = ax.hist(df_1annot_1label['start_datetime'], bins=time_vector, color='crimson', edgecolor='black', linewidth=1)
-# Compute df_hist for user to check the values contained in the histogram
-hist_xt = [pd.to_datetime(x * 24 * 60 * 60, unit='s') for x in hist_x[0:-1]]
-df_hist = pd.DataFrame({'Date': hist_xt, 'Number of detection': hist_y.tolist()})
-# facecolor
-fig, ax = plt.subplots(figsize=(20, 9), facecolor='#36454F')
-ax.hist(df_1annot_1label['start_datetime'], bins=time_vector, color='crimson', edgecolor='black', linewidth=1)
 
+# Compute df_hist for user to check the values contained in the histogram
+hist_xt = [pd.to_datetime(x * 24 * 60 * 60, unit='s') for x in hist_x[:-1]]
+df_hist = pd.DataFrame({'Date': hist_xt, 'Number of detection': hist_y.tolist()})
+
+# facecolor
+ax.set_facecolor('#36454F')
+
+# ticks
 ax.tick_params(axis='y', colors='w', rotation=0, labelsize=20)
 ax.tick_params(axis='x', colors='w', rotation=60, labelsize=15)
 
@@ -184,15 +178,6 @@ bars = range(0, 110, 10)  # from 0 to 100 step 10
 # Du coup c'est pas totalement exact par ce que j'ai calculé qu'un seul n_annot_max alors qu'en vrai il est différent chaque mois vu que tous les mois n'ont pas la même durée...
 y_pos = np.linspace(0, n_annot_max, num=len(bars))
 ax.set_ylabel(y_label_txt, fontsize=20, color='w')
-# Ask the user if they want to visualize the Figure in % or in raw values
-choice_percentage = easygui.buttonbox(msg='Do you want your results plot in % or in raw values ?', choices=('Percentage', 'Raw values'))
-if choice_percentage == 'Percentage':
-    ax.set_yticks(y_pos, bars)
-    y_pos = np.linspace(0, 100, num=len(bars))
-    if resolution_bin == 'Minutes':
-        ax.set_ylabel('Detection rate % \n({0} min)'.format(res_min), fontsize=20, color='w')
-    else:
-        ax.set_ylabel('Detection rate % per month', fontsize=20, color='w')
 
 # spines
 ax.spines['right'].set_color('w')
@@ -208,6 +193,15 @@ ax.xaxis.set_major_formatter(mdate2)
 plt.xlim(time_vector[0], time_vector[-1])
 ax.grid(color='w', linestyle='--', linewidth=0.2, axis='both')
 
+# Ask the user if they want to visualize the Figure in % or in raw values
+choice_percentage = easygui.buttonbox(msg='Do you want your results plot in % or in raw values ?', choices=('Percentage', 'Raw values'))
+if choice_percentage == 'Percentage':
+    ax.set_yticks(y_pos, bars)
+    y_pos = np.linspace(0, 100, num=len(bars))
+    if resolution_bin == 'Minutes':
+        ax.set_ylabel('Detection rate % \n({0} min)'.format(res_min), fontsize=20, color='w')
+    else:
+        ax.set_ylabel('Detection rate % per month', fontsize=20, color='w')
 # %% Single diel pattern plot
 
 # ----------- User set mdate time xticks-----------------------------
@@ -246,10 +240,10 @@ print("Reply was:", fieldValues)
 lat = fieldValues[0]
 lon = fieldValues[1]
 # Compute sunrise and sunet decimal hour at the dataset location
-[hour_sunrise, hour_sunset, _, _, _, _] = suntime_hour(begin_deploy, end_deploy, tz_data, lat, lon)
+[hour_sunrise, hour_sunset, _, _, _, _] = suntime_hour(begin_date, end_date, tz_data, lat, lon)
 
-date_beg = begin_deploy.strftime('%Y-%m-%d')
-date_end = end_deploy.strftime('%Y-%m-%d')
+date_beg = begin_date.strftime('%Y-%m-%d')
+date_end = end_date.strftime('%Y-%m-%d')
 
 x_data = np.arange(date_beg, date_end, dtype="M8[D]")
 
@@ -264,7 +258,7 @@ plt.plot(x_data, hour_sunrise, color='k')
 plt.plot(x_data, hour_sunset, color='k')
 plt.scatter(Day_det, Hour_det)
 
-plt.xlim(begin_deploy, end_deploy)
+plt.xlim(begin_date, end_date)
 
 ax.xaxis.set_major_locator(mdate1)
 ax.xaxis.set_major_formatter(mdate2)
@@ -295,7 +289,7 @@ if isinstance(list_labels, str) == 0:
     selected_labels = list_labels[0:3]  # TODO : checkbox to select desired labels to plot ?
 
     res_min = easygui.integerbox('Enter the bin size (min) ', 'Time resolution', default=10, lowerbound=1, upperbound=86400)
-    delta, start_vec, end_vec = dt.timedelta(seconds=60 * res_min), t_rounder(begin_deploy, res=600), t_rounder(end_deploy + dt.timedelta(seconds=time_bin_ref), res=600)
+    delta, start_vec, end_vec = dt.timedelta(seconds=60 * res_min), t_rounder(begin_date, res=600), t_rounder(end_date + dt.timedelta(seconds=time_bin_ref), res=600)
 
     time_vector = [start_vec + i * delta for i in range(int((end_vec - start_vec) / delta) + 1)]
 
@@ -369,7 +363,7 @@ file_ref2 = t_detections[t_detections['annotators'].apply(lambda x: annot_ref2 i
 
 res_min = easygui.integerbox('Enter the bin size (min) ', 'Time resolution', default=10, lowerbound=1, upperbound=86400)
 
-delta, start_vec, end_vec = dt.timedelta(seconds=60 * res_min), t_rounder(begin_deploy, res=600), t_rounder(end_deploy + dt.timedelta(seconds=time_bin_ref), res=600)
+delta, start_vec, end_vec = dt.timedelta(seconds=60 * res_min), t_rounder(begin_date, res=600), t_rounder(end_date + dt.timedelta(seconds=time_bin_ref), res=600)
 
 time_vector = [start_vec + i * delta for i in range(int((end_vec - start_vec) / delta) + 1)]
 

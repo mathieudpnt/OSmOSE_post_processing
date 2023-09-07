@@ -20,7 +20,7 @@ if files_list[0].split('/')[-1] != choice_ref:
     files_list[0], files_list[1] = files_list[1], files_list[0]
 
 # import detections, reference timebin, labels and annotators for each file
-df_detections, t_detections = sorting_detections(files=files_list, timebin_new=60, user_sel='intersection')
+df_detections, t_detections = sorting_detections(files=files_list, timebin_new=60, user_sel='all')
 timebin_detections = int(list(set(t_detections['max_time']))[0])
 labels_detections = list(set(t_detections['labels'].explode()))
 annotators_detections = list(set(t_detections['annotators'].explode()))
@@ -67,7 +67,6 @@ time_vector = [i.timestamp() for i in pd.date_range(start=begin_date, end=end_da
 
 # df1 - REFERENCE
 selected_label1 = easygui.buttonbox('Select a label', 'file 1 : {0}'.format(files_list[0].split('/')[-1]), labels1) if len(labels1) > 1 else labels1[0]
-# selected_annotations1, _ = sorting_detections(files=files_list[0], timebin_new=timebin_detections, annotator=annotator1, label=selected_label1, date_begin=begin_date, date_end=end_date)
 selected_annotations1 = df_detections[(df_detections['annotator'] == annotator1) & (df_detections['annotation'] == selected_label1) & (df_detections['start_datetime'] >= begin_date) & (df_detections['end_datetime'] <= end_date)]
 
 times1_beg = sorted(list(set(x.timestamp() for x in selected_annotations1['start_datetime'])))
@@ -85,10 +84,8 @@ for i in range(len(times1_beg)):
 ranks = sorted(list(set(ranks)))
 vec1[np.isin(range(len(time_vector)), ranks)] = 1
 
-
 # df2
 selected_label2 = easygui.buttonbox('Select a label', '{0}'.format(files_list[1].split('/')[-1]), labels2) if len(labels2) > 1 else labels2[0]
-# selected_annotations2, _ = sorting_detections(files=files_list[1], timebin_new=timebin_detections, annotator=annotator2, label=selected_label2, date_begin=begin_date, date_end=end_date)
 selected_annotations2 = df_detections[(df_detections['annotator'] == annotator2) & (df_detections['annotation'] == selected_label2) & (df_detections['start_datetime'] >= begin_date) & (df_detections['end_datetime'] <= end_date)]
 
 times2_beg = [i.timestamp() for i in selected_annotations2['start_datetime']]
@@ -132,4 +129,5 @@ if error == 0:
 
     print('Label 1 : {0}\nLabel 2 : {1}\n'.format(selected_label1, selected_label2))
     print('Annotator 1 : {0}\nAnnotator 2 : {1}\n'.format(annotator1, annotator2))
+
 else: print('Error : ', error)

@@ -772,78 +772,23 @@ def convert_template_to_re(date_template: str) -> str:
     return res
 
 
-def get_timestamps(tz: str = None, f_type: str = None, n_dir: int = 1, ext: str = None, choices: str = None, date_template: str = None, path_dir: str = None, msg: str = None) -> None:
+def get_timestamps() -> pd.DataFrame:
     '''
     Read infos from APLOSE files timestamps.csv OR file_metadata.csv
 
     Parameters :
-        tz : str, optional, ex: tz='Etc/GMT-2'
-            DESCRIPTION. The default is None.
-        f_type : string, user specify to choose either a folder or a list of wav files
-            f_type = 'dir' or f-type = 'file'
-        ext : string, extension of the files
-            ext='wav'
-        choices : string, the user can specify the variable if the timestamps file is available or not
-        date_template : string, the user can specify the variable if the date template of the wav file is known
-        path_dir : string, the user can specify the path of the askfolder dialog to open
 
     Returns
         df_timestamps : TYPE
             DESCRIPTION.
     '''
 
-    if tz is not None:
-        if type(tz) is pytz._FixedOffset or tz is not pytz.UTC: tz = pytz.timezone(tz)
-
-    if choices not in ('Yes', 'No', None):
-        raise ValueError('choices must be ''Yes'', ''No'', or None')
-
-    if choices is None:
-        msg_ch = 'Do you already have the timestamp.csv  ?'
-        choices = ['Yes', 'No']
-        reply = easygui.buttonbox(msg_ch, choices=choices)
-    else: reply = choices
-
-    if reply == 'Yes':
-        root = Tk()
-        root.withdraw()
-        timestampcsv_path = filedialog.askopenfilename(title='Select the file_metadata/timestamp csv file', filetypes=[('CSV files', '*.csv')])
-        root = Tk()
-        root.withdraw()
-
-        if os.path.basename(timestampcsv_path) == 'file_metadata.csv':
-            df_timestamps = pd.read_csv(timestampcsv_path)
-        elif os.path.basename(timestampcsv_path) == 'timestamp.csv':
-            df_timestamps = pd.read_csv(timestampcsv_path, header=None)
-            df_timestamps.columns = ['filename', 'timestamp']
-
-    elif reply == 'No':
-        if path_dir is None: list_wav_paths = find_files(f_type=f_type, ext=ext, n_dir=n_dir)
-        else: list_wav_paths = find_files(f_type=f_type, ext=ext, path=path_dir, msg=msg)
-
-        if date_template is None:
-            date_template = easygui.enterbox('Enter your time template')
-
-        list_audio_file = [os.path.basename(wav_path) for wav_path in list_wav_paths]
-
-        timestamp = []
-        filename_raw_audio = []
-
-        converted = convert_template_to_re(date_template)
-        for i, filename in enumerate(list_audio_file):
-            date_extracted = re.search(converted, str(filename))[0]
-            date_obj = dt.datetime.strptime(date_extracted, date_template)
-            dates = dt.datetime.strftime(date_obj, '%Y-%m-%dT%H:%M:%S.%f')
-
-            dates_final = dates[:-3] + 'Z'
-            timestamp.append(dates_final)
-            filename_raw_audio.append(filename)
-
-        df_timestamps = pd.DataFrame({'filename': filename_raw_audio, 'timestamp': timestamp, 'path': list_wav_paths})
-        df_timestamps.sort_values(by=['timestamp'], inplace=True)
-
-    if tz is not None:
-        df_timestamps['timestamp'] = [pd.Timestamp(tz.localize(pd.Timestamp(i.split('Z')[0]))) for i in df_timestamps['timestamp']]
+    root = Tk()
+    root.withdraw()
+    timestampcsv_path = filedialog.askopenfilename(title='Select the timestamp.csv file', filetypes=[('CSV files', '*.csv')])
+    root = Tk()
+    root.withdraw()
+    df_timestamps = pd.read_csv(timestampcsv_path)
 
     return df_timestamps
 
