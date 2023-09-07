@@ -91,6 +91,8 @@ def sorting_detections(files: List[str], tz: pytz._FixedOffset = None, date_begi
                 delimiter = ','
 
         df = pd.read_csv(file, sep=delimiter)
+        list_annotators = list(df['annotator'].drop_duplicates())
+        list_labels = list(df['annotation'].drop_duplicates())
         max_freq = int(max(df['end_frequency']))
 
         if box is False:
@@ -126,16 +128,10 @@ def sorting_detections(files: List[str], tz: pytz._FixedOffset = None, date_begi
             df = df.loc[(df['annotator'] == annotator)]
         if label is not None:
             df = df.loc[(df['annotation'] == label)]
-        list_annotators = list(df['annotator'].drop_duplicates())
-        # annotators = list_annotators if len(list_annotators) > 1 else list_annotators[0]
-        annotators = list_annotators if isinstance(list_annotators, str) else list_annotators[0]
-
-        list_labels = list(df['annotation'].drop_duplicates())
-        labels = list_labels if len(list_labels) > 1 else list_labels[0]
 
         result_df = pd.concat([result_df, df]).reset_index(drop=True)
         columns = ['file', 'max_time', 'max_freq', 'annotators', 'labels']
-        info = pd.concat([info, pd.DataFrame([[file, int(max_time), max_freq, annotators, labels]], columns=columns)]).reset_index(drop=True)
+        info = pd.concat([info, pd.DataFrame([[file, int(max_time), max_freq, list_annotators, list_labels]], columns=columns)]).reset_index(drop=True)
 
     return result_df, info
 
@@ -879,36 +875,70 @@ def get_tz(file):
         else: print('error tz')
 
 
-def input_date(msg, tz_data):
-    ''' Based on selection_type, ask the user a folder and yields all the wav files inside it or ask the user multiple wav files
+# def input_date(msg):
+#     ''' Based on selection_type, ask the user a folder and yields all the wav files inside it or ask the user multiple wav files
 
-    Parameters :
-        msg : Message to tell the user what date they have to enter (begin, end...)
-        tz_data : UTC object of pytz module
+#     Parameters :
+#         msg : Message to tell the user what date they have to enter (begin, end...)
+#         tz_data : UTC object of pytz module
 
-    Returns :
-        date_dt : aware dataframe of the date entered by the user
-    '''
+#     Returns :
+#         date_dt : aware dataframe of the date entered by the user
+#     '''
 
+#     title = 'Date'
+#     fieldNames = ['Year [YYYY]', 'Month [m]', 'Day [d]', 'Hour [H]', 'Minute [M]', 'Second [S]', 'Timezone [+/-HHMM]']
+#     fieldValues = []  # we start with blanks for the values
+#     fieldValues = easygui.multenterbox(msg, title, fieldNames)
+
+#     # make sure that none of the fields was left blank
+#     while 1:
+#         if fieldValues is None: break
+#         errmsg = ''
+#         for i in range(len(fieldNames)):
+#             if fieldValues[i].strip() == '':
+#                 errmsg = errmsg + ("'%s' is a required field.\n\n" % fieldNames[i])
+#         if errmsg == '': break  # no problems found
+#         fieldValues = easygui.multenterbox(errmsg, title, fieldNames, fieldValues)
+#     print('Reply was:', fieldValues)
+
+#     hours_offset = int(fieldValues[-1][:3])
+#     minutes_offset = int(fieldValues[-1][3:])
+#     tz = pytz.FixedOffset(hours_offset * 60 + minutes_offset)
+
+#     date_dt = dt.datetime(*map(int, fieldValues[:-1]), 0, tz)
+
+#     return date_dt
+
+def input_date(msg):
     title = 'Date'
-    fieldNames = ['Year', 'Month', 'Day', 'Hour', 'Minute', 'Second']
-    fieldValues = []  # we start with blanks for the values
-    fieldValues = easygui.multenterbox(msg, title, fieldNames)
+    fieldNames = ['Year [YYYY]', 'Month [m]', 'Day [d]', 'Hour [H]', 'Minute [M]', 'Second [S]', 'Timezone [+/-HHMM]']
+    fieldValues = []  # Initialize with empty values
 
-    # make sure that none of the fields was left blank
-    while 1:
-        if fieldValues is None: break
+    while True:
+        fieldValues = easygui.multenterbox(msg, title, fieldNames, fieldValues)
+
+        if fieldValues is None:
+            # User canceled the input
+            return None
+
         errmsg = ''
         for i in range(len(fieldNames)):
             if fieldValues[i].strip() == '':
-                errmsg = errmsg + ("'%s' is a required field.\n\n" % fieldNames[i])
-        if errmsg == '': break  # no problems found
-        fieldValues = easygui.multpasswordbox(errmsg, title, fieldNames, fieldValues)
-    print('Reply was:', fieldValues)
-    date_dt = dt.datetime(*map(int, fieldValues), 0, tz_data)
+                errmsg += f"'{fieldNames[i]}' is a required field.\n"
 
+        if errmsg == '':
+            break  # No validation errors
+
+        easygui.msgbox(errmsg, title)
+
+    year, month, day, hour, minute, second = map(int, fieldValues[:-1])
+    hours_offset = int(fieldValues[-1][:3])
+    minutes_offset = int(fieldValues[-1][3:])
+    tz = pytz.FixedOffset(hours_offset * 60 + minutes_offset)
+
+    date_dt = dt.datetime(year, month, day, hour, minute, second, tzinfo=tz)
     return date_dt
-
 
 def suntime_hour(begin_deploy, end_deploy, timeZ, lat, lon):
     """ Fetch sunrise and sunset hours for dates between date_beg and date_end
