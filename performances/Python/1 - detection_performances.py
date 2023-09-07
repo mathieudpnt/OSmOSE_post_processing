@@ -34,8 +34,8 @@ if mode == 'input':
     begin_date = input_date('Enter begin datetime')
     end_date = input_date('Enter end datetime')
 elif mode == 'fixed':
-    begin_date = pd.Timestamp('2022-07-07 00:00:00 +0200')
-    end_date = pd.Timestamp('2022-07-08 00:00:00 +0200')
+    begin_date = pd.Timestamp('2022-08-28 00:45:44 +0200')
+    end_date = pd.Timestamp('2022-08-29 00:47:46 +0200')
 
 # annotators
 annotator1 = easygui.buttonbox('Select annotator 1 (reference)', 'file 1 : {0}'.format(files_list[0].split('/')[-1]), t_detections['annotators'][0]) if len(t_detections['annotators'][0]) > 1 else t_detections['annotators'][0][0]
@@ -63,7 +63,16 @@ print('annotator: {0}'.format(annotator2))
 
 # %% FORMAT DATA
 
+# creation of a time vector that goes from the start date to the end date with every timebin
 time_vector = [i.timestamp() for i in pd.date_range(start=begin_date, end=end_date, freq=str(timebin_detections) + 's')]
+
+
+# For each file, a dataframe is created, df1 (reference) and df2.
+# For each dataframe, whithin each time_vector timestamp is checked if
+# at least one timestamp of the detection file is present.
+# A binary vector is then created for each df (vec1 and vec2),
+# its length is the same of time_vector and is composed of 0 and 1
+# corresponding to the presence/absence of detections at the corresponding datetime frame
 
 # df1 - REFERENCE
 selected_label1 = easygui.buttonbox('Select a label', 'file 1 : {0}'.format(files_list[0].split('/')[-1]), labels1) if len(labels1) > 1 else labels1[0]
@@ -125,7 +134,10 @@ if error == 0:
     print('False negative : {0}'.format(false_neg))
 
     print('\nPRECISION : {0:.2f}'.format(true_pos / (true_pos + false_pos)))
-    print('RECALL : {0:.2f}'.format(true_pos / (false_neg + true_pos)), end='\n\n')
+    print('RECALL : {0:.2f}'.format(true_pos / (false_neg + true_pos)))
+
+    # f-score : 2*(precision*recall)/(precision+recall)
+    print('F-SCORE : {0:.2f}'.format(2 * ((true_pos / (true_pos + false_pos)) * (true_pos / (false_neg + true_pos))) / ((true_pos / (true_pos + false_pos)) + (true_pos / (false_neg + true_pos)))), end='\n\n')
 
     print('Label 1 : {0}\nLabel 2 : {1}\n'.format(selected_label1, selected_label2))
     print('Annotator 1 : {0}\nAnnotator 2 : {1}\n'.format(annotator1, annotator2))
