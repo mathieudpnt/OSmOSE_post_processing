@@ -280,11 +280,11 @@ ax.set_title('Time of detections within each day for dataset {}'.format(df_detec
 
 # ----------- User set mdate time xticks-----------------------------
 # One tick per month
-# mdate1 = mdates.MonthLocator(interval=1)
-# mdate2 = mdates.DateFormatter('%B', tz=tz_data)
+mdate1 = mdates.MonthLocator(interval=1)
+mdate2 = mdates.DateFormatter('%B', tz=tz_data)
 # One tick every 2 weeks
-mdate1 = mdates.DayLocator(interval=15,tz=tz_data)
-mdate2 = mdates.DateFormatter('%d-%B', tz=tz_data)
+#mdate1 = mdates.DayLocator(interval=15,tz=tz_data)
+#mdate2 = mdates.DateFormatter('%d-%B', tz=tz_data)
 # One tick every day
 #mdate1 = mdates.DayLocator(interval=1, tz=tz_data)
 #mdate2 = mdates.DateFormatter('%d-%m', tz=tz_data)
@@ -343,19 +343,36 @@ for idx_j, j in enumerate(time_vector_str):
     
     # Search for detection in day = j
     f = [idx for idx, det in enumerate(idx_day_groupby) if det == j]
-    if f:
-        
+    if f:      
         for ff in f:
             hour = idx_hour_groupby[ff]
             M[int(hour), idx_j] = det_groupby[ff]      
-    
-    
-    
-    # for h in range(0:23):
-    #     g = [idx for idx, det in enumerate(idx_day_groupby) if det == j]
-        
-        
-        
+
+  
+
+x_lims = mdates.date2num((begin_date, end_date))
+y_lims = [0,23]
+      
+fig, ax = plt.subplots(figsize=(40, 15))
+ax.imshow(M, extent = [x_lims[0], x_lims[1],  y_lims[0], y_lims[1]], aspect='auto')
+plt.plot(x_data, hour_sunrise, color='w')
+plt.plot(x_data, hour_sunset, color='w')
+ax.xaxis_date()
+ax.xaxis.set_major_locator(mdate1)
+ax.xaxis.set_major_formatter(mdate2)
+
+y_pos = np.linspace(int(0), int(23), 4)
+ax.set_yticks(y_pos)
+
+plt.yticks(fontsize=20)
+plt.xticks(fontsize=20)
+ax.tick_params(axis='y', rotation=0, labelsize=30)
+ax.tick_params(axis='x', rotation=60, labelsize=30)
+
+ax.set_ylabel('Hour (UTC)', fontsize=40)
+ax.set_xlabel('Date', fontsize=40)
+
+#ax.set_xticks(time_vector_str)
 
 
 
