@@ -15,7 +15,7 @@ from post_processing_detections.utilities.def_func import get_detection_files, s
 # %% User inputs
 
 files_list = get_detection_files(1)
-df_detections, t_detections = sorting_detections(files_list, tz=pytz.FixedOffset(120))
+df_detections, t_detections = sorting_detections(files_list, timebin_new = 60)
 
 time_bin = list(set(t_detections['max_time']))
 fmax = list(set(t_detections['max_freq']))
@@ -28,7 +28,7 @@ tz_data = df_detections['start_datetime'][0].tz
 # auto : the script automatically extract the timestamp from the timestamp file
 # input : you will fill a dialog box with the start and end date
 
-dt_mode = 'fixed'
+dt_mode = 'input'
 
 if dt_mode == 'fixed':
     begin_date = pd.Timestamp('2022-07-07T00:00:00.000000+0200')
@@ -112,14 +112,14 @@ ax2.set_title('Number of annotations per annotator', color='w', fontdict=title_f
 # mdate1 = mdates.MonthLocator(interval=1)
 # mdate2 = mdates.DateFormatter('%B', tz=tz_data)
 # One tick every 2 weeks
-# mdate1 = mdates.DayLocator(interval=1, tz=tz_data)
-# mdate2 = mdates.DateFormatter('%d-%B', tz=tz_data)
+mdate1 = mdates.DayLocator(interval=15, tz=tz_data)
+mdate2 = mdates.DateFormatter('%d-%B', tz=tz_data)
 # One tick every day
 # mdate1 = mdates.DayLocator(interval=1, tz=tz_data)
 # mdate2 = mdates.DateFormatter('%d-%m', tz=tz_data)
 # One tick every hour
-mdate1 = mdates.HourLocator(interval=1, tz=tz_data)
-mdate2 = mdates.DateFormatter('%H:%M', tz=tz_data)
+#mdate1 = mdates.HourLocator(interval=1, tz=tz_data)
+#mdate2 = mdates.DateFormatter('%H:%M', tz=tz_data)
 # -------------------------------------------------------------------
 
 annot_ref = easygui.buttonbox('Select an annotator', 'Single plot', annotators) if len(annotators) > 1 else annotators[0]
@@ -202,18 +202,18 @@ if choice_percentage == 'Percentage':
         ax.set_ylabel('Detection rate % \n({0} min)'.format(res_min), fontsize=20, color='w')
     else:
         ax.set_ylabel('Detection rate % per month', fontsize=20, color='w')
-# %% Single diel pattern plot
+# %% Single diel pattern plot (scactter raw detections)
 
 # ----------- User set mdate time xticks-----------------------------
 # One tick per month
 # mdate1 = mdates.MonthLocator(interval=1)
 # mdate2 = mdates.DateFormatter('%B', tz=tz_data)
 # One tick every 2 weeks
-# mdate1 = mdates.DayLocator(interval=15,tz=tz_data)
-# mdate2 = mdates.DateFormatter('%d-%B', tz=tz_data)
+mdate1 = mdates.DayLocator(interval=15,tz=tz_data)
+mdate2 = mdates.DateFormatter('%d-%B', tz=tz_data)
 # One tick every day
-mdate1 = mdates.DayLocator(interval=1, tz=tz_data)
-mdate2 = mdates.DateFormatter('%d-%m', tz=tz_data)
+#mdate1 = mdates.DayLocator(interval=1, tz=tz_data)
+#mdate2 = mdates.DateFormatter('%d-%m', tz=tz_data)
 # One tick every hour
 # mdate1 = mdates.HourLocator(interval=1,tz=tz_data)
 # mdate2 = mdates.DateFormatter('%H:%M', tz=tz_data)
@@ -274,6 +274,101 @@ ax.set_ylabel('Hour (UTC)', fontsize=30)
 ax.set_xlabel('Date', fontsize=30)
 
 ax.set_title('Time of detections within each day for dataset {}'.format(df_detections['dataset'][0]), fontsize=40)
+
+
+# %% Single diel pattern plot (Hourly detection rate)
+
+# ----------- User set mdate time xticks-----------------------------
+# One tick per month
+# mdate1 = mdates.MonthLocator(interval=1)
+# mdate2 = mdates.DateFormatter('%B', tz=tz_data)
+# One tick every 2 weeks
+mdate1 = mdates.DayLocator(interval=15,tz=tz_data)
+mdate2 = mdates.DateFormatter('%d-%B', tz=tz_data)
+# One tick every day
+#mdate1 = mdates.DayLocator(interval=1, tz=tz_data)
+#mdate2 = mdates.DateFormatter('%d-%m', tz=tz_data)
+# One tick every hour
+# mdate1 = mdates.HourLocator(interval=1,tz=tz_data)
+# mdate2 = mdates.DateFormatter('%H:%M', tz=tz_data)
+# ----------------------------------------------------------------------------
+
+# User input : gps coordinates in Decimal Degrees
+title = "Coordinates en degree° minute' "
+msg = "Latitudes (N/S) and longitudes (E/W)"
+fieldNames = ["Lat Decimal Degree", "Lon Decimal Degree "]
+fieldValues = []  # we start with blanks for the values
+fieldValues = easygui.multenterbox(msg, title, fieldNames)
+
+# make sure that none of the fields was left blank
+while 1:
+    if fieldValues is None: break
+    errmsg = ""
+    for i in range(len(fieldNames)):
+        if fieldValues[i].strip() == "":
+            errmsg = errmsg + ('"%s" is a required field.\n\n' % fieldNames[i])
+    if errmsg == "": break  # no problems found
+    fieldValues = easygui.multpasswordbox(errmsg, title, fieldNames, fieldValues)
+print("Reply was:", fieldValues)
+
+lat = fieldValues[0]
+lon = fieldValues[1]
+# Compute sunrise and sunet decimal hour at the dataset location
+[hour_sunrise, hour_sunset, _, _, _, _] = suntime_hour(begin_date, end_date, tz_data, lat, lon)
+
+date_beg = begin_date.strftime('%Y-%m-%d')
+date_end = end_date.strftime('%Y-%m-%d')
+
+x_data = np.arange(date_beg, date_end, dtype="M8[D]")
+
+
+
+a = [dt.datetime.strftime(x, '%y-%m-%d') for x in df_detections['start_datetime']]
+b = [dt.datetime.strftime(x, '%H') for x in df_detections['start_datetime']]
+df_detections['date'] = a
+df_detections['hour'] = b
+
+det_groupby=df_detections.groupby(['date', 'hour']).size()
+idx_day_groupby = det_groupby.index.get_level_values(0)
+idx_hour_groupby = det_groupby.index.get_level_values(1)
+
+time_vector_ts = pd.date_range(begin_date, end_date, freq='D', tz=tz_data)
+time_vector_str = [dt.datetime.strftime(x, '%y-%m-%d') for x in time_vector_ts]
+
+
+# arr = [[0]*cols]*rows
+M = np.zeros((24,len(time_vector_str)))
+
+for idx_j, j in enumerate(time_vector_str):
+    
+    # Search for detection in day = j
+    f = [idx for idx, det in enumerate(idx_day_groupby) if det == j]
+    if f:
+        
+        for ff in f:
+            hour = idx_hour_groupby[ff]
+            M[int(hour), idx_j] = det_groupby[ff]      
+    
+    
+    
+    # for h in range(0:23):
+    #     g = [idx for idx, det in enumerate(idx_day_groupby) if det == j]
+        
+        
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
 # %% Multilabel plot
 
 if len(annotators) > 1:
