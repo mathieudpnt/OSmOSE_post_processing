@@ -15,7 +15,7 @@ from post_processing_detections.utilities.def_func import get_detection_files, s
 # %% User inputs
 
 files_list = get_detection_files(1)
-df_detections, t_detections = sorting_detections(files_list, timebin_new = 60)
+df_detections, t_detections = sorting_detections(files_list, timebin_new = 60, tz = pytz.FixedOffset(120))
 
 time_bin = list(set(t_detections['max_time']))
 fmax = list(set(t_detections['max_freq']))
@@ -202,7 +202,7 @@ if choice_percentage == 'Percentage':
         ax.set_ylabel('Detection rate % \n({0} min)'.format(res_min), fontsize=20, color='w')
     else:
         ax.set_ylabel('Detection rate % per month', fontsize=20, color='w')
-# %% Single diel pattern plot (scactter raw detections)
+# %% Single diel pattern plot (scatter raw detections)
 
 # ----------- User set mdate time xticks-----------------------------
 # One tick per month
@@ -270,7 +270,7 @@ plt.xticks(fontsize=20)
 ax.tick_params(axis='y', rotation=0, labelsize=20)
 ax.tick_params(axis='x', rotation=60, labelsize=15)
 
-ax.set_ylabel('Hour (UTC)', fontsize=30)
+ax.set_ylabel('Hour', fontsize=30)
 ax.set_xlabel('Date', fontsize=30)
 
 ax.set_title('Time of detections within each day for dataset {}'.format(df_detections['dataset'][0]), fontsize=40)
@@ -351,17 +351,17 @@ for idx_j, j in enumerate(time_vector_str):
   
 
 x_lims = mdates.date2num((begin_date, end_date))
-y_lims = [0,23]
+y_lims = [0,24]
       
 fig, ax = plt.subplots(figsize=(40, 15))
-ax.imshow(M, extent = [x_lims[0], x_lims[1],  y_lims[0], y_lims[1]], aspect='auto')
-plt.plot(x_data, hour_sunrise, color='w')
-plt.plot(x_data, hour_sunset, color='w')
+ax.imshow(M, extent = [x_lims[0], x_lims[1],  y_lims[0], y_lims[1]], aspect='auto', origin='lower')
+plt.plot(x_data, hour_sunrise, color='w', linewidth=4)
+plt.plot(x_data, hour_sunset, color='w', linewidth=4)
 ax.xaxis_date()
 ax.xaxis.set_major_locator(mdate1)
 ax.xaxis.set_major_formatter(mdate2)
 
-y_pos = np.linspace(int(0), int(23), 4)
+y_pos = [0, 4, 8, 12, 16, 20, 24]
 ax.set_yticks(y_pos)
 
 plt.yticks(fontsize=20)
@@ -369,7 +369,7 @@ plt.xticks(fontsize=20)
 ax.tick_params(axis='y', rotation=0, labelsize=30)
 ax.tick_params(axis='x', rotation=60, labelsize=30)
 
-ax.set_ylabel('Hour (UTC)', fontsize=40)
+ax.set_ylabel('Hour', fontsize=40)
 ax.set_xlabel('Date', fontsize=40)
 
 #ax.set_xticks(time_vector_str)
