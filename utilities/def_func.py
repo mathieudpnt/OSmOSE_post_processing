@@ -26,10 +26,8 @@ import warnings
 def get_detection_files(num_files: int) -> List[str]:
     '''Opens a file dialog multiple times
     to get X APLOSE formatted detection files.
-
     Parameters :
         num_files: The number of detection files the user needs to select.
-
     Returns :
         List of file paths selected by the user.
     '''
@@ -51,7 +49,6 @@ def get_detection_files(num_files: int) -> List[str]:
 
 def sorting_detections(files: List[str], tz: pytz._FixedOffset = None, date_begin: dt.datetime = None, date_end: dt.datetime = None, annotator: str = None, label: str = None, box: bool = False, timebin_new: int = None, force_upload: bool=False, user_sel: str='all') -> (pd.DataFrame, pd.DataFrame):
     ''' Filters an Aplose formatted detection file according to user specified filters
-
         Parameters :
             file : list of path(s) to the detection file(s), can be a str too
             tz : timezone info, to be specified if the user wants to change the TZ of the detections
@@ -66,8 +63,6 @@ def sorting_detections(files: List[str], tz: pytz._FixedOffset = None, date_begi
                 'union' : the common detections of all annotators and the unique detections of each annotators are selected
                 'intersection' : only the common detections of all annotators are selected
                 'all' : all the detections are selected, default value
-
-
         Returns :
             max_time : spectrogram temporal length
             max_freq : sampling frequency *0.5
@@ -188,11 +183,9 @@ def reshape_timebin(detections_file: str, timebin_new: int = None) -> pd.DataFra
     ''' Changes the timebin (time resolution) of a detection file
     ex :    -from a raw PAMGuard detection file to a detection file with 10s timebin
             -from an 10s detection file to a 1min / 1h / 24h detection file
-
     Parameter:
         detection_file: Path to the detection file
         timebin_new : Time resolution to base the detections on, if not provided it is asked to the user
-
     Returns:
         another dataframe with the new timebin
     '''
@@ -323,10 +316,8 @@ def reshape_timebin(detections_file: str, timebin_new: int = None) -> pd.DataFra
 
 def read_header(file: str) -> Tuple[int, int, int, int]:
     ''' Reads header of a wav file to get info such as duration, samplerate etc...
-
     Parameter :
         file : path to the wav file
-
     Returns :
         sampwidth
         frames
@@ -383,13 +374,11 @@ def read_header(file: str) -> Tuple[int, int, int, int]:
 
 def extract_datetime(var: str, tz: pytz._FixedOffset, formats=None) -> Union[dt.datetime, str]:
     ''' Extracts datetime from filename based on the date format
-
         Parameters :
             var : name of the wav file
             tz : timezone info
             formats : the date template in strftime format. For example, `2017/02/24` has the template `%Y/%m/%d`
                         For more information on strftime template, see https://strftime.org/
-
         Returns :
             date_obj : datetime corresponding to the datetime found in var
     '''
@@ -432,11 +421,9 @@ def extract_datetime(var: str, tz: pytz._FixedOffset, formats=None) -> Union[dt.
 
 def t_rounder(t: dt.datetime, res: int):
     ''' Rounds a Timestamp according to the user specified resolution : 10s / 1min / 10 min / 1h / 24h
-
     Parameter :
         t: Timestamp to round
         res: integer corresponding to the new resolution in seconds
-
     Returns :
         t: rounded Timestamp
     '''
@@ -498,7 +485,6 @@ def oneday_per_month(time_vector_ts, time_vector_str, vec) -> Tuple[list, list, 
 
 def n_random_hour(time_vector_ts, time_vector_str, vec, n_hour: int, tz, time_step: int) -> Tuple[list, list, list, list]:
     ''' Randomly select n non-overlapping hours from the time vector
-
     Parameter :
         time_vector_ts : vector of timestamps
         time_vector_str : vector of strings corresponding to the timestamps
@@ -506,7 +492,6 @@ def n_random_hour(time_vector_ts, time_vector_str, vec, n_hour: int, tz, time_st
         n_hour: number of hours to select
         tz : timezone object
         time_step: time bin of the time vector
-
     Returns :
         t: rounded Timestamp'''
 
@@ -597,9 +582,7 @@ def pick_datetimes(time_vector_ts, time_vector_str, vec, selected_dates, selecte
 
 def export2Raven(tuple_info, time_vec, time_str, bin_height, selection_vec=None) -> pd.DataFrame:
     ''' Export a given vector to Raven formatted table
-
-        Parameter :
-
+        Parameters :
             time_vec : the vector to export
             time_str : the corresponding names of each timebin to be exported
             TZ : the time zone info
@@ -657,10 +640,8 @@ def export2Raven(tuple_info, time_vec, time_str, bin_height, selection_vec=None)
 
 def get_season(ts: dt.datetime) -> str:
     ''' 'day of year' ranges for the northern hemisphere
-
         Parameter :
             ts : datetime
-
         Returns :
             season : string corresponding to the season and year of the datetime (ex : if datetime is 01/01/2023, returns 'winter 2022')
     '''
@@ -681,9 +662,7 @@ def get_season(ts: dt.datetime) -> str:
 
 def load_glider_nav():
     ''' Load the navigation data from glider output files
-
         Parameter :
-
         Returns :
             df : dataframe with glider navigation data
     '''
@@ -751,10 +730,8 @@ __converter = {
 
 def convert_template_to_re(date_template: str) -> str:
     ''' Converts a template in strftime format to a matching regular expression
-
     Parameter :
         date_template: the template in strftime format
-
     Returns :
         The regular expression matching the template
     '''
@@ -775,9 +752,7 @@ def convert_template_to_re(date_template: str) -> str:
 def get_timestamps() -> pd.DataFrame:
     '''
     Read infos from APLOSE files timestamps.csv OR file_metadata.csv
-
     Parameters :
-
     Returns
         df_timestamps : TYPE
             DESCRIPTION.
@@ -795,13 +770,11 @@ def get_timestamps() -> pd.DataFrame:
 
 def find_files(f_type: str, ext: str, path: str = None, msg: str = None, n_dir: int = 1) -> list:
     ''' Based on selection_type, ask the user a folder and yields all the wav files inside it or ask the user multiple wav files
-
     Parameters :
         f_type : str, either 'dir' or 'file'
         ext : str, ex: 'wav'
         path : string, the user can specify the path of the askfolder dialog to open
         msg : string, the user can specify a message to display on the askfolder dialog
-
     Returns :
         selected_files : list of the paths of the wav files
     '''
@@ -836,14 +809,12 @@ def find_files(f_type: str, ext: str, path: str = None, msg: str = None, n_dir: 
 def get_tz(file):
     '''Extract the tz from a detection file list
     if more than one tz is present UTC is chosen by default
-
     Parameters :
         file : list of APLOSE formatted detection files
-
     Returns:
         tz: pytz.tz object
     '''
-    
+
     tz = []
     if isinstance(file, list):
         if len(file) == 1: [file] = file  # Convert the single string to a list with one element
@@ -869,7 +840,6 @@ def get_tz(file):
 
 
 # def input_date(msg):
-#     
 
 #     title = 'Date'
 #     fieldNames = ['Year [YYYY]', 'Month [m]', 'Day [d]', 'Hour [H]', 'Minute [M]', 'Second [S]', 'Timezone [+/-HHMM]']
@@ -897,10 +867,8 @@ def get_tz(file):
 
 def input_date(msg):
     ''' Based on selection_type, ask the user a folder and yields all the wav files inside it or ask the user multiple wav files
-
         Parameters :
             msg : Message to tell the user what date they have to enter (begin, end...)
-
         Returns :
             date_dt : aware datetime entered by the user
     '''
@@ -978,3 +946,201 @@ def suntime_hour(begin_deploy, end_deploy, timeZ, lat, lon):
         dt_day.append(day_dt)
         dt_night.append(night_dt)
     return h_sunrise[0:-1], h_sunset[0:-1], dt_dusk, dt_dawn, dt_day, dt_night
+
+
+def stats_diel_pattern(df_detections: pd.DataFrame, begin_date: dt.datetime, end_date: dt.datetime, lat: float = None, lon: float = None):
+    """ Plot detection proportions for each light regime (night/dawn/day/dawn)
+    Parameters :
+        begin_date : begin datetime of data to analyse
+        end_date : end datetime of data to analyse
+        lat : float latitude in Decimal Degrees
+        lon : float longitude in Decimal Degrees
+    Returns :
+        lr : df used to plot the detections
+        BoxName : list of light regimes
+    """
+
+    tz_data = df_detections['start_datetime'][0].tz
+
+    if not isinstance(lat, float) and not isinstance(lat, int) and lat is not None:
+        raise ValueError('Invalid latitude')
+    elif not isinstance(lon, float) and not isinstance(lon, int) and lon is not None:
+        raise ValueError('Invalid longitude')
+    elif lat is None or lon is None:
+        # User input : gps coordinates in Decimal Degrees
+        title = "Coordinates in degree° minute' "
+        msg = "Latitudes (N/S) and longitudes (E/W)"
+        fieldNames = ["Lat Decimal Degree", "Lon Decimal Degree"]
+        fieldValues = easygui.multenterbox(msg, title, fieldNames)
+
+        # make sure that none of the fields was left blank
+        while 1:
+            if fieldValues is None: break
+            errmsg = ""
+            for i in range(len(fieldNames)):
+                value = fieldValues[i]
+                if not value.strip():
+                    errmsg = errmsg + ('"%s" is a required field.\n\n' % fieldNames[i])
+                elif not isinstance(value, float) and not isinstance(value, int):
+                    errmsg = errmsg + ('"%s" must be a valid number.\n\n' % fieldNames[i])
+            if errmsg == "": break  # no problems found
+            fieldValues = easygui.multpasswordbox(errmsg, title, fieldNames, fieldValues)
+            print("Reply was:", fieldValues)
+
+            lat = fieldValues[0]
+            lon = fieldValues[1]
+
+    # Compute sunrise and sunset decimal hour at the dataset location
+    # Seems to only work with UTC data ?
+    [_, _, dt_dusk, dt_dawn, dt_day, dt_night] = suntime_hour(begin_date, end_date, tz_data, lat, lon)
+
+    # List of days in the dataset
+    list_days = [dt.date(d.year, d.month, d.day) for d in dt_day]
+    # Compute dusk_duration, dawn_duration, day_duration, night_duration
+    dawn_duration = [b - a for a, b in zip(dt_dawn, dt_day)]
+    day_duration = [b - a for a, b in zip(dt_day, dt_night)]
+    dusk_duration = [b - a for a, b in zip(dt_night, dt_dusk)]
+    night_duration = [dt.timedelta(hours=24) - dawn - day - dusk for dawn, day, dusk in zip(dawn_duration, day_duration, dusk_duration)]
+    # Convert to decimal
+    dawn_duration_dec = [dawn_d.total_seconds() / 3600 for dawn_d in dawn_duration]
+    day_duration_dec = [day_d.total_seconds() / 3600 for day_d in day_duration]
+    dusk_duration_dec = [dusk_d.total_seconds() / 3600 for dusk_d in dusk_duration]
+    night_duration_dec = [night_d.total_seconds() / 3600 for night_d in night_duration]
+
+    # Assign a light regime to each detection
+    # : 1 = night ; 2 = dawn ; 3 = day ; 4 = dusk
+    day_det = [start_datetime.date() for start_datetime in df_detections['start_datetime']]
+    light_regime = []
+    for idx_day, day in enumerate(list_days):
+        for idx_det, d in enumerate(day_det):
+            # If the detection occured during 'day'
+            if d == day:
+                if df_detections['start_datetime'][idx_det] > dt_dawn[idx_day] and df_detections['start_datetime'][idx_det] < dt_day[idx_day]:
+                    lr = 2
+                    light_regime.append(lr)
+                elif df_detections['start_datetime'][idx_det] > dt_day[idx_day] and df_detections['start_datetime'][idx_det] < dt_night[idx_day]:
+                    lr = 3
+                    light_regime.append(lr)
+                elif df_detections['start_datetime'][idx_det] > dt_night[idx_day] and df_detections['start_datetime'][idx_det] < dt_dusk[idx_day]:
+                    lr = 4
+                    light_regime.append(lr)
+                else:
+                    lr = 1
+                    light_regime.append(lr)
+
+    # For each day, count the number of detection per light regime
+    nb_det_night = []
+    nb_det_dawn = []
+    nb_det_day = []
+    nb_det_dusk = []
+    for idx_day, day in enumerate(list_days):
+        # Find index of detections that occured during 'day'
+        idx_det = [idx for idx, det in enumerate(day_det) if det == day]
+        if idx_det == []:
+            lr = 0
+            nb_det_night.append(lr)
+            nb_det_dawn.append(lr)
+            nb_det_day.append(lr)
+            nb_det_dusk.append(lr)
+        else:
+            nb_det_night.append(light_regime[idx_det[0]:idx_det[-1]].count(1))
+            nb_det_dawn.append(light_regime[idx_det[0]:idx_det[-1]].count(2))
+            nb_det_day.append(light_regime[idx_det[0]:idx_det[-1]].count(3))
+            nb_det_dusk.append(light_regime[idx_det[0]:idx_det[-1]].count(4))
+
+    # For each day :  compute number of detection per light regime corrected by ligh regime duration
+    nb_det_night_corr = [(nb / d) for nb, d in zip(nb_det_night, night_duration_dec)]
+    nb_det_dawn_corr = [(nb / d) for nb, d in zip(nb_det_dawn, dawn_duration_dec)]
+    nb_det_day_corr = [(nb / d) for nb, d in zip(nb_det_day, day_duration_dec)]
+    nb_det_dusk_corr = [(nb / d) for nb, d in zip(nb_det_dusk, dusk_duration_dec)]
+
+    # Normalize by daily average number of detection per hour
+    av_daily_nbdet = []
+    nb_det_night_corr_norm = []
+    nb_det_dawn_corr_norm = []
+    nb_det_day_corr_norm = []
+    nb_det_dusk_corr_norm = []
+
+    for idx_day, day in enumerate(list_days):
+        # Find index of detections that occured during 'day'
+        idx_det = [idx for idx, det in enumerate(day_det) if det == day]
+        # Compute daily average number of detections per hour
+        a = len(idx_det) / 24
+        av_daily_nbdet.append(a)
+        if a == 0:
+            nb_det_night_corr_norm.append(0)
+            nb_det_dawn_corr_norm.append(0)
+            nb_det_day_corr_norm.append(0)
+            nb_det_dusk_corr_norm.append(0)
+        else:
+            nb_det_night_corr_norm.append(nb_det_night_corr[idx_day] - a)
+            nb_det_dawn_corr_norm.append(nb_det_dawn_corr[idx_day] - a)
+            nb_det_day_corr_norm.append(nb_det_day_corr[idx_day] - a)
+            nb_det_dusk_corr_norm.append(nb_det_dusk_corr[idx_day] - a)
+
+    LIGHTR = [nb_det_night_corr_norm, nb_det_dawn_corr_norm, nb_det_day_corr_norm, nb_det_dusk_corr_norm]
+    BoxName = ['Night', 'Dawn', 'Day', 'Dusk']
+
+    lr = pd.DataFrame(LIGHTR, index=BoxName).transpose()
+
+    return lr, BoxName
+
+
+def stat_box_day(data_test: pd.DataFrame, df_detections: pd.DataFrame) -> pd.DataFrame:
+    """ Plot detection proportions for each hour of the day
+    Parameters :
+        data_test : df with data infos
+        df_detections : APLOSE formatted df of the detections
+    Returns :
+        result : df used to plot the detections
+    """
+
+    hour_list = ['{:02d}:00'.format(i) for i in range(24)]
+    hour_list.append('00:00')
+
+    df_detections['date'] = [dt.datetime.strftime(i.date(), '%d/%m/%Y') for i in df_detections['start_datetime']]
+    df_detections['season'] = [get_season(i) for i in df_detections['start_datetime']]
+    df_detections['dataset'] = [i.replace('_', ' ') for i in df_detections['dataset']]
+
+    vec1 = [[data_test['beg_deployment'][i]] * len(data_test['df_detections'][i]) for i in data_test.index]
+    vec2 = [[data_test['end_deployment'][i]] * len(data_test['df_detections'][i]) for i in data_test.index]
+    start_deploy, end_deploy = [], []
+    [start_deploy.extend(inner_list) for inner_list in vec1]
+    [end_deploy.extend(inner_list) for inner_list in vec2]
+    df_detections['start_deploy'] = [pd.to_datetime(d) for d in start_deploy]
+    df_detections['end_deploy'] = [pd.to_datetime(d) for d in end_deploy]
+
+    result = {}
+    list_dates = sorted(list(set(df_detections['date'])))  # list of dates
+    for date in list_dates:
+        detection_bydate = df_detections[df_detections['date'] == date]  # sub-dataframe : per date
+        list_datasets = sorted(list(set(detection_bydate['dataset'])))  # dataset list for date=date
+
+        for dataset in list_datasets:
+            df = detection_bydate[detection_bydate['dataset'] == dataset].set_index('start_datetime')  # sub-dataframe : per date & per dataset
+
+            # number of detections per hour of the day at date and at dataset
+            detection_per_dataset = [len(df.between_time(hour_list[j], hour_list[j + 1], inclusive='left')) for j in (range(len(hour_list) - 1))]
+
+            deploy_beg_ts, deploy_end_ts = int(df['start_deploy'][0].timestamp()), int(df['end_deploy'][0].timestamp())
+
+            list_present_h = [dt.datetime.fromtimestamp(i) for i in list(range(deploy_beg_ts, deploy_end_ts, 3600))]
+            list_present_h2 = [dt.datetime.strftime(list_present_h[i], '%d/%m/%Y %H') for i in range(len(list_present_h))]
+
+            list_deploy_d = sorted(list(set([dt.datetime.strftime(dt.datetime.fromtimestamp(i), '%d/%m/%Y') for i in list(range(deploy_beg_ts, deploy_end_ts, 3600))])))
+            list_deploy_d2 = [d for i, d in enumerate(list_deploy_d) if d in date][0]
+
+            list_present_h3 = []
+            for item in list_present_h2:
+                if item.startswith(list_deploy_d2):
+                    list_present_h3.append(item)
+
+            list_deploy = [df['date'][0] + ' ' + n for n in [f'{i:02}' for i in range(0, 24)]]
+
+            for i, h in enumerate(list_deploy):
+                if h not in list_present_h3:
+                    detection_per_dataset[i] = np.nan
+
+            result[dataset, date] = detection_per_dataset
+
+    return pd.DataFrame(result).T
