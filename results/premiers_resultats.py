@@ -12,6 +12,7 @@ import pytz
 
 from post_processing_detections.utilities.def_func import get_detection_files, sorting_detections, t_rounder, get_timestamps, input_date, suntime_hour
 
+
 # %% User inputs
 
 files_list = get_detection_files(1)
@@ -28,11 +29,11 @@ tz_data = df_detections['start_datetime'][0].tz
 # auto : the script automatically extract the timestamp from the timestamp file
 # input : you will fill a dialog box with the start and end date
 
-dt_mode = 'input'
+dt_mode = 'fixed'
 
 if dt_mode == 'fixed':
-    begin_date = pd.Timestamp('2022-07-07T00:00:00.000000+0200')
-    end_date = pd.Timestamp('2022-07-08T00:00:00.000000+0200')
+    begin_date = pd.Timestamp('2022-04-29T00:00:00.000000+0200')
+    end_date = pd.Timestamp('2023-07-01T00:00:00.000000+0200')
 elif dt_mode == 'auto':
     timestamps_file = get_timestamps()
     begin_date = pd.to_datetime(timestamps_file['timestamp'].iloc[0], format='%Y-%m-%dT%H:%M:%S.%f%z')
@@ -109,11 +110,11 @@ ax2.set_title('Number of annotations per annotator', color='w', fontdict=title_f
 
 # ----------- User set mdate time xticks-----------------------------
 # One tick per month
-# mdate1 = mdates.MonthLocator(interval=1)
-# mdate2 = mdates.DateFormatter('%B', tz=tz_data)
+mdate1 = mdates.MonthLocator(interval=1)
+mdate2 = mdates.DateFormatter('%B', tz=tz_data)
 # One tick every 2 weeks
-mdate1 = mdates.DayLocator(interval=15, tz=tz_data)
-mdate2 = mdates.DateFormatter('%d-%B', tz=tz_data)
+#mdate1 = mdates.DayLocator(interval=15, tz=tz_data)
+#mdate2 = mdates.DateFormatter('%d-%B', tz=tz_data)
 # One tick every day
 # mdate1 = mdates.DayLocator(interval=1, tz=tz_data)
 # mdate2 = mdates.DateFormatter('%d-%m', tz=tz_data)
@@ -174,9 +175,10 @@ ax.set_facecolor('#36454F')
 ax.tick_params(axis='y', colors='w', rotation=0, labelsize=20)
 ax.tick_params(axis='x', colors='w', rotation=60, labelsize=15)
 
-bars = range(0, 110, 10)  # from 0 to 100 step 10
+
+
 # Du coup c'est pas totalement exact par ce que j'ai calculé qu'un seul n_annot_max alors qu'en vrai il est différent chaque mois vu que tous les mois n'ont pas la même durée...
-y_pos = np.linspace(0, n_annot_max, num=len(bars))
+
 ax.set_ylabel(y_label_txt, fontsize=20, color='w')
 
 # spines
@@ -196,12 +198,16 @@ ax.grid(color='w', linestyle='--', linewidth=0.2, axis='both')
 # Ask the user if they want to visualize the Figure in % or in raw values
 choice_percentage = easygui.buttonbox(msg='Do you want your results plot in % or in raw values ?', choices=('Percentage', 'Raw values'))
 if choice_percentage == 'Percentage':
+    bars = range(0, 110, 2)  # from 0 to 100 step 10
+    y_pos = np.linspace(0, n_annot_max, num=len(bars))
     ax.set_yticks(y_pos, bars)
-    y_pos = np.linspace(0, 100, num=len(bars))
+    ax.set_ylim([0,n_annot_max*0.08])
+    #y_pos = np.linspace(0, 100, num=len(bars))
     if resolution_bin == 'Minutes':
         ax.set_ylabel('Detection rate % \n({0} min)'.format(res_min), fontsize=20, color='w')
     else:
         ax.set_ylabel('Detection rate % per month', fontsize=20, color='w')
+
 # %% Single diel pattern plot (scatter raw detections)
 
 # ----------- User set mdate time xticks-----------------------------
