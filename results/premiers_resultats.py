@@ -10,7 +10,7 @@ from scipy import stats
 import sys
 import pytz
 
-from post_processing_detections.utilities.def_func import get_detection_files, sorting_detections, t_rounder, get_timestamps, input_date, suntime_hour
+from utilities.def_func import get_detection_files, sorting_detections, t_rounder, get_timestamps, input_date, suntime_hour
 
 # %% User inputs
 
