@@ -930,8 +930,8 @@ def suntime_hour(begin_deploy, end_deploy, timeZ, lat, lon):
 
     # For each day : find time of sunset, sun rise, begin dawn and dusk
     for day in list_time:
-        suntime = sun(gps.observer, date=day, dawn_dusk_depression=astral.Depression)
-        # suntime = sun(gps.observer,date=day)
+        # suntime = sun(gps.observer, date=day, dawn_dusk_depression=astral.Depression)
+        suntime = sun(gps.observer,date=day)
         dawn_dt = (suntime['dawn'])
         dusk_dt = (suntime['dusk'])
         day_dt = (suntime['sunrise'])
