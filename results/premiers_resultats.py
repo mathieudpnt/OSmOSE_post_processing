@@ -14,11 +14,10 @@ import pytz
 
 from utilities.def_func import get_detection_files, sorting_detections, t_rounder, get_timestamps, input_date, suntime_hour
 
-
 # %% User inputs
 
 files_list = get_detection_files(1)
-df_detections, t_detections = sorting_detections(files_list, timebin_new = 60, tz = pytz.FixedOffset(120))
+df_detections, t_detections = sorting_detections(files_list, timebin_new=60, tz=pytz.FixedOffset(120))
 
 time_bin = list(set(t_detections['max_time']))
 fmax = list(set(t_detections['max_freq']))
@@ -115,14 +114,14 @@ ax2.set_title('Number of annotations per annotator', color='w', fontdict=title_f
 mdate1 = mdates.MonthLocator(interval=1)
 mdate2 = mdates.DateFormatter('%B', tz=tz_data)
 # One tick every 2 weeks
-#mdate1 = mdates.DayLocator(interval=15, tz=tz_data)
-#mdate2 = mdates.DateFormatter('%d-%B', tz=tz_data)
+# mdate1 = mdates.DayLocator(interval=15, tz=tz_data)
+# mdate2 = mdates.DateFormatter('%d-%B', tz=tz_data)
 # One tick every day
 # mdate1 = mdates.DayLocator(interval=1, tz=tz_data)
 # mdate2 = mdates.DateFormatter('%d-%m', tz=tz_data)
 # One tick every hour
-#mdate1 = mdates.HourLocator(interval=1, tz=tz_data)
-#mdate2 = mdates.DateFormatter('%H:%M', tz=tz_data)
+# mdate1 = mdates.HourLocator(interval=1, tz=tz_data)
+# mdate2 = mdates.DateFormatter('%H:%M', tz=tz_data)
 # -------------------------------------------------------------------
 
 annot_ref = easygui.buttonbox('Select an annotator', 'Single plot', annotators) if len(annotators) > 1 else annotators[0]
@@ -179,7 +178,6 @@ ax.tick_params(axis='y', colors='w', rotation=0, labelsize=20)
 ax.tick_params(axis='x', colors='w', rotation=60, labelsize=15)
 
 
-
 # Du coup c'est pas totalement exact par ce que j'ai calculé qu'un seul n_annot_max alors qu'en vrai il est différent chaque mois vu que tous les mois n'ont pas la même durée...
 
 ax.set_ylabel(y_label_txt, fontsize=20, color='w')
@@ -204,8 +202,8 @@ if choice_percentage == 'Percentage':
     bars = range(0, 110, 2)  # from 0 to 100 step 10
     y_pos = np.linspace(0, n_annot_max, num=len(bars))
     ax.set_yticks(y_pos, bars)
-    ax.set_ylim([0,n_annot_max*0.08])
-    #y_pos = np.linspace(0, 100, num=len(bars))
+    ax.set_ylim([0,n_annot_max * 0.08])
+    # y_pos = np.linspace(0, 100, num=len(bars))
     if resolution_bin == 'Minutes':
         ax.set_ylabel('Detection rate % \n({0} min)'.format(res_min), fontsize=20, color='w')
     else:
@@ -218,11 +216,11 @@ if choice_percentage == 'Percentage':
 # mdate1 = mdates.MonthLocator(interval=1)
 # mdate2 = mdates.DateFormatter('%B', tz=tz_data)
 # One tick every 2 weeks
-mdate1 = mdates.DayLocator(interval=15,tz=tz_data)
+mdate1 = mdates.DayLocator(interval=15, tz=tz_data)
 mdate2 = mdates.DateFormatter('%d-%B', tz=tz_data)
 # One tick every day
-#mdate1 = mdates.DayLocator(interval=1, tz=tz_data)
-#mdate2 = mdates.DateFormatter('%d-%m', tz=tz_data)
+# mdate1 = mdates.DayLocator(interval=1, tz=tz_data)
+# mdate2 = mdates.DateFormatter('%d-%m', tz=tz_data)
 # One tick every hour
 # mdate1 = mdates.HourLocator(interval=1,tz=tz_data)
 # mdate2 = mdates.DateFormatter('%H:%M', tz=tz_data)
@@ -292,11 +290,11 @@ ax.set_title('Time of detections within each day for dataset {}'.format(df_detec
 mdate1 = mdates.MonthLocator(interval=1)
 mdate2 = mdates.DateFormatter('%B', tz=tz_data)
 # One tick every 2 weeks
-#mdate1 = mdates.DayLocator(interval=15,tz=tz_data)
-#mdate2 = mdates.DateFormatter('%d-%B', tz=tz_data)
+# mdate1 = mdates.DayLocator(interval=15,tz=tz_data)
+# mdate2 = mdates.DateFormatter('%d-%B', tz=tz_data)
 # One tick every day
-#mdate1 = mdates.DayLocator(interval=1, tz=tz_data)
-#mdate2 = mdates.DateFormatter('%d-%m', tz=tz_data)
+# mdate1 = mdates.DayLocator(interval=1, tz=tz_data)
+# mdate2 = mdates.DateFormatter('%d-%m', tz=tz_data)
 # One tick every hour
 # mdate1 = mdates.HourLocator(interval=1,tz=tz_data)
 # mdate2 = mdates.DateFormatter('%H:%M', tz=tz_data)
@@ -330,14 +328,12 @@ date_end = end_date.strftime('%Y-%m-%d')
 
 x_data = np.arange(date_beg, date_end, dtype="M8[D]")
 
-
-
 a = [dt.datetime.strftime(x, '%y-%m-%d') for x in df_detections['start_datetime']]
 b = [dt.datetime.strftime(x, '%H') for x in df_detections['start_datetime']]
 df_detections['date'] = a
 df_detections['hour'] = b
 
-det_groupby=df_detections.groupby(['date', 'hour']).size()
+det_groupby = df_detections.groupby(['date', 'hour']).size()
 idx_day_groupby = det_groupby.index.get_level_values(0)
 idx_hour_groupby = det_groupby.index.get_level_values(1)
 
@@ -346,20 +342,19 @@ time_vector_str = [dt.datetime.strftime(x, '%y-%m-%d') for x in time_vector_ts]
 
 
 # arr = [[0]*cols]*rows
-M = np.zeros((24,len(time_vector_str)))
+M = np.zeros((24, len(time_vector_str)))
 
 for idx_j, j in enumerate(time_vector_str):
-    
+
     # Search for detection in day = j
     f = [idx for idx, det in enumerate(idx_day_groupby) if det == j]
-    if f:      
+    if f:
         for ff in f:
             hour = idx_hour_groupby[ff]
-            M[int(hour), idx_j] = det_groupby[ff]      
-
-  
+            M[int(hour), idx_j] = det_groupby[ff]
 
 x_lims = mdates.date2num((begin_date, end_date))
+<<<<<<< Updated upstream
 y_lims = [0,24]
 cbarmax = 20
       
@@ -371,6 +366,12 @@ cbar = fig.colorbar(im)
 cbar.ax.tick_params(labelsize=30)
 cbar.ax.set_ylabel('Nombre de minutes positives', rotation=270, fontsize = 30, labelpad = 40)
 
+=======
+y_lims = [0, 24]
+
+fig, ax = plt.subplots(figsize=(40, 15))
+ax.imshow(M, extent=[x_lims[0], x_lims[1], y_lims[0], y_lims[1]], aspect='auto', origin='lower')
+>>>>>>> Stashed changes
 plt.plot(x_data, hour_sunrise, color='w', linewidth=4)
 plt.plot(x_data, hour_sunset, color='w', linewidth=4)
 ax.xaxis_date()
@@ -388,18 +389,7 @@ ax.tick_params(axis='x', rotation=60, labelsize=30)
 ax.set_ylabel('Heure (UTC +2)', fontsize=40)
 ax.set_xlabel('Date', fontsize=40)
 
-#ax.set_xticks(time_vector_str)
-
-
-
-
-
-
-
-
-
-
-
+# ax.set_xticks(time_vector_str)
 
 
 # %% Multilabel plot

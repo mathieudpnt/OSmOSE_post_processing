@@ -6,7 +6,7 @@
 import pandas as pd
 import numpy as np
 import easygui
-from post_processing_detections.utilities.def_func import get_detection_files, sorting_detections, input_date
+from utilities.def_func import get_detection_files, sorting_detections, input_date
 
 # %% Load data - user inputs
 
@@ -20,7 +20,7 @@ if files_list[0].split('/')[-1] != choice_ref:
     files_list[0], files_list[1] = files_list[1], files_list[0]
 
 # import detections, reference timebin, labels and annotators for each file
-df_detections, t_detections = sorting_detections(files=files_list, timebin_new=60, user_sel='all')
+df_detections, t_detections = sorting_detections(files=files_list, timebin_new=10, user_sel='all')
 timebin_detections = int(list(set(t_detections['max_time']))[0])
 labels_detections = list(set(t_detections['labels'].explode()))
 annotators_detections = list(set(t_detections['annotators'].explode()))
@@ -34,8 +34,8 @@ if mode == 'input':
     begin_date = input_date('Enter begin datetime')
     end_date = input_date('Enter end datetime')
 elif mode == 'fixed':
-    begin_date = pd.Timestamp('2022-08-28 00:45:44 +0200')
-    end_date = pd.Timestamp('2022-08-29 00:47:46 +0200')
+    begin_date = pd.Timestamp('2022-07-07 00:00:00 +0200')
+    end_date = pd.Timestamp('2022-07-08 00:00:00 +0200')
 
 # annotators
 annotator1 = easygui.buttonbox('Select annotator 1 (reference)', 'file 1 : {0}'.format(files_list[0].split('/')[-1]), t_detections['annotators'][0]) if len(t_detections['annotators'][0]) > 1 else t_detections['annotators'][0][0]
