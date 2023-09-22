@@ -4,11 +4,13 @@ import numpy as np
 import easygui
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+from matplotlib.ticker import FuncFormatter
 from collections import Counter
 import seaborn as sns
 from scipy import stats
 import sys
 import pytz
+
 
 from utilities.def_func import get_detection_files, sorting_detections, t_rounder, get_timestamps, input_date, suntime_hour
 
@@ -129,8 +131,8 @@ label_ref = easygui.buttonbox('Select a label', 'Single plot', list_labels) if l
 time_bin_ref = int(t_detections[t_detections['annotators'].apply(lambda x: annot_ref in x)]['max_time'].iloc[0])
 file_ref = t_detections[t_detections['annotators'].apply(lambda x: annot_ref in x)]['file']
 
-# Ask user if their resolution_bin is in minutes or in months
-resolution_bin = easygui.buttonbox(msg='Do you want to chose your resolution bin in minutes or in month ?', choices=('Minutes', 'Days', 'Weeks', 'Months'))
+# Ask user if their resolution_bin is in minutes or in months or in seasons
+resolution_bin = easygui.buttonbox(msg='Do you want to chose your resolution bin in minutes or in months', choices=('Minutes', 'Days', 'Weeks', 'Months'))
 if resolution_bin == 'Minutes':
     res_min = easygui.integerbox('Enter the bin size (min)', 'Time resolution', default=10, lowerbound=1, upperbound=86400)
     n_annot_max = (res_min * 60) / time_bin_ref  # max nb of annoted time_bin max per res_min slice
@@ -150,6 +152,7 @@ elif resolution_bin == 'Weeks':
     time_vector = [timestamp.date() for timestamp in time_vector_ts]
     n_annot_max = (24 * 60 * 60 * 7) / time_bin_ref
     y_label_txt = 'Number of detections per week (starting every Monday)'
+    
 
 else:
     # Compute the time_vector for a monthly resolution
@@ -358,9 +361,16 @@ for idx_j, j in enumerate(time_vector_str):
 
 x_lims = mdates.date2num((begin_date, end_date))
 y_lims = [0,24]
+cbarmax = 20
       
-fig, ax = plt.subplots(figsize=(40, 15))
-ax.imshow(M, extent = [x_lims[0], x_lims[1],  y_lims[0], y_lims[1]], aspect='auto', origin='lower')
+fig, ax = plt.subplots(figsize=(50, 15))
+im = ax.imshow(M, extent = [x_lims[0], x_lims[1],  y_lims[0], y_lims[1]], vmin = 0, vmax = cbarmax, aspect='auto', origin='lower')
+# Colorbar
+
+cbar = fig.colorbar(im)
+cbar.ax.tick_params(labelsize=30)
+cbar.ax.set_ylabel('Nombre de minutes positives', rotation=270, fontsize = 30, labelpad = 40)
+
 plt.plot(x_data, hour_sunrise, color='w', linewidth=4)
 plt.plot(x_data, hour_sunset, color='w', linewidth=4)
 ax.xaxis_date()
@@ -375,7 +385,7 @@ plt.xticks(fontsize=20)
 ax.tick_params(axis='y', rotation=0, labelsize=30)
 ax.tick_params(axis='x', rotation=60, labelsize=30)
 
-ax.set_ylabel('Hour', fontsize=40)
+ax.set_ylabel('Heure (UTC +2)', fontsize=40)
 ax.set_xlabel('Date', fontsize=40)
 
 #ax.set_xticks(time_vector_str)
