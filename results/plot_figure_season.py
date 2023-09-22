@@ -16,13 +16,15 @@ import seaborn as sns
 from scipy import stats
 import sys
 import pytz
+from tkinter import Tk
+from tkinter import filedialog
 
 from utilities.def_func import get_detection_files, sorting_detections, t_rounder, get_timestamps, input_date, suntime_hour
 
 # %% User inputs
 
-files_list = get_detection_files(3)
-df_detections, t_detections = sorting_detections(files_list, timebin_new = 60, tz = pytz.FixedOffset(120))
+files_list = get_detection_files(1)
+df_detections, t_detections = sorting_detections(files_list, timebin_new = 3600, tz = pytz.FixedOffset(120))
 
 time_bin = list(set(t_detections['max_time']))
 fmax = list(set(t_detections['max_freq']))
@@ -73,7 +75,19 @@ def get_season(date): # winter : december -> february, spring : march -> may, su
   return season
 
 # Ask the file with the number of days per season
-file_seasons = get_detection_files(1)
+
+root = Tk()
+root.withdraw()
+
+file_seasons = []
+
+file_path = filedialog.askopenfilename(
+    title='Select Sylence_seasons.csv or FPOD_seasons.csv',
+    filetypes=[('CSV files', '*.csv')]
+)
+
+file_seasons.append(file_path)
+    
 seasons = pd.read_csv(file_seasons[0], delimiter = ';', encoding='latin-1', index_col = 0)
 # Ask which site 
 site = easygui.buttonbox(msg='On which CETIROISE site are you working ?', choices=('A', 'B', 'C', 'D', 'G', 'E', 'F'))
@@ -101,12 +115,76 @@ ax2 = ax.twinx()
 ax2.scatter([0,1,2,3], seasons_site, s = 500, color = 'orange')
 
 # Labels
-ax.set_ylabel('Proportion de jours positifs à la détection', fontsize=25, color = 'blue')
+ax.set_ylabel('Nombre d heure', fontsize=25, color = 'blue')
 ax2.set_ylabel('Nombre de jour échantillonnés', fontsize=25, color = 'orange')
 ax.set_xlabel('Saison', fontsize=25, rotation=0)
 
 # ticks
 ax.tick_params(axis='both', rotation=0, labelsize=20)
+
+
+print("Spring\nNumber of recording days : {}".format(seasons_site['Printemps']) + "\nAverage daily number of hour with detections : {}".format(prop_det_spring))
+print("Summer\nNumber of recording days : {}".format(seasons_site['Ete']) + "\nAverage daily number of hour with detections : {}".format(prop_det_summer))
+print("Autumn\nNumber of recording days : {}".format(seasons_site['Automne']) + "\nAverage daily number of hour with detections : {}".format(prop_det_autumn))
+print("Winter\nNumber of recording days : {}".format(seasons_site['Hiver']) + "\nAverage daily number of hour with detections : {}".format(prop_det_winter))
+
+
+#%% Proportion of days per season positive to detection
+
+day_det = [dt.datetime.strftime(x, '%y-%m-%d') for x in df_detections['start_datetime']]
+unique_dd = set(day_det)
+
+unique_dd_dt = [dt.datetime.strptime(x, '%y-%m-%d') for x in unique_dd]
+
+season_dd = [get_season(x) for x in unique_dd_dt]
+
+nb_dd_spring = season_dd.count("Spring")
+nb_dd_summer = season_dd.count("Summer")
+nb_dd_autumn = season_dd.count("Autumn")
+nb_dd_winter = season_dd.count("Winter")
+
+prop_dd_spring = nb_dd_spring/seasons_site['Printemps']
+prop_dd_summer = nb_dd_summer/seasons_site['Ete']
+prop_dd_autumn = nb_dd_autumn/seasons_site['Automne']
+prop_dd_winter = nb_dd_winter/seasons_site['Hiver']
+
+
+hist_seasons_dd = [prop_dd_spring, prop_dd_summer, prop_dd_autumn, prop_dd_winter]
+#hist_seasons = pd.DataFrame([prop_det_spring, prop_det_summer, prop_det_autumn, prop_det_winter], index = )
+
+fig, ax = plt.subplots(figsize=(20, 10))
+ax.bar(['Printemps', 'Eté', 'Automne', 'Hiver'], hist_seasons_dd)
+ax2 = ax.twinx()
+ax2.scatter([0,1,2,3], seasons_site, s = 500, color = 'orange')
+
+# Labels
+ax.set_ylabel('Proportion de jours', fontsize=25, color = 'tab:blue')
+ax2.set_ylabel('Nombre de jour échantillonnés', fontsize=25, color = 'orange')
+ax.set_xlabel('Saison', fontsize=25, rotation=0)
+
+# ticks
+ax.tick_params(axis='both', rotation=0, labelsize=20)
+
+
+print("Spring\nNumber of recording days : {}".format(seasons_site['Printemps']) + "\nProportion of days with detection: {}".format(prop_dd_spring))
+print("Summer\nNumber of recording days : {}".format(seasons_site['Ete']) + "\nProportion of days with detection : {}".format(prop_dd_summer))
+print("Autumn\nNumber of recording days : {}".format(seasons_site['Automne']) + "\nProportion of days with detection : {}".format(prop_dd_autumn))
+print("Winter\nNumber of recording days : {}".format(seasons_site['Hiver']) + "\nProportion of days with detection : {}".format(prop_dd_winter))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
