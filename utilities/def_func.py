@@ -136,33 +136,37 @@ def sorting_detections(files: List[str], tz: pytz._FixedOffset = None, date_begi
 
         if len(list_annotators) > 1:
             if user_sel == 'union' or user_sel == 'intersection':
-                df_union = pd.DataFrame()
                 df_inter = pd.DataFrame()
+                df_diff = pd.DataFrame()
                 for label_sel in list_labels:
                     df_label = df[df['annotation'] == label_sel]
                     values = list(df_label['start_datetime'].drop_duplicates())
                     common_values = []
                     diff_values = []
+                    error_values = []
                     for value in values:
                         if df_label['start_datetime'].to_list().count(value) == 2:
                             common_values.append(value)
                         elif df_label['start_datetime'].to_list().count(value) == 1:
                             diff_values.append(value)
+                        else:
+                            error_values.append(value)
 
-                    df_label_union = df_label[df_label['start_datetime'].isin(common_values)].reset_index(drop=True)
-                    df_label_union = df_label_union.drop_duplicates(subset='start_datetime')
-                    df_union = pd.concat([df_union, df_label_union]).reset_index(drop=True)
-
-                    df_label_inter = df_label[df_label['start_datetime'].isin(diff_values)].reset_index(drop=True)
+                    df_label_inter = df_label[df_label['start_datetime'].isin(common_values)].reset_index(drop=True)
+                    df_label_inter = df_label_inter.drop_duplicates(subset='start_datetime')
                     df_inter = pd.concat([df_inter, df_label_inter]).reset_index(drop=True)
 
-                if user_sel == 'union':
-                    df = df_union
-                    list_annotators = [' U '.join(list_annotators)]
-                elif user_sel == 'intersection':
-                    df = pd.concat([df_inter, df_union]).reset_index(drop=True)
-                    df = df.sort_values('start_datetime')
+                    df_label_diff = df_label[df_label['start_datetime'].isin(diff_values)].reset_index(drop=True)
+                    df_diff = pd.concat([df_diff, df_label_diff]).reset_index(drop=True)
+
+                if user_sel == 'intersection':
+                    df = df_inter
                     list_annotators = [' ∩ '.join(list_annotators)]
+                elif user_sel == 'union':
+                    df = pd.concat([df_diff, df_inter]).reset_index(drop=True)
+                    df = df.sort_values('start_datetime')
+                    list_annotators = [' u '.join(list_annotators)]
+
                 df['annotator'] = list_annotators[0]
 
         df = df.sort_values('start_datetime')

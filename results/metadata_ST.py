@@ -9,7 +9,7 @@ from tqdm import tqdm
 import numpy as np
 import re
 from collections import Counter
-from post_processing_detections.utilities.def_func import stat_box_day, stats_diel_pattern, sorting_detections, get_season
+from utilities.def_func import stat_box_day, stats_diel_pattern, sorting_detections, get_season
 
 # %% Import csv deployments
 
