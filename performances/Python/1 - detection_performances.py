@@ -8,7 +8,7 @@ import numpy as np
 import easygui
 import datetime as dt
 from scipy import stats
-from utilities.def_func import get_detection_files, sorting_detections, input_date,  t_rounder
+from utilities.def_func import get_detection_files, sorting_detections, input_date, t_rounder
 
 # %% Load data - user inputs
 
@@ -192,7 +192,7 @@ hist2 = np.histogram(df_detections2['start_datetime'], bins=time_vector)
 # Compute the Pearson correlation coefficient
 res = stats.pearsonr(hist1[0], hist2[0])
 
-print('Pearson correlation coefficient : {0}\np-value : {1}\n'.format(res[0], res[1]))
+print('Pearson correlation coefficient : {0:.3f}\np-value : {1:.3e}\n'.format(res[0], res[1]))
 
 
 
