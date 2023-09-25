@@ -20,7 +20,7 @@ if files_list[0].split('/')[-1] != choice_ref:
     files_list[0], files_list[1] = files_list[1], files_list[0]
 
 # import detections, reference timebin, labels and annotators for each file
-df_detections, t_detections = sorting_detections(files=files_list, timebin_new=10, user_sel='all')
+df_detections, t_detections = sorting_detections(files=files_list, timebin_new=10, user_sel='union')
 timebin_detections = int(list(set(t_detections['max_time']))[0])
 labels_detections = list(set(t_detections['labels'].explode()))
 annotators_detections = list(set(t_detections['annotators'].explode()))

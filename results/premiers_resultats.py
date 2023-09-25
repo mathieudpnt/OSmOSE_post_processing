@@ -17,7 +17,7 @@ from utilities.def_func import get_detection_files, sorting_detections, t_rounde
 # %% User inputs
 
 files_list = get_detection_files(1)
-df_detections, t_detections = sorting_detections(files_list, timebin_new=60, tz=pytz.FixedOffset(120))
+df_detections, t_detections = sorting_detections(files_list, timebin_new=10, tz=pytz.FixedOffset(120), user_sel='intersection')
 
 time_bin = list(set(t_detections['max_time']))
 fmax = list(set(t_detections['max_freq']))
@@ -33,8 +33,8 @@ tz_data = df_detections['start_datetime'][0].tz
 dt_mode = 'fixed'
 
 if dt_mode == 'fixed':
-    begin_date = pd.Timestamp('2022-04-29T00:00:00.000000+0200')
-    end_date = pd.Timestamp('2023-07-01T00:00:00.000000+0200')
+    begin_date = pd.Timestamp('2022-07-17 00:25:46 +0200')
+    end_date = pd.Timestamp('2022-07-18 00:27:49 +0200')
 elif dt_mode == 'auto':
     timestamps_file = get_timestamps()
     begin_date = pd.to_datetime(timestamps_file['timestamp'].iloc[0], format='%Y-%m-%dT%H:%M:%S.%f%z')
