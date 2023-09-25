@@ -7,6 +7,7 @@ import pandas as pd
 import numpy as np
 import easygui
 import datetime as dt
+from scipy import stats
 from utilities.def_func import get_detection_files, sorting_detections, input_date,  t_rounder
 
 # %% Load data - user inputs
@@ -148,7 +149,15 @@ else: print('Error : ', error)
 
 # %% Compute Pearson corelation coefficient between the two subsets
 
-time_bin_ref = list(set(t_detections['max_time']))
+df_detections1, _ = sorting_detections(files=files_list[0], timebin_new=10, user_sel='all', annotator = annotator1)
+df_detections2, _ = sorting_detections(files=files_list[1], timebin_new=10, user_sel='all', annotator = annotator2)
+
+
+annot_ref = annotator1
+label_ref = selected_label1
+time_bin_ref = int(t_detections[t_detections['annotators'].apply(lambda x: annot_ref in x)]['max_time'].iloc[0])
+file_ref = t_detections[t_detections['annotators'].apply(lambda x: annot_ref in x)]['file']
+tz_data = df_detections['start_datetime'][0].tz
 
 # Ask user if their resolution_bin is in minutes or in months or in seasons
 resolution_bin = easygui.buttonbox(msg='Do you want to chose your resolution bin in minutes or in months', choices=('Minutes', 'Days', 'Weeks', 'Months'))
@@ -177,12 +186,14 @@ else:
     n_annot_max = (31 * 24 * 60 * 60) / time_bin_ref
     y_label_txt = 'Number of detections per month'
 
+# Compute histograms
+hist1 = np.histogram(df_detections1['start_datetime'], bins=time_vector)
+hist2 = np.histogram(df_detections2['start_datetime'], bins=time_vector)
 
+# Compute the Pearson correlation coefficient
+res = stats.pearsonr(hist1[0], hist2[0])
 
-
-
-
-
+print('Pearson correlation coefficient : {0}\np-value : {1}\n'.format(res[0], res[1]))
 
 
 
