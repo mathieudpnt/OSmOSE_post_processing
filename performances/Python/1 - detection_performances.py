@@ -6,7 +6,8 @@
 import pandas as pd
 import numpy as np
 import easygui
-from utilities.def_func import get_detection_files, sorting_detections, input_date
+import datetime as dt
+from utilities.def_func import get_detection_files, sorting_detections, input_date,  t_rounder
 
 # %% Load data - user inputs
 
@@ -143,3 +144,70 @@ if error == 0:
     print('Annotator 1 : {0}\nAnnotator 2 : {1}\n'.format(annotator1, annotator2))
 
 else: print('Error : ', error)
+
+
+#%% Compute Pearson corelation coefficient between the two subsets
+
+time_bin_ref = list(set(t_detections['max_time']))
+
+# Ask user if their resolution_bin is in minutes or in months or in seasons
+resolution_bin = easygui.buttonbox(msg='Do you want to chose your resolution bin in minutes or in months', choices=('Minutes', 'Days', 'Weeks', 'Months'))
+if resolution_bin == 'Minutes':
+    res_min = easygui.integerbox('Enter the bin size (min)', 'Time resolution', default=10, lowerbound=1, upperbound=86400)
+    n_annot_max = (res_min * 60) / time_bin_ref  # max nb of annoted time_bin max per res_min slice
+    # Est-ce que c'est utile de garder start_vec et end_vec sachant qu'ils sont égaux à begin_date et end_date non ?
+    delta, start_vec, end_vec = dt.timedelta(seconds=60 * res_min), t_rounder(begin_date, res=600), t_rounder(end_date + dt.timedelta(seconds=time_bin_ref), res=600)
+    time_vector = [start_vec + i * delta for i in range(int((end_vec - start_vec) / delta) + 1)]
+    y_label_txt = 'Number of detections\n({0} min)'.format(res_min)
+
+elif resolution_bin == 'Days':
+    time_vector_ts = pd.date_range(begin_date, end_date, freq='D', tz=tz_data)
+    time_vector = [timestamp.date() for timestamp in time_vector_ts]
+    n_annot_max = (24 * 60 * 60) / time_bin_ref
+    y_label_txt = 'Number of detections per day'
+
+elif resolution_bin == 'Weeks':
+    time_vector_ts = pd.date_range(begin_date, end_date, freq='W-MON', tz=tz_data)
+    time_vector = [timestamp.date() for timestamp in time_vector_ts]
+    n_annot_max = (24 * 60 * 60 * 7) / time_bin_ref
+    y_label_txt = 'Number of detections per week (starting every Monday)'
+    
+
+else:
+    # Compute the time_vector for a monthly resolution
+    time_vector_ts = pd.date_range(begin_date, end_date, freq='MS', tz=tz_data)
+    time_vector = [timestamp.date() for timestamp in time_vector_ts]
+    n_annot_max = (31 * 24 * 60 * 60) / time_bin_ref
+    y_label_txt = 'Number of detections per month'
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
