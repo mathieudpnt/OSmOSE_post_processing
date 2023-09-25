@@ -146,7 +146,7 @@ if error == 0:
 else: print('Error : ', error)
 
 
-#%% Compute Pearson corelation coefficient between the two subsets
+# %% Compute Pearson corelation coefficient between the two subsets
 
 time_bin_ref = list(set(t_detections['max_time']))
 
@@ -165,14 +165,11 @@ elif resolution_bin == 'Days':
     time_vector = [timestamp.date() for timestamp in time_vector_ts]
     n_annot_max = (24 * 60 * 60) / time_bin_ref
     y_label_txt = 'Number of detections per day'
-
 elif resolution_bin == 'Weeks':
     time_vector_ts = pd.date_range(begin_date, end_date, freq='W-MON', tz=tz_data)
     time_vector = [timestamp.date() for timestamp in time_vector_ts]
     n_annot_max = (24 * 60 * 60 * 7) / time_bin_ref
     y_label_txt = 'Number of detections per week (starting every Monday)'
-    
-
 else:
     # Compute the time_vector for a monthly resolution
     time_vector_ts = pd.date_range(begin_date, end_date, freq='MS', tz=tz_data)
