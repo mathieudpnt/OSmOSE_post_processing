@@ -149,9 +149,8 @@ else: print('Error : ', error)
 
 # %% Compute Pearson corelation coefficient between the two subsets
 
-df_detections1, _ = sorting_detections(files=files_list[0], timebin_new=10, user_sel='all', annotator = annotator1)
-df_detections2, _ = sorting_detections(files=files_list[1], timebin_new=10, user_sel='all', annotator = annotator2)
-
+df_detections1, _ = sorting_detections(files=file_list[0], timebin_new=10, user_sel='all', annotator=annotator1)
+df_detections2, _ = sorting_detections(files=file_list[1], timebin_new=10, user_sel='all', annotator=annotator2)
 
 annot_ref = annotator1
 label_ref = selected_label1
