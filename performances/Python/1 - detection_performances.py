@@ -189,7 +189,7 @@ else:
     n_annot_max = (31 * 24 * 60 * 60) / time_bin_ref
     y_label_txt = 'Number of detections per month'
 
-
+# Compute histograms
 hist1 = np.histogram(df_detections1['start_datetime'], bins=time_vector)
 hist2 = np.histogram(df_detections2['start_datetime'], bins=time_vector)
 
