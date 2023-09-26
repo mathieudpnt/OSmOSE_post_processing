@@ -13,7 +13,7 @@ from utilities.def_func import get_csv_file, sorting_detections, input_date, t_r
 # %% Load data - user inputs
 
 # get the path of the detections files
-file_list = get_csv_file(1)
+file_list = get_csv_file(2)
 
 # choose which file is used as the reference or "ground truth"
 if len(file_list) > 1:
@@ -23,14 +23,15 @@ if len(file_list) > 1:
 else: file_list = 2 * [file_list[0]]
 
 # import detections, reference timebin, labels and annotators for each file
-df_detections, t_detections = sorting_detections(files=file_list, timebin_new=3600, user_sel='all')
+df_detections, t_detections = sorting_detections(files=file_list, timebin_new=60, user_sel='all')
 timebin_detections = int(list(set(t_detections['max_time']))[0])
 labels_detections = list(set(t_detections['labels'].explode()))
 annotators_detections = list(set(t_detections['annotators'].explode()))
 
 # select only detections/annotations of certain annotators
-status_list = get_csv_file(1)
-df_detections = task_status_selection(files=status_list, df_detections=df_detections, user=['jbeesa', 'bcolon'])
+#status_list = get_csv_file(1)
+#df_detections = task_status_selection(files=status_list, df_detections=df_detections, user=['jbeesa', 'bcolon'])
+
 
 # choose the date interval on which the performances will be computed
 # if mode is input, a pop-up window ask the user the dates to work with
@@ -153,11 +154,13 @@ else: print('Error : ', error)
 
 # %% Compute Pearson corelation coefficient between the two subsets
 
-df_detections1, _ = sorting_detections(files=file_list[0], timebin_new=3600, user_sel='all', annotator=annotator1)
-df_detections2, _ = sorting_detections(files=file_list[1], timebin_new=3600, user_sel='all', annotator=annotator2)
-
 annot_ref = annotator1
 label_ref = selected_label1
+
+df_detections1, _ = sorting_detections(files=file_list[0], timebin_new=60, user_sel='all', annotator=annotator1, label = label_ref)
+df_detections2, _ = sorting_detections(files=file_list[1], timebin_new=60, user_sel='all', annotator=annotator2, label = label_ref)
+
+
 time_bin_ref = int(t_detections[t_detections['annotators'].apply(lambda x: annot_ref in x)]['max_time'].iloc[0])
 file_ref = t_detections[t_detections['annotators'].apply(lambda x: annot_ref in x)]['file']
 tz_data = df_detections['start_datetime'][0].tz
