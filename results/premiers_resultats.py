@@ -17,7 +17,7 @@ from utilities.def_func import get_csv_file, sorting_detections, t_rounder, get_
 # %% User inputs
 
 files_list = get_csv_file(1)
-df_detections, t_detections = sorting_detections(files_list, timebin_new=10, tz=pytz.FixedOffset(120), user_sel='intersection')
+df_detections, t_detections = sorting_detections(files_list, timebin_new=60, tz=pytz.FixedOffset(60), user_sel='intersection')
 
 time_bin = list(set(t_detections['max_time']))
 fmax = list(set(t_detections['max_freq']))
@@ -198,6 +198,9 @@ ax.grid(color='w', linestyle='--', linewidth=0.2, axis='both')
 
 # Ask the user if they want to visualize the Figure in % or in raw values
 choice_percentage = easygui.buttonbox(msg='Do you want your results plot in % or in raw values ?', choices=('Percentage', 'Raw values'))
+# To change the y scale : 
+    # change value 2 in bars = range(0, 110, 2) to change the space between two ticks
+    # change value 0.08 in ax.set_ylim([0,n_annot_max * 0.08]) to change y max
 if choice_percentage == 'Percentage':
     bars = range(0, 110, 2)  # from 0 to 100 step 10
     # y_pos = np.linspace(0, n_annot_max, num=len(bars))
@@ -287,8 +290,8 @@ ax.set_title('Time of detections within each day for dataset {}'.format(df_detec
 
 # ----------- User set mdate time xticks-----------------------------
 # One tick per month
-mdate1 = mdates.MonthLocator(interval=1)
-mdate2 = mdates.DateFormatter('%B', tz=tz_data)
+# mdate1 = mdates.MonthLocator(interval=1)
+# mdate2 = mdates.DateFormatter('%B', tz=tz_data)
 # One tick every 2 weeks
 # mdate1 = mdates.DayLocator(interval=15,tz=tz_data)
 # mdate2 = mdates.DateFormatter('%d-%B', tz=tz_data)
@@ -296,8 +299,8 @@ mdate2 = mdates.DateFormatter('%B', tz=tz_data)
 # mdate1 = mdates.DayLocator(interval=1, tz=tz_data)
 # mdate2 = mdates.DateFormatter('%d-%m', tz=tz_data)
 # One tick every hour
-# mdate1 = mdates.HourLocator(interval=1,tz=tz_data)
-# mdate2 = mdates.DateFormatter('%H:%M', tz=tz_data)
+mdate1 = mdates.HourLocator(interval=1,tz=tz_data)
+mdate2 = mdates.DateFormatter('%H:%M', tz=tz_data)
 # ----------------------------------------------------------------------------
 
 # User input : gps coordinates in Decimal Degrees
@@ -354,7 +357,7 @@ for idx_j, j in enumerate(time_vector_str):
             M[int(hour), idx_j] = det_groupby[ff]
 
 x_lims = mdates.date2num((begin_date, end_date))
-<<<<<<< Updated upstream
+
 y_lims = [0,24]
 cbarmax = 20
       
@@ -366,12 +369,11 @@ cbar = fig.colorbar(im)
 cbar.ax.tick_params(labelsize=30)
 cbar.ax.set_ylabel('Nombre de minutes positives', rotation=270, fontsize = 30, labelpad = 40)
 
-=======
 y_lims = [0, 24]
 
 fig, ax = plt.subplots(figsize=(40, 15))
 ax.imshow(M, extent=[x_lims[0], x_lims[1], y_lims[0], y_lims[1]], aspect='auto', origin='lower')
->>>>>>> Stashed changes
+
 plt.plot(x_data, hour_sunrise, color='w', linewidth=4)
 plt.plot(x_data, hour_sunset, color='w', linewidth=4)
 ax.xaxis_date()
