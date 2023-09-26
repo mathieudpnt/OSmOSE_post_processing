@@ -12,11 +12,11 @@ import sys
 import pytz
 
 
-from utilities.def_func import get_detection_files, sorting_detections, t_rounder, get_timestamps, input_date, suntime_hour
+from utilities.def_func import get_csv_file, sorting_detections, t_rounder, get_timestamps, input_date, suntime_hour
 
 # %% User inputs
 
-files_list = get_detection_files(1)
+files_list = get_csv_file(1)
 df_detections, t_detections = sorting_detections(files_list, timebin_new=10, tz=pytz.FixedOffset(120), user_sel='intersection')
 
 time_bin = list(set(t_detections['max_time']))
@@ -33,8 +33,8 @@ tz_data = df_detections['start_datetime'][0].tz
 dt_mode = 'fixed'
 
 if dt_mode == 'fixed':
-    begin_date = pd.Timestamp('2022-07-17 00:25:46 +0200')
-    end_date = pd.Timestamp('2022-07-18 00:27:49 +0200')
+    begin_date = pd.Timestamp('2023-02-11 12:00:00 +0100')
+    end_date = pd.Timestamp('2023-02-12 09:00:00 +0100')
 elif dt_mode == 'auto':
     timestamps_file = get_timestamps()
     begin_date = pd.to_datetime(timestamps_file['timestamp'].iloc[0], format='%Y-%m-%dT%H:%M:%S.%f%z')
@@ -111,8 +111,8 @@ ax2.set_title('Number of annotations per annotator', color='w', fontdict=title_f
 
 # ----------- User set mdate time xticks-----------------------------
 # One tick per month
-mdate1 = mdates.MonthLocator(interval=1)
-mdate2 = mdates.DateFormatter('%B', tz=tz_data)
+# mdate1 = mdates.MonthLocator(interval=1)
+# mdate2 = mdates.DateFormatter('%B', tz=tz_data)
 # One tick every 2 weeks
 # mdate1 = mdates.DayLocator(interval=15, tz=tz_data)
 # mdate2 = mdates.DateFormatter('%d-%B', tz=tz_data)
@@ -120,8 +120,8 @@ mdate2 = mdates.DateFormatter('%B', tz=tz_data)
 # mdate1 = mdates.DayLocator(interval=1, tz=tz_data)
 # mdate2 = mdates.DateFormatter('%d-%m', tz=tz_data)
 # One tick every hour
-# mdate1 = mdates.HourLocator(interval=1, tz=tz_data)
-# mdate2 = mdates.DateFormatter('%H:%M', tz=tz_data)
+mdate1 = mdates.HourLocator(interval=1, tz=tz_data)
+mdate2 = mdates.DateFormatter('%H:%M', tz=tz_data)
 # -------------------------------------------------------------------
 
 annot_ref = easygui.buttonbox('Select an annotator', 'Single plot', annotators) if len(annotators) > 1 else annotators[0]
@@ -200,10 +200,10 @@ ax.grid(color='w', linestyle='--', linewidth=0.2, axis='both')
 choice_percentage = easygui.buttonbox(msg='Do you want your results plot in % or in raw values ?', choices=('Percentage', 'Raw values'))
 if choice_percentage == 'Percentage':
     bars = range(0, 110, 2)  # from 0 to 100 step 10
-    y_pos = np.linspace(0, n_annot_max, num=len(bars))
+    # y_pos = np.linspace(0, n_annot_max, num=len(bars))
     ax.set_yticks(y_pos, bars)
-    ax.set_ylim([0,n_annot_max * 0.08])
-    # y_pos = np.linspace(0, 100, num=len(bars))
+    ax.set_ylim([0,n_annot_max])
+    y_pos = np.linspace(0, 100, num=len(bars))
     if resolution_bin == 'Minutes':
         ax.set_ylabel('Detection rate % \n({0} min)'.format(res_min), fontsize=20, color='w')
     else:

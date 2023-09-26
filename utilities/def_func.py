@@ -23,9 +23,9 @@ import csv
 import warnings
 
 
-def get_detection_files(num_files: int) -> List[str]:
+def get_csv_file(num_files: int) -> List[str]:
     '''Opens a file dialog multiple times
-    to get X APLOSE formatted detection files.
+    to get X csv files (APLOSE formatted detection file, task status file...).
     Parameters :
         num_files: The number of detection files the user needs to select.
     Returns :
@@ -37,8 +37,9 @@ def get_detection_files(num_files: int) -> List[str]:
     file_paths = []
     for _ in range(num_files):
         file_path = filedialog.askopenfilename(
-            title=f'Select APLOSE formatted detection file ({len(file_paths) + 1}/{num_files})',
-            filetypes=[('CSV files', '*.csv')]
+            title=f'Select csv ({len(file_paths) + 1}/{num_files})',
+            filetypes=[('CSV files', '*.csv')],
+            parent=None
         )
         if not file_path:
             break  # User cancelled or closed the file dialog
@@ -47,7 +48,7 @@ def get_detection_files(num_files: int) -> List[str]:
     return file_paths
 
 
-def sorting_detections(files: List[str], tz: pytz._FixedOffset = None, date_begin: dt.datetime = None, date_end: dt.datetime = None, annotator: str = None, label: str = None, box: bool = False, timebin_new: int = None, force_upload: bool=False, user_sel: str='all') -> (pd.DataFrame, pd.DataFrame):
+def sorting_detections(files: List[str], tz: pytz._FixedOffset = None, date_begin: dt.datetime = None, date_end: dt.datetime = None, annotator: str = None, label: str = None, box: bool = False, timebin_new: int = None, force_upload: bool = False, user_sel: str = 'all') -> (pd.DataFrame, pd.DataFrame):
     ''' Filters an Aplose formatted detection file according to user specified filters
         Parameters :
             file : list of path(s) to the detection file(s), can be a str too
@@ -79,6 +80,11 @@ def sorting_detections(files: List[str], tz: pytz._FixedOffset = None, date_begi
         if date_begin >= date_end:
             raise ValueError("Error: date_begin > date_end")
 
+    # if len(annotator) == len(files):
+    #     dict_annot = {}
+    #     for i in range(len(files)):
+    #         dict_annot[annotator[i]] = files[i]
+
     info, result_df = pd.DataFrame(), pd.DataFrame()
     for file in files:
 
@@ -105,14 +111,18 @@ def sorting_detections(files: List[str], tz: pytz._FixedOffset = None, date_begi
                     df = reshape_timebin(file)
                     max_time = int(max(df['end_time']))
                 else:
-                    df = reshape_timebin(file, timebin_new=timebin_new)
-                    max_time = timebin_new
+                    if max_time < timebin_new:
+                        df = reshape_timebin(file, timebin_new=timebin_new)
+                        max_time = timebin_new
         else:
-            max_time = 0
+            # max_time = 0
+            max_time = int(max(df['end_time']))
 
-        if timebin_new is not None and timebin_new != max_time:
+        if timebin_new is not None and timebin_new >= max_time:
             df = reshape_timebin(file, timebin_new=timebin_new)
             max_time = timebin_new
+        elif timebin_new is not None and timebin_new < max_time:
+            raise ValueError(f'original timebin ({max_time}s) > new timebin ({timebin_new}s)')
 
         df['start_datetime'] = pd.to_datetime(df['start_datetime'], format='%Y-%m-%dT%H:%M:%S.%f%z')
         df['end_datetime'] = pd.to_datetime(df['end_datetime'], format='%Y-%m-%dT%H:%M:%S.%f%z')
@@ -181,6 +191,61 @@ def sorting_detections(files: List[str], tz: pytz._FixedOffset = None, date_begi
             print("\nDetection files with different timebins, forced upload")
 
     return result_df, info
+
+
+def task_status_selection(files: List[str], df_detections: pd.DataFrame, user: Union[str, List[str]] = 'all') -> pd.DataFrame:
+    ''' Filters a detection DataFrame to select only the segments that all annotator have completed (i.e. status == 'FINISHED')
+        Parameters :
+            file : list of path(s) to the status file(s), can be a str too
+            df_detections : df of the detections (output of sorting_detections)
+            user : string of list of strings, this argument is used to select the annotator to take into consideration
+                - user='all', then all the annotators of the status file are used
+                - user='annotator_name', then only one annotator is used
+                - user=[list of annotators], then only the annotators present in the list are used
+        Returns :
+            df_kept : df of the detections sorted according to the selected annotators
+    '''
+    if isinstance(files, str):
+        files = [files]  # Convert the single string to a list with one element
+        
+    result_df = pd.DataFrame()
+    for file in files:
+
+        # find the proper delimiter for file
+        with open(file, 'r', newline='') as csv_file:
+            try:
+                temp_lines = csv_file.readline() + '\n' + csv_file.readline()
+                dialect = csv.Sniffer().sniff(temp_lines, delimiters=',;')
+                delimiter = dialect.delimiter
+            except csv.Error:
+                delimiter = ','
+
+        df = pd.read_csv(file, sep=delimiter)
+        annotators_df = [i for i in list(df.columns) if i != 'dataset' and i != 'filename']
+
+        # selection of the annotators according to the user argument
+        if user == 'all':
+            list_annotators = [i for i in list(df.columns) if i != 'dataset' and i != 'filename']
+        elif isinstance(user, list):
+            for u in user:
+                if u not in annotators_df:
+                    raise Exception(f"'{u}' not present in the task satuts file")
+            list_annotators = user
+        elif isinstance(user, str) and user != 'all':
+            if user not in annotators_df:
+                raise Exception(f"'{user}' not present in the task satuts file")
+            list_annotators = [user]
+
+        filename_list = list(df[df[list_annotators].eq('FINISHED').all(axis=1)]['filename'])
+        ignored_list = list(df[~df[list_annotators].eq('FINISHED').all(axis=1)]['filename'])
+
+        df_kept = df_detections[df_detections['filename'].isin(filename_list)]
+        df_ignored = df_detections[df_detections['filename'].isin(ignored_list)]
+
+        print(f'\n{os.path.basename(file)}: {len(ignored_list)} files ignored', end='\n')
+        result_df = pd.concat([result_df, df_kept]).reset_index(drop=True)
+
+    return result_df
 
 
 def reshape_timebin(detections_file: str, timebin_new: int = None) -> pd.DataFrame:
@@ -393,7 +458,8 @@ def extract_datetime(var: str, tz: pytz._FixedOffset, formats=None) -> Union[dt.
                    r'\d{2}\d{2}\d{2}\d{2}\d{2}\d{2}',
                    r'\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}',
                    r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}',
-                   r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}']
+                   r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}',
+                   r'\d{4}_\d{2}_\d{2}_\d{2}_\d{2}_\d{2}']
     match = None
     for f in formats:
         match = re.search(f, var)
@@ -413,6 +479,8 @@ def extract_datetime(var: str, tz: pytz._FixedOffset, formats=None) -> Union[dt.
             dt_format = '%Y-%m-%d %H:%M:%S'
         elif f == r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}':
             dt_format = '%Y-%m-%dT%H:%M:%S'
+        elif f == r'\d{4}_\d{2}_\d{2}_\d{2}_\d{2}_\d{2}':
+            dt_format = '%Y_%m_%d_%H_%M_%S'
         date_obj = dt.datetime.strptime(dt_string, dt_format)
 
         if type(tz) is pytz._FixedOffset or tz is pytz.UTC: date_obj = tz.localize(date_obj)
@@ -420,7 +488,7 @@ def extract_datetime(var: str, tz: pytz._FixedOffset, formats=None) -> Union[dt.
 
         return date_obj
     else:
-        return print('No datetime found')
+        raise ValueError(f'{var}: No datetime found')
 
 
 def t_rounder(t: dt.datetime, res: int):
