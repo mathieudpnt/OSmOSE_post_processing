@@ -7,7 +7,8 @@ import pandas as pd
 import numpy as np
 import easygui
 import datetime as dt
-from utilities.def_func import get_detection_files, sorting_detections, input_date,  t_rounder
+from scipy import stats
+from utilities.def_func import get_detection_files, sorting_detections, input_date, t_rounder
 
 # %% Load data - user inputs
 
@@ -146,9 +147,16 @@ if error == 0:
 else: print('Error : ', error)
 
 
-#%% Compute Pearson corelation coefficient between the two subsets
+# %% Compute Pearson corelation coefficient between the two subsets
 
-time_bin_ref = list(set(t_detections['max_time']))
+df_detections1, _ = sorting_detections(files=file_list[0], timebin_new=10, user_sel='all', annotator=annotator1)
+df_detections2, _ = sorting_detections(files=file_list[1], timebin_new=10, user_sel='all', annotator=annotator2)
+
+annot_ref = annotator1
+label_ref = selected_label1
+time_bin_ref = int(t_detections[t_detections['annotators'].apply(lambda x: annot_ref in x)]['max_time'].iloc[0])
+file_ref = t_detections[t_detections['annotators'].apply(lambda x: annot_ref in x)]['file']
+tz_data = df_detections['start_datetime'][0].tz
 
 # Ask user if their resolution_bin is in minutes or in months or in seasons
 resolution_bin = easygui.buttonbox(msg='Do you want to chose your resolution bin in minutes or in months', choices=('Minutes', 'Days', 'Weeks', 'Months'))
@@ -165,14 +173,11 @@ elif resolution_bin == 'Days':
     time_vector = [timestamp.date() for timestamp in time_vector_ts]
     n_annot_max = (24 * 60 * 60) / time_bin_ref
     y_label_txt = 'Number of detections per day'
-
 elif resolution_bin == 'Weeks':
     time_vector_ts = pd.date_range(begin_date, end_date, freq='W-MON', tz=tz_data)
     time_vector = [timestamp.date() for timestamp in time_vector_ts]
     n_annot_max = (24 * 60 * 60 * 7) / time_bin_ref
     y_label_txt = 'Number of detections per week (starting every Monday)'
-    
-
 else:
     # Compute the time_vector for a monthly resolution
     time_vector_ts = pd.date_range(begin_date, end_date, freq='MS', tz=tz_data)
@@ -180,12 +185,14 @@ else:
     n_annot_max = (31 * 24 * 60 * 60) / time_bin_ref
     y_label_txt = 'Number of detections per month'
 
+# Compute histograms
+hist1 = np.histogram(df_detections1['start_datetime'], bins=time_vector)
+hist2 = np.histogram(df_detections2['start_datetime'], bins=time_vector)
 
+# Compute the Pearson correlation coefficient
+res = stats.pearsonr(hist1[0], hist2[0])
 
-
-
-
-
+print('Pearson correlation coefficient : {0:.3f}\np-value : {1:.3e}\n'.format(res[0], res[1]))
 
 
 
