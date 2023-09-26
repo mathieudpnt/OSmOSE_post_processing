@@ -30,7 +30,8 @@ annotators_detections = list(set(t_detections['annotators'].explode()))
 
 # select only detections/annotations of certain annotators
 #status_list = get_csv_file(1)
-#df_detections = task_status_selection(files=status_list, df_detections=df_detections, user='all')
+#df_detections = task_status_selection(files=status_list, df_detections=df_detections, user=['jbeesa', 'bcolon'])
+
 
 # choose the date interval on which the performances will be computed
 # if mode is input, a pop-up window ask the user the dates to work with
@@ -41,8 +42,8 @@ if mode == 'input':
     begin_date = input_date('Enter begin datetime')
     end_date = input_date('Enter end datetime')
 elif mode == 'fixed':
-    begin_date = pd.Timestamp('2022-07-17 00:25:46 +0200')
-    end_date = pd.Timestamp('2022-07-18 00:27:49 +0200')
+    begin_date = pd.Timestamp('2023-02-11 12:00:00 +0000')
+    end_date = pd.Timestamp('2023-02-12 09:00:00 +0000')
 
 # annotators
 annotator1 = easygui.buttonbox('Select annotator 1 (reference)', 'file 1 : {0}'.format(file_list[0].split('/')[-1]), t_detections['annotators'][0]) if len(t_detections['annotators'][0]) > 1 else t_detections['annotators'][0][0]
