@@ -101,28 +101,19 @@ def sorting_detections(files: List[str], tz: pytz._FixedOffset = None, date_begi
         list_annotators = list(df['annotator'].drop_duplicates())
         list_labels = list(df['annotation'].drop_duplicates())
         max_freq = int(max(df['end_frequency']))
+        max_time = int(max(df['end_time']))
+
+        df_nobox = df.loc[(df['start_time'] == 0) & (df['end_time'] == max_time) & (df['end_frequency'] == max_freq)]
+        if len(df_nobox) == 0:
+            max_time = 0
 
         if box is False:
-            max_time = int(max(df['end_time']))
-            df = df.loc[(df['start_time'] == 0) & (df['end_time'] == max_time) & (df['end_frequency'] == max_freq)]
+            if len(df_nobox) == 0:
+                df = reshape_timebin(file, timebin_new=timebin_new)
+                max_time = int(max(df['end_time']))
 
-            if len(df) == 0:
-                if timebin_new is None:
-                    df = reshape_timebin(file)
-                    max_time = int(max(df['end_time']))
-                else:
-                    if max_time < timebin_new:
-                        df = reshape_timebin(file, timebin_new=timebin_new)
-                        max_time = timebin_new
-        else:
-            # max_time = 0
-            max_time = int(max(df['end_time']))
-
-        if timebin_new is not None and timebin_new >= max_time:
-            df = reshape_timebin(file, timebin_new=timebin_new)
-            max_time = timebin_new
-        elif timebin_new is not None and timebin_new < max_time:
-            raise ValueError(f'original timebin ({max_time}s) > new timebin ({timebin_new}s)')
+        # elif timebin_new < max_time:
+        #     raise ValueError(f'original timebin ({max_time}s) > new timebin ({timebin_new}s)')
 
         df['start_datetime'] = pd.to_datetime(df['start_datetime'], format='%Y-%m-%dT%H:%M:%S.%f%z')
         df['end_datetime'] = pd.to_datetime(df['end_datetime'], format='%Y-%m-%dT%H:%M:%S.%f%z')
@@ -175,7 +166,7 @@ def sorting_detections(files: List[str], tz: pytz._FixedOffset = None, date_begi
                 elif user_sel == 'union':
                     df = pd.concat([df_diff, df_inter]).reset_index(drop=True)
                     df = df.sort_values('start_datetime')
-                    list_annotators = [' u '.join(list_annotators)]
+                    list_annotators = [' ∪ '.join(list_annotators)]
 
                 df['annotator'] = list_annotators[0]
 
@@ -236,11 +227,13 @@ def task_status_selection(files: List[str], df_detections: pd.DataFrame, user: U
                 raise Exception(f"'{user}' not present in the task satuts file")
             list_annotators = [user]
 
+        df_users = df_detections[df_detections['annotator'].isin(list_annotators)]
+
         filename_list = list(df[df[list_annotators].eq('FINISHED').all(axis=1)]['filename'])
         ignored_list = list(df[~df[list_annotators].eq('FINISHED').all(axis=1)]['filename'])
 
-        df_kept = df_detections[df_detections['filename'].isin(filename_list)]
-        df_ignored = df_detections[df_detections['filename'].isin(ignored_list)]
+        df_kept = df_users[df_users['filename'].isin(filename_list)]
+        df_ignored = df_users[df_users['filename'].isin(ignored_list)]
 
         print(f'\n{os.path.basename(file)}: {len(ignored_list)} files ignored', end='\n')
         result_df = pd.concat([result_df, df_kept]).reset_index(drop=True)
