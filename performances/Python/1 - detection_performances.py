@@ -29,8 +29,8 @@ labels_detections = list(set(t_detections['labels'].explode()))
 annotators_detections = list(set(t_detections['annotators'].explode()))
 
 # select only detections/annotations of certain annotators
-#status_list = get_csv_file(1)
-#df_detections = task_status_selection(files=status_list, df_detections=df_detections, user=['jbeesa', 'bcolon'])
+status_list = get_csv_file(1)
+df_detections = task_status_selection(files=status_list, df_detections=df_detections, user=['jbeesa', 'bcolon'])
 
 
 # choose the date interval on which the performances will be computed
