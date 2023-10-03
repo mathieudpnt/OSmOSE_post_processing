@@ -111,6 +111,12 @@ def sorting_detections(files: List[str], tz: pytz._FixedOffset = None, date_begi
             if len(df_nobox) == 0:
                 df = reshape_timebin(file, timebin_new=timebin_new)
                 max_time = int(max(df['end_time']))
+            else: 
+                if timebin_new is not None:
+                    df = reshape_timebin(file, timebin_new=timebin_new)
+                    max_time = int(max(df['end_time']))
+                else:
+                    df = df_nobox
 
         # elif timebin_new < max_time:
         #     raise ValueError(f'original timebin ({max_time}s) > new timebin ({timebin_new}s)')
@@ -452,7 +458,8 @@ def extract_datetime(var: str, tz: pytz._FixedOffset, formats=None) -> Union[dt.
                    r'\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}',
                    r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}',
                    r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}',
-                   r'\d{4}_\d{2}_\d{2}_\d{2}_\d{2}_\d{2}']
+                   r'\d{4}_\d{2}_\d{2}_\d{2}_\d{2}_\d{2}',
+                   r'\d{4}_\d{2}_\d{2}T\d{2}_\d{2}_\d{2}']
     match = None
     for f in formats:
         match = re.search(f, var)
@@ -474,6 +481,8 @@ def extract_datetime(var: str, tz: pytz._FixedOffset, formats=None) -> Union[dt.
             dt_format = '%Y-%m-%dT%H:%M:%S'
         elif f == r'\d{4}_\d{2}_\d{2}_\d{2}_\d{2}_\d{2}':
             dt_format = '%Y_%m_%d_%H_%M_%S'
+        elif f == r'\d{4}_\d{2}_\d{2}T\d{2}_\d{2}_\d{2}':
+            dt_format = '%Y_%m_%dT%H_%M_%S'
         date_obj = dt.datetime.strptime(dt_string, dt_format)
 
         if type(tz) is pytz._FixedOffset or tz is pytz.UTC: date_obj = tz.localize(date_obj)

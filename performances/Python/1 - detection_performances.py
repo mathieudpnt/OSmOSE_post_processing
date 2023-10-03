@@ -23,14 +23,14 @@ if len(file_list) > 1:
 else: file_list = 2 * [file_list[0]]
 
 # import detections, reference timebin, labels and annotators for each file
-df_detections, t_detections = sorting_detections(files=file_list, timebin_new=60, user_sel='all')
+df_detections, t_detections = sorting_detections(files=file_list, timebin_new=10, user_sel='all')
 timebin_detections = int(list(set(t_detections['max_time']))[0])
 labels_detections = list(set(t_detections['labels'].explode()))
 annotators_detections = list(set(t_detections['annotators'].explode()))
 
 # select only detections/annotations of certain annotators
-status_list = get_csv_file(1)
-df_detections = task_status_selection(files=status_list, df_detections=df_detections, user=['jbeesa', 'bcolon'])
+# status_list = get_csv_file(1)
+# df_detections = task_status_selection(files=status_list, df_detections=df_detections, user=['jbeesa', 'bcolon'])
 
 
 # choose the date interval on which the performances will be computed
@@ -42,8 +42,8 @@ if mode == 'input':
     begin_date = input_date('Enter begin datetime')
     end_date = input_date('Enter end datetime')
 elif mode == 'fixed':
-    begin_date = pd.Timestamp('2023-02-11 12:00:00 +0000')
-    end_date = pd.Timestamp('2023-02-12 09:00:00 +0000')
+    begin_date = pd.Timestamp('2023-02-11 12:00:00 +0100')
+    end_date = pd.Timestamp('2023-02-12 09:00:00 +0100')
 
 # annotators
 annotator1 = easygui.buttonbox('Select annotator 1 (reference)', 'file 1 : {0}'.format(file_list[0].split('/')[-1]), t_detections['annotators'][0]) if len(t_detections['annotators'][0]) > 1 else t_detections['annotators'][0][0]
