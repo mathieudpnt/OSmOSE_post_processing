@@ -14,7 +14,8 @@ import pytz
 import scipy.stats as stats
 from utilities.def_func import get_csv_file, extract_datetime, sorting_detections, get_timestamps, input_date, suntime_hour
 
-
+#%% For now : only compares night and day distributions. We remove detections 
+# that occur during dawn or dusk 
 
 #%% Read and format detection file
 
@@ -156,7 +157,7 @@ for idx_day, day in enumerate(list_days) :
     # Find index of detections that occured during 'day'
     idx_det = [idx for idx, det in enumerate(day_det) if det == day]
     # Compute daily average number of detections per hour
-    a = len(idx_det)/24
+    a = (nb_det_day[idx_day]+nb_det_night[idx_day])/(night_duration_dec[idx_day]+day_duration_dec[idx_day])
     av_daily_nbdet.append(a)
     if a == 0: # if no detection in the day, we don't write the values in the array
         continue
@@ -174,6 +175,12 @@ var_day = np.var(nb_det_day_corr_norm)
 s_night = stats.shapiro(nb_det_night_corr_norm)
 av_night = np.mean(nb_det_night_corr_norm)
 var_night = np.var(nb_det_night_corr_norm)
+s_dusk = stats.shapiro(nb_det_dusk_corr_norm)
+av_dusk = np.mean(nb_det_dusk_corr_norm)
+var_dusk = np.var(nb_det_dusk_corr_norm)
+s_dawn = stats.shapiro(nb_det_dawn_corr_norm)
+av_dawn = np.mean(nb_det_dawn_corr_norm)
+var_dawn = np.var(nb_det_dawn_corr_norm)
 mw = stats.mannwhitneyu(nb_det_night_corr_norm, nb_det_day_corr_norm)
 
 print('DAY\n***\nShapiro-Wilk {0} \naverage {1} \nvariance {2} \n***'.format(s_day, av_day, var_day))
