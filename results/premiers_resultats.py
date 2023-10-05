@@ -17,7 +17,8 @@ from utilities.def_func import get_csv_file, sorting_detections, t_rounder, get_
 # %% User inputs
 
 files_list = get_csv_file(1)
-df_detections, t_detections = sorting_detections(files_list, timebin_new=60, tz=pytz.FixedOffset(60), user_sel='intersection')
+df_detections, t_detections = sorting_detections(files=files_list, timebin_new=10, tz=pytz.FixedOffset(60), user_sel='intersection')
+t_detections['max_time'][0]
 
 time_bin = list(set(t_detections['max_time']))
 fmax = list(set(t_detections['max_freq']))
@@ -133,7 +134,7 @@ file_ref = t_detections[t_detections['annotators'].apply(lambda x: annot_ref in 
 # Ask user if their resolution_bin is in minutes or in months or in seasons
 resolution_bin = easygui.buttonbox(msg='Do you want to chose your resolution bin in minutes or in months', choices=('Minutes', 'Days', 'Weeks', 'Months'))
 if resolution_bin == 'Minutes':
-    res_min = easygui.integerbox('Enter the bin size (min)', 'Time resolution', default=10, lowerbound=1, upperbound=86400)
+    res_min = easygui.integerbox('Enter the bin size (min)', 'Time resolution', default=t_detections['max_time'][0], lowerbound=1, upperbound=86400)
     n_annot_max = (res_min * 60) / time_bin_ref  # max nb of annoted time_bin max per res_min slice
     # Est-ce que c'est utile de garder start_vec et end_vec sachant qu'ils sont égaux à begin_date et end_date non ?
     delta, start_vec, end_vec = dt.timedelta(seconds=60 * res_min), t_rounder(begin_date, res=600), t_rounder(end_date + dt.timedelta(seconds=time_bin_ref), res=600)
@@ -161,7 +162,7 @@ else:
     y_label_txt = 'Number of detections per month'
 
 
-df_1annot_1label, _ = sorting_detections(file_ref, annotator=annot_ref, label=label_ref, timebin_new=time_bin_ref)
+df_1annot_1label, _ = sorting_detections(files=file_ref, annotator=annot_ref, label=label_ref, timebin_new=time_bin_ref)
 
 fig, ax = plt.subplots(figsize=(20, 9), facecolor='#36454F')
 [hist_y, hist_x, _] = ax.hist(df_1annot_1label['start_datetime'], bins=time_vector, color='crimson', edgecolor='black', linewidth=1)
@@ -202,11 +203,10 @@ choice_percentage = easygui.buttonbox(msg='Do you want your results plot in % or
     # change value 2 in bars = range(0, 110, 2) to change the space between two ticks
     # change value 0.08 in ax.set_ylim([0,n_annot_max * 0.08]) to change y max
 if choice_percentage == 'Percentage':
-    bars = range(0, 110, 2)  # from 0 to 100 step 10
-    # y_pos = np.linspace(0, n_annot_max, num=len(bars))
+    bars = np.arange(0, 110, 10)  # from 0 to 100 step 10
+    y_pos = [n_annot_max * p / 100 for p in bars]
     ax.set_yticks(y_pos, bars)
     ax.set_ylim([0,n_annot_max])
-    y_pos = np.linspace(0, 100, num=len(bars))
     if resolution_bin == 'Minutes':
         ax.set_ylabel('Detection rate % \n({0} min)'.format(res_min), fontsize=20, color='w')
     else:

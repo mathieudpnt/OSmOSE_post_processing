@@ -14,6 +14,7 @@ import pytz
 import scipy.stats as stats
 from utilities.def_func import get_csv_file, extract_datetime, sorting_detections, get_timestamps, input_date, suntime_hour
 
+
 #%% For now : only compares night and day distributions. We remove detections 
 # that occur during dawn or dusk 
 
