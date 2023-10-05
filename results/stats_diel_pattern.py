@@ -5,18 +5,23 @@ Created on Mon Sep  4 16:50:38 2023
 @author: torterma
 """
 
+import numpy as np
 import datetime as dt
 import pylab
 import easygui
 import matplotlib.pyplot as plt
 import pytz
-from utilities.def_func import get_detection_files, extract_datetime, sorting_detections, get_timestamps, input_date, suntime_hour
+import scipy.stats as stats
+from utilities.def_func import get_csv_file, extract_datetime, sorting_detections, get_timestamps, input_date, suntime_hour
 
+
+#%% For now : only compares night and day distributions. We remove detections 
+# that occur during dawn or dusk 
 
 #%% Read and format detection file
 
-files_list = get_detection_files(13)
-df_detections, t_detections = sorting_detections(files_list, tz = pytz.UTC, timebin_new=10)
+files_list = get_csv_file(1)
+df_detections, t_detections = sorting_detections(files_list, tz = pytz.UTC, timebin_new=60)
 
 time_bin = list(set(t_detections['max_time']))
 fmax = list(set(t_detections['max_freq']))
@@ -24,7 +29,7 @@ annotators = list(set(t_detections['annotators'].explode()))
 labels = list(set(t_detections['labels'].explode()))
 tz_data = df_detections['start_datetime'][0].tz
 
-dt_mode = 'input'
+dt_mode = 'fixed'
 
 
 if dt_mode == 'fixed' :
@@ -32,8 +37,8 @@ if dt_mode == 'fixed' :
     #begin_deploy = extract_datetime('335556632.220501000000.wav', tz_data)
     #end_deploy = extract_datetime('335556632.230228235959.wav', tz_data)
     # or if you work with a fixed date
-    begin_deploy = dt.datetime(2022, 5, 1, 0, 0, 0, 0, tz_data)
-    end_deploy = dt.datetime(2023, 4, 24, 0, 0, 0, 0, tz_data)
+    begin_deploy = dt.datetime(2022, 4, 30, 0, 0, 0, 0, tz_data)
+    end_deploy = dt.datetime(2023, 7, 15, 0, 0, 0, 0, tz_data)
 elif dt_mode == 'auto':
     timestamps_file = get_timestamps()
     wav_names = timestamps_file['filename']
@@ -41,9 +46,9 @@ elif dt_mode == 'auto':
     end_deploy = extract_datetime(wav_names.iloc[-1], tz_data)
 elif dt_mode == 'input' :
     msg='Enter begin date of Figure'
-    begin_deploy=input_date(msg, tz_data)
+    begin_deploy=input_date(msg)
     msg='Enter end date of Figure'
-    end_deploy=input_date(msg, tz_data)
+    end_deploy=input_date(msg)
 
 print("\ntime_bin : ", str(time_bin), "s", end='')
 print("\nfmax : ", str(fmax), "Hz", end='')
@@ -153,13 +158,10 @@ for idx_day, day in enumerate(list_days) :
     # Find index of detections that occured during 'day'
     idx_det = [idx for idx, det in enumerate(day_det) if det == day]
     # Compute daily average number of detections per hour
-    a = len(idx_det)/24
+    a = (nb_det_day[idx_day]+nb_det_night[idx_day])/(night_duration_dec[idx_day]+day_duration_dec[idx_day])
     av_daily_nbdet.append(a)
-    if a == 0:
-        nb_det_night_corr_norm.append(0)
-        nb_det_dawn_corr_norm.append(0)
-        nb_det_day_corr_norm.append(0)
-        nb_det_dusk_corr_norm.append(0)
+    if a == 0: # if no detection in the day, we don't write the values in the array
+        continue
     else : 
         nb_det_night_corr_norm.append(nb_det_night_corr[idx_day]-a)
         nb_det_dawn_corr_norm.append(nb_det_dawn_corr[idx_day]-a)
@@ -167,15 +169,52 @@ for idx_day, day in enumerate(list_days) :
         nb_det_dusk_corr_norm.append(nb_det_dusk_corr[idx_day]-a)
         
 
-LIGHTR = [nb_det_night_corr_norm, nb_det_dawn_corr_norm, nb_det_day_corr_norm, nb_det_dusk_corr_norm]
-BoxName = ['Night', 'Dawn', 'Day', 'Dusk']
+
+s_day = stats.shapiro(nb_det_day_corr_norm)
+av_day = np.mean(nb_det_day_corr_norm)
+var_day = np.var(nb_det_day_corr_norm)
+s_night = stats.shapiro(nb_det_night_corr_norm)
+av_night = np.mean(nb_det_night_corr_norm)
+var_night = np.var(nb_det_night_corr_norm)
+s_dusk = stats.shapiro(nb_det_dusk_corr_norm)
+av_dusk = np.mean(nb_det_dusk_corr_norm)
+var_dusk = np.var(nb_det_dusk_corr_norm)
+s_dawn = stats.shapiro(nb_det_dawn_corr_norm)
+av_dawn = np.mean(nb_det_dawn_corr_norm)
+var_dawn = np.var(nb_det_dawn_corr_norm)
+mw = stats.mannwhitneyu(nb_det_night_corr_norm, nb_det_day_corr_norm)
+
+print('DAY\n***\nShapiro-Wilk {0} \naverage {1} \nvariance {2} \n***'.format(s_day, av_day, var_day))
+print('NIGHT\n***\nShapiro-Wilk {0} \naverage {1} \nvariance {2}\n***'.format(s_night, av_night, var_night))
+print('Mann-Withney {0}'.format(mw))
+LIGHTR = [nb_det_night_corr_norm, nb_det_day_corr_norm]
+BoxName = ['Night', 'Day']
 
 fig, ax = plt.subplots()
 ax.boxplot(LIGHTR, showfliers=False) 
-plt.ylim(-20,20)
-pylab.xticks([1,2,3,4], BoxName)
+plt.ylim(-3,3)
+pylab.xticks([1,2], BoxName)
 
-#%%
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#%% Fontion 
+
 def diel_plot(df_detections, begin_deploy, end_deploy, tz_data, lat, lon):
     
     if lat is None or lon is None:
