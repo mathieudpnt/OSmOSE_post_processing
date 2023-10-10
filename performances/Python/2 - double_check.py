@@ -9,14 +9,14 @@ import time
 import datetime as dt
 import pandas as pd
 import pytz
-from post_processing_detections.utilities.def_func import input_date, get_tz, read_header, get_timestamps, sorting_detections, get_detection_files, extract_datetime, t_rounder, pick_datetimes, export2Raven, n_random_hour
+from utilities.def_func import input_date, get_tz, read_header, get_timestamps, sorting_detections, get_csv_file, extract_datetime, t_rounder, pick_datetimes, export2Raven, n_random_hour
 
 #%% LOAD DATA - User inputs
 # /!\ warning : the file_metadata.csv OR the wav files are necessary for this scipt /!\
 
 #PAMGuard detections
-pamguard_path = get_detection_files(1)[0]
-df_pamguard, t_pamguard = sorting_detections(files=pamguard_path)
+pamguard_path = get_csv_file(1)[0]
+df_pamguard, t_pamguard = sorting_detections(files=pamguard_path, timebin_new=60, tz=pytz.FixedOffset(120))
 
 time_bin = t_pamguard['max_time'][0]
 fmax = t_pamguard['max_freq'][0]
