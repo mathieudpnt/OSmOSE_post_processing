@@ -29,28 +29,29 @@ tz_data = df_pamguard['start_datetime'][0].tz
     # input : you will fill a dialog box with the start and end date of the Figure you want to make
     # auto : the script automatically extract the timestamp from the file_metadata.csv file or from the selected wav files of the Figure you want to make
 
-dt_mode = 'manual'
+dt_mode = 'auto'
 
 if dt_mode == 'auto':
-    timestamps_file = get_timestamps()
-    begin_deploy = extract_datetime(timestamps_file['filename'].iloc[0], tz_data)
-    end_deploy = extract_datetime(timestamps_file['filename'].iloc[-1], tz_data) + dt.timedelta(seconds=timestamps_file['duration'].iloc[-1])  
-    durations = timestamps_file['duration']
+    filemetadata = get_timestamps()
+    begin_deploy = extract_datetime(filemetadata['filename'].iloc[0], tz_data)
+    end_deploy = extract_datetime(filemetadata['filename'].iloc[-1], tz_data) + dt.timedelta(seconds=filemetadata['duration'].iloc[-1])  
+    durations = filemetadata['duration']
         
 elif dt_mode == 'manual' :
     timestamps_file = get_timestamps()
-    begin_deploy = extract_datetime(timestamps_file['filename'].iloc[0], tz_data)
+    filemetadata = get_timestamps()
+    begin_deploy = extract_datetime(filemetadata['filename'].iloc[0], tz_data)
     wav_path = timestamps_file['path']
     durations = [read_header(i)[-1] for i in tqdm(wav_path)]
     end_deploy = extract_datetime(timestamps_file['filename'].iloc[-1], tz_data) + dt.timedelta(seconds=durations[-1])  
 
 
-wav_names = timestamps_file['filename']
-wav_datetimes = [extract_datetime(i, tz=tz_data) for i in timestamps_file['timestamp']]
+wav_names = filemetadata['filename']
+wav_datetimes = [extract_datetime(i, tz=tz_data) for i in filemetadata['timestamp']]
 
 #%% FORMAT DATA
 
-time_vector = [elem for i in range(len(timestamps_file)) for elem in wav_datetimes[i].timestamp() + np.arange(0, durations[i], time_bin).astype(int)]
+time_vector = [elem for i in range(len(filemetadata)) for elem in wav_datetimes[i].timestamp() + np.arange(0, durations[i], time_bin).astype(int)]
 time_vector_str = [str(wav_names[i]).split('.wav')[0]+ '_+'  + str(elem) for i in range(len(wav_names)) for elem in np.arange(0, durations[i], time_bin).astype(int)]
 
 
@@ -73,7 +74,7 @@ PG_vec[np.isin(range(len(time_vector)), ranks)] = 1
 print('\n\nDetections : ', sum(PG_vec))
 print('Label : ', labels)
     
-#%% DOUBLE CHECK
+#%% DOUBLE CHECK a proportion of the detection
 
 # Create a new list to hold the selected timestamps
 selected_time_vector = []
@@ -136,6 +137,7 @@ PG2Raven_str3 = "PG_double_check3_selected_positives_" + t_rounder(wav_datetimes
 df3_PG2Raven.to_csv(os.path.join(result_path, PG2Raven_str3), index=False, sep='\t')  
 
 print('\n\nRaven double check files exported to:\n'+ os.path.dirname(pamguard_path))
+
 
 
 
