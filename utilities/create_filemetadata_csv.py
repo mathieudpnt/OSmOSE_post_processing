@@ -14,8 +14,9 @@ import pytz
 from tkinter import filedialog
 from tkinter import Tk
 from utilities.def_func import read_header
+import numpy as np
 
-
+#%%
 ############## Chose timezone ###################
 tz = pytz.FixedOffset(120)
 
@@ -39,33 +40,41 @@ status_read_header = []
 
 for name_file in tqdm(list_wav_file):
     # filename
-    filename.append(os.path.basename(name_file)) 
+    #filename.append(os.path.basename(name_file)) 
     
     # timestamp
     dateds = os.path.basename(name_file)[:-4]
-    #################### Change wav name format ###############################        
+    #################### Change wav name format if needed ###############################        
     date_obj = datetime.datetime.strptime(dateds, 'channelA_%Y-%m-%d_%H-%M-%S') 
     date_obj = date_obj.replace(tzinfo=tz)      
     dates = datetime.datetime.strftime(date_obj, '%Y-%m-%dT%H:%M:%S.%f%z')
-
+    filename.append(os.path.basename(name_file))  
+    
+    
     [sampwidth_u, frames_u, samplerate_u, channels_u, duration_u] = read_header(name_file)
 
 
     timestamp.append(dates)    
-    filename.append(os.path.basename(name_file))    
     sampwidth.append(sampwidth_u)
     duration.append(duration_u)
     origin_sr.append(samplerate_u)
     channel_count.append(channels_u)    
     
+#%%    
+     
+
+df = pd.DataFrame(columns = ['filename','timestamp','duration','origin_sr','duration_inter_file','size','sampwidth','channel_count','status_read_header'])    
+df['filename'] = filename
+df['timestamp'] = timestamp
+df['duration'] = duration
+df['origin_sr'] = origin_sr
+df['channel_count'] = channel_count
+
+df.sort_values(by=['timestamp'], inplace=True)
     
-    
-    
-    
-    
-    
-    
-    
+df = df.replace(np.nan, '', regex=True)
+
+df.to_csv(os.path.join(path_raw_audio,'file_metadata.csv'), index=False,na_rep='NaN',header=['filename','timestamp','duration','origin_sr','duration_inter_file','size','sampwidth','channel_count','status_read_header'])
     
     
     
