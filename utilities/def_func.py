@@ -837,7 +837,7 @@ def get_timestamps() -> pd.DataFrame:
     timestampcsv_path = filedialog.askopenfilename(title='Select the timestamp.csv file', filetypes=[('CSV files', '*.csv')])
     root = Tk()
     root.withdraw()
-    df_timestamps = pd.read_csv(timestampcsv_path)
+    df_timestamps = pd.read_csv(timestampcsv_path, header = None, names = ['filename', 'timestamp'] )
 
     return df_timestamps
 
