@@ -19,12 +19,12 @@ import pytz
 from tkinter import Tk
 from tkinter import filedialog
 
-from utilities.def_func import get_detection_files, sorting_detections, t_rounder, get_timestamps, input_date, suntime_hour
+from utilities.def_func import get_csv_file, sorting_detections, t_rounder, get_timestamps, input_date, suntime_hour
 
 # %% User inputs
 
-files_list = get_detection_files(1)
-df_detections, t_detections = sorting_detections(files_list, timebin_new = 3600, tz = pytz.FixedOffset(120))
+files_list = get_csv_file(1)
+df_detections, t_detections = sorting_detections(files_list, timebin_new = 60, tz = pytz.FixedOffset(120))
 
 time_bin = list(set(t_detections['max_time']))
 fmax = list(set(t_detections['max_freq']))
@@ -132,7 +132,22 @@ print("Winter\nNumber of recording days : {}".format(seasons_site['Hiver']) + "\
 #%% Proportion of days per season positive to detection
 
 day_det = [dt.datetime.strftime(x, '%y-%m-%d') for x in df_detections['start_datetime']]
-unique_dd = set(day_det)
+nb_det_day = Counter(day_det)
+
+def percent_filter(d):
+    key, value = d
+    if value > 0.05*1440:
+        return True
+    else:
+        return False
+    
+
+filter_days = dict(filter(percent_filter, nb_det_day.items()))
+
+
+#unique_dd = set(day_det)
+unique_dd = set(filter_days)
+
 
 unique_dd_dt = [dt.datetime.strptime(x, '%y-%m-%d') for x in unique_dd]
 
