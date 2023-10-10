@@ -43,4 +43,4 @@ for name_file in tqdm(list_wav_file):
     
 df = pd.DataFrame({'filename':filename_rawaudio,'timestamp':timestamp})
 df.sort_values(by=['timestamp'], inplace=True)
-df.to_csv(os.path.join(path_raw_audio,'timestamp.csv'), index=False,na_rep='NaN',header=None)
+df.to_csv(os.path.join(path_raw_audio,'timestamp.csv'), index=False,na_rep='NaN',header=['filename', 'timestamp'])

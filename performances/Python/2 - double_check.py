@@ -32,13 +32,13 @@ tz_data = df_pamguard['start_datetime'][0].tz
 dt_mode = 'manual'
 
 if dt_mode == 'auto':
-    timestamps_file = get_timestamps(choices='Yes')
+    timestamps_file = get_timestamps()
     begin_deploy = extract_datetime(timestamps_file['filename'].iloc[0], tz_data)
     end_deploy = extract_datetime(timestamps_file['filename'].iloc[-1], tz_data) + dt.timedelta(seconds=timestamps_file['duration'].iloc[-1])  
     durations = timestamps_file['duration']
         
 elif dt_mode == 'manual' :
-    timestamps_file = get_timestamps(ext='wav', f_type='dir', choices='No', n_dir=1)
+    timestamps_file = get_timestamps()
     begin_deploy = extract_datetime(timestamps_file['filename'].iloc[0], tz_data)
     wav_path = timestamps_file['path']
     durations = [read_header(i)[-1] for i in tqdm(wav_path)]
