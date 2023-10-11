@@ -23,7 +23,7 @@ if len(file_list) > 1:
 else: file_list = 2 * [file_list[0]]
 
 # import detections, reference timebin, labels and annotators for each file
-df_detections, t_detections = sorting_detections(files=file_list, timebin_new=10, user_sel='all')
+df_detections, t_detections = sorting_detections(files=file_list, timebin_new=10, user_sel='all', fmin_filter=10000)
 timebin_detections = int(list(set(t_detections['max_time']))[0])
 labels_detections = list(set(t_detections['labels'].explode()))
 annotators_detections = list(set(t_detections['annotators'].explode()))

@@ -17,14 +17,37 @@ from utilities.def_func import get_csv_file, sorting_detections, t_rounder, get_
 # %% User inputs
 
 files_list = get_csv_file(2)
-df_detections, t_detections = sorting_detections(files=files_list, timebin_new=10, tz=pytz.FixedOffset(60), user_sel='all')
-t_detections['max_time'][0]
+
+arguments_list = [
+    {
+        'files': files_list[0],
+        'timebin_new': 10,
+        'tz': pytz.FixedOffset(60),
+    },
+    {
+        'files': files_list[1],
+        'timebin_new': 10,
+        'tz': pytz.FixedOffset(60),
+        'fmin_filter': 10000,
+        'fmax_filter': 30000,
+    }
+]
+all_detections, all_t_detections = [], []
+for args in arguments_list:
+    df_detections_file, t_detections_file = sorting_detections(**args)
+    all_detections.append(df_detections_file)
+    all_t_detections.append(t_detections_file)
+df_detections = pd.concat(all_detections, ignore_index=True)
+t_detections = pd.concat(all_t_detections, ignore_index=True)
+
+# df_detections, t_detections = sorting_detections(files=files_list[0], timebin_new=10, tz=pytz.FixedOffset(60), user_sel='all')
+
 
 time_bin = list(set(t_detections['max_time']))
 fmax = list(set(t_detections['max_freq']))
 annotators = list(set(t_detections['annotators'].explode()))
 labels = list(set(t_detections['labels'].explode()))
-tz_data = df_detections['start_datetime'][0].tz
+[tz_data] = list(set([d.tz for d in df_detections['start_datetime']]))
 
 # Chose your mode :
 # fixed : hard coded date interval
@@ -152,7 +175,6 @@ elif resolution_bin == 'Weeks':
     time_vector = [timestamp.date() for timestamp in time_vector_ts]
     n_annot_max = (24 * 60 * 60 * 7) / time_bin_ref
     y_label_txt = 'Number of detections per week (starting every Monday)'
-    
 
 else:
     # Compute the time_vector for a monthly resolution
@@ -162,7 +184,7 @@ else:
     y_label_txt = 'Number of detections per month'
 
 
-df_1annot_1label, _ = sorting_detections(files=file_ref, annotator=annot_ref, label=label_ref, timebin_new=time_bin_ref)
+df_1annot_1label, _ = sorting_detections(files=file_ref, annotator=annot_ref, label=label_ref, timebin_new=time_bin_ref, fmin_filter=10000)
 
 fig, ax = plt.subplots(figsize=(20, 9), facecolor='#36454F')
 [hist_y, hist_x, _] = ax.hist(df_1annot_1label['start_datetime'], bins=time_vector, color='crimson', edgecolor='black', linewidth=1)
@@ -448,6 +470,9 @@ else: sys.exit('Multilabel plot cancelled, annotator {0} only has one label : {1
 
 # %% Multi-user plot
 
+fmin = 10000
+fmax = 12000
+
 if len(annotators) > 2:
     annot_ref1 = easygui.buttonbox('Select annotator 1', 'Plot label', annotators)
     annot_ref2 = easygui.buttonbox('Select an annotator', 'Plot label', [elem for elem in annotators if elem != annot_ref1])
@@ -489,7 +514,7 @@ time_vector = [start_vec + i * delta for i in range(int((end_vec - start_vec) / 
 
 n_annot_max = (res_min * 60) / time_bin_ref  # max nb of annoted time_bin max per res_min slice
 
-df1_1annot_1label, _ = sorting_detections(files=file_ref1, annotator=annot_ref1, label=label_ref1, timebin_new=time_bin_ref)
+df1_1annot_1label, _ = sorting_detections(files=file_ref1, annotator=annot_ref1, label=label_ref1, timebin_new=time_bin_ref, fmin_filter=fmin, fmax_filter=fmax)
 df2_1annot_1label, _ = sorting_detections(files=file_ref2, annotator=annot_ref2, label=label_ref2, timebin_new=time_bin_ref)
 
 fig, ax = plt.subplots(figsize=(16, 6), facecolor='#36454F')
@@ -529,7 +554,7 @@ test2 = sorting_detections(file_ref2, annotator=annot_ref2, label=label_ref2, ti
 unique_annotations = len([elem for elem in list1 if elem not in list2]) + len([elem for elem in list2 if elem not in list1])
 common_annotations = len([elem for elem in list1 if elem in list2])
 print('Pourcentage d\'accord entre [{0}/{1}] & [{2}/{3}] : {4:.0f}%'.format(annot_ref1, label_ref1, annot_ref2, label_ref2, 100 * ((common_annotations) / (unique_annotations + common_annotations))))
-
+'''
 # scatter
 df_corr = pd.DataFrame(hist_plot[0] / n_annot_max, index=[annot_ref1, annot_ref2]).transpose()
 plot = sns.lmplot(x=annot_ref1, y=annot_ref2, data=df_corr, scatter_kws={'s': 10, 'color': 'teal'}, fit_reg=True, markers='.', line_kws={'lw': 1, 'color': 'teal'})
@@ -549,3 +574,4 @@ def annotate(data, **kws):
 
 plot.map_dataframe(annotate)
 plt.show()
+'''

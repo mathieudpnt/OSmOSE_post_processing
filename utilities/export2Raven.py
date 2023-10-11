@@ -6,7 +6,7 @@ from utilities.def_func import get_csv_file, sorting_detections, get_timestamps,
 
 files = get_csv_file(1)
 
-df_detections, t_detections = sorting_detections(files=files, tz=pytz.FixedOffset(60), box=True)
+df_detections, t_detections = sorting_detections(files=files, tz=pytz.UTC, box=False)
 timebin_detections = t_detections['max_time'][0]
 labels_detections = list(set(t_detections['labels'].explode()))
 annotators_detections = list(set(t_detections['annotators'].explode()))
@@ -14,7 +14,7 @@ fmax = t_detections['max_freq'][0]
 
 timestamps_file = get_timestamps()
 wav_names = timestamps_file['filename']
-wav_datetimes = [extract_datetime(d, tz=pytz.FixedOffset(60)) for d in timestamps_file['timestamp']]
+wav_datetimes = [extract_datetime(d, tz=pytz.UTC) for d in timestamps_file['timestamp']]
 durations = timestamps_file['duration']
 wav_tuple = (wav_names, wav_datetimes, durations)
 

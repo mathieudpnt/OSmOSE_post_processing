@@ -119,12 +119,14 @@ def sorting_detections(files: List[str], tz: pytz._FixedOffset = None, date_begi
             max_time = 0
 
         if box is False:
+            fmin = fmin_filter
+            fmax = fmax_filter
             if len(df_nobox) == 0:
-                df = reshape_timebin(file, timebin_new=timebin_new)
+                df = reshape_timebin(file, timebin_new=timebin_new, fmin=fmin, fmax=fmax)
                 max_time = int(max(df['end_time']))
             else:
                 if timebin_new is not None:
-                    df = reshape_timebin(file, timebin_new=timebin_new)
+                    df = reshape_timebin(file, timebin_new=timebin_new, fmin=fmin, fmax=fmax)
                     max_time = int(max(df['end_time']))
                 else:
                     df = df_nobox
@@ -191,7 +193,6 @@ def sorting_detections(files: List[str], tz: pytz._FixedOffset = None, date_begi
         result_df = pd.concat([result_df, df]).reset_index(drop=True)
         columns = ['file', 'max_time', 'max_freq', 'annotators', 'labels']
         info = pd.concat([info, pd.DataFrame([[file, int(max_time), max_freq, list_annotators, list_labels]], columns=columns)]).reset_index(drop=True)
-
     if len(list(set(info['max_time']))) > 1:
         if force_upload is False:
             raise Exception("Detection files with different timebins, upload aborted")
@@ -258,13 +259,14 @@ def task_status_selection(files: List[str], df_detections: pd.DataFrame, user: U
     return result_df
 
 
-def reshape_timebin(detections_file: str, timebin_new: int = None) -> pd.DataFrame:
+def reshape_timebin(detections_file: str, timebin_new: int = None, fmin: int = None, fmax: int = None) -> pd.DataFrame:
     ''' Changes the timebin (time resolution) of a detection file
     ex :    -from a raw PAMGuard detection file to a detection file with 10s timebin
             -from an 10s detection file to a 1min / 1h / 24h detection file
     Parameter:
         detection_file: Path to the detection file
         timebin_new : Time resolution to base the detections on, if not provided it is asked to the user
+        fmin/fmax : integers, based on wether the user wants to filter out some detections based on their frequencies
     Returns:
         another dataframe with the new timebin
     '''
@@ -303,9 +305,8 @@ def reshape_timebin(detections_file: str, timebin_new: int = None) -> pd.DataFra
     if isinstance(labels, str): labels = [labels]
     for annotator in annotators:
         for label in labels:
-
-            df_detect_prov, _ = sorting_detections(files=detections_file, annotator=annotator, label=label, box=True)
-
+            df_detect_prov, _ = sorting_detections(files=detections_file, annotator=annotator, label=label, box=True, fmin_filter=fmin, fmax_filter=fmax)
+            
             t = t_rounder(df_detect_prov['start_datetime'].iloc[0], timebin_new)
             t2 = t_rounder(df_detect_prov['start_datetime'].iloc[-1], timebin_new) + dt.timedelta(seconds=timebin_new)
             time_vector = [ts.timestamp() for ts in pd.date_range(start=t, end=t2, freq=f)]
