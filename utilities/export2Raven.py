@@ -6,7 +6,7 @@ from utilities.def_func import get_csv_file, sorting_detections, get_timestamps,
 
 files = get_csv_file(1)
 
-df_detections, t_detections = sorting_detections(files=files, timebin_new=10, label='Odontocete whistle', tz=pytz.FixedOffset(60))
+df_detections, t_detections = sorting_detections(files=files, tz=pytz.FixedOffset(60), box=True)
 timebin_detections = t_detections['max_time'][0]
 labels_detections = list(set(t_detections['labels'].explode()))
 annotators_detections = list(set(t_detections['annotators'].explode()))

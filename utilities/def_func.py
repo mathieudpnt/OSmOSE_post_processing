@@ -48,7 +48,7 @@ def get_csv_file(num_files: int) -> List[str]:
     return file_paths
 
 
-def sorting_detections(files: List[str], tz: pytz._FixedOffset = None, date_begin: dt.datetime = None, date_end: dt.datetime = None, annotator: str = None, label: str = None, box: bool = False, timebin_new: int = None, force_upload: bool = False, user_sel: str = 'all') -> (pd.DataFrame, pd.DataFrame):
+def sorting_detections(files: List[str], tz: pytz._FixedOffset = None, date_begin: dt.datetime = None, date_end: dt.datetime = None, annotator: str = None, label: str = None, box: bool = False, timebin_new: int = None, force_upload: bool = False, user_sel: str = 'all', fmin_filter: int = None, fmax_filter: int = None) -> (pd.DataFrame, pd.DataFrame):
     ''' Filters an Aplose formatted detection file according to user specified filters
         Parameters :
             file : list of path(s) to the detection file(s), can be a str too
@@ -64,6 +64,7 @@ def sorting_detections(files: List[str], tz: pytz._FixedOffset = None, date_begi
                 'union' : the common detections of all annotators and the unique detections of each annotators are selected
                 'intersection' : only the common detections of all annotators are selected
                 'all' : all the detections are selected, default value
+            fmin_filer/fmax_filer : integer, in the case where the user wants to filter out detections based on their frequency range
         Returns :
             max_time : spectrogram temporal length
             max_freq : sampling frequency *0.5
@@ -103,6 +104,16 @@ def sorting_detections(files: List[str], tz: pytz._FixedOffset = None, date_begi
         max_freq = int(max(df['end_frequency']))
         max_time = int(max(df['end_time']))
 
+        if fmin_filter is not None:
+            df = df[df['start_frequency'] >= fmin_filter]
+            if len(df) == 0:
+                raise Exception("No detection found after fmin filtering, upload aborted")
+
+        if fmax_filter is not None:
+            df = df[df['end_frequency'] <= fmax_filter]
+            if len(df) == 0:
+                raise Exception("No detection found after fmax filtering, upload aborted")
+
         df_nobox = df.loc[(df['start_time'] == 0) & (df['end_time'] == max_time) & (df['end_frequency'] == max_freq)]
         if len(df_nobox) == 0:
             max_time = 0
@@ -111,7 +122,7 @@ def sorting_detections(files: List[str], tz: pytz._FixedOffset = None, date_begi
             if len(df_nobox) == 0:
                 df = reshape_timebin(file, timebin_new=timebin_new)
                 max_time = int(max(df['end_time']))
-            else: 
+            else:
                 if timebin_new is not None:
                     df = reshape_timebin(file, timebin_new=timebin_new)
                     max_time = int(max(df['end_time']))
