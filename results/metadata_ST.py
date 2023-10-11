@@ -68,6 +68,25 @@ plt.title('% of time elapsed to achieve 75% of the detections')
 plt.grid(True)
 plt.show()
 
+# %% Distribution deployment time
+
+
+
+test = [t/3600 for t in data['duration_deployment (s)']]
+fig, ax = plt.subplots(figsize=(9, 9), facecolor='#36454F')
+ax.set_facecolor('#36454F')
+ax.spines['bottom'].set_color('w')
+ax.spines['left'].set_color('w')
+ax.spines['right'].set_visible(False)
+ax.spines['top'].set_visible(False)
+ax.tick_params(axis='both', colors='w')
+ax.hist(test, bins=range(0,140,2))
+plt.xlabel('Hours', fontsize=16, color='w')
+plt.ylabel('Deployments', fontsize=16, color='w')
+plt.title('Distribution of deployements durations', color='w')
+plt.grid(visible=False)
+plt.show()
+
 # %% Recap deployments csv
 
 print('\n#### RESULTS DEPLOYMENTS ####')
@@ -78,20 +97,21 @@ print('-total duration: {:.0f} h'.format(t_tot))
 
 print('\n# Observation effort per season #')
 # [print('-{0}:'.format(season), int(sum(deploy[deploy['season']== season]['durations_deployments'], dt.timedelta()).total_seconds()/3600),'h') for season in ['spring', 'summer', 'autumn', 'winter']];
+deploy['season_year'] = [int(s[-4:]) for s in deploy['season']]
 for y in sorted(list(set(deploy['season_year']))):
     for s in list(dict.fromkeys(deploy[(deploy['season_year'] == y)]['season'])):
         # t : duration_deployement divided by 2 if 2 ST are used in the deployment
         t = int(sum(deploy[(deploy['season_year'] == y) & (deploy['season'] == s) & (deploy['nb ST/filet'] == 1)]['durations_deployments'], dt.timedelta()).total_seconds() / 3600) + int(sum(deploy[(deploy['season_year'] == y) & (deploy['season'] == s) & (deploy['nb ST/filet'] != 1)]['durations_deployments'], dt.timedelta()).total_seconds() / 3600) * 0.5
-        print('-{0}: {1:.0f}% - {2:.0f} h'.format(s + ' ' + y, 100 * (t / t_tot), t))
+        print('-{0}: {1:.0f}% - {2:.0f} h'.format(s, 100 * (t / t_tot), t))
 
 print('\n# Duration per net #')
-[print('-Filet {0}:'.format(filet), int(sum(deploy[(deploy['Filet'] == filet) & (deploy['nb ST/filet'] == 1)]['durations_deployments'], dt.timedelta()).total_seconds() / 3600) + 0.5 * int(sum(deploy[(deploy['Filet'] == filet) & (deploy['nb ST/filet'] != 1)]['durations_deployments'], dt.timedelta()).total_seconds() / 3600), 'h') for filet in sorted(list(set(deploy['Filet'])))]
+[print('-Filet {0}:'.format(filet), int(sum(deploy[(deploy['Filet'] == filet) & (deploy['nb ST/filet'] == 1)]['durations_deployments'], dt.timedelta()).total_seconds() / 3600) + 0.5 * int(sum(deploy[(deploy['Filet'] == filet) & (deploy['nb ST/filet'] != 1)]['durations_deployments'], dt.timedelta()).total_seconds() / 3600), 'h') for filet in sorted(list(set(deploy['Filet'])))];
 
 print('\n# Mean duration of a deployment per net type #')
-[print('-Filet {0}:'.format(filet), round(np.mean(deploy[deploy['Filet'] == filet]['durations_deployments']).total_seconds() / 3600, 1), 'h +/-', round(np.std(deploy[deploy['Filet'] == filet]['durations_deployments']).total_seconds() / 3600, 1), 'h') for filet in sorted(list(set(deploy['Filet'])))]
+[print('-Filet {0}:'.format(filet), round(np.mean(deploy[deploy['Filet'] == filet]['durations_deployments']).total_seconds() / 3600, 1), 'h +/-', round(np.std(deploy[deploy['Filet'] == filet]['durations_deployments']).total_seconds() / 3600, 1), 'h') for filet in sorted(list(set(deploy['Filet'])))];
 
 print('\n# Duration per net length #')
-[print('-{:.0f}'.format(L), 'm :', int(sum(deploy[deploy['Longueur (m)'] == L]['durations_deployments'], dt.timedelta()).total_seconds() / 3600), 'h') for L in sorted(list(set(deploy['Longueur (m)'])))]
+[print('-{:.0f}'.format(L), 'm :', int(sum(deploy[deploy['Longueur (m)'] == L]['durations_deployments'], dt.timedelta()).total_seconds() / 3600), 'h') for L in sorted(list(set(deploy['Longueur (m)'])))];
 
 # %% Write metadata files
 
@@ -181,7 +201,7 @@ print('\n# Duration per net length #')
 x = [str(elem) for elem in sorted(list(set(deploy['Longueur (m)'])))]
 y = [int(sum(deploy[(deploy['Longueur (m)'] == L) & (deploy['nb ST/filet'] != 1)]['durations_deployments'], dt.timedelta()).total_seconds() * 0.5 / 3600) + int(sum(deploy[(deploy['Longueur (m)'] == L) & (deploy['nb ST/filet'] == 1)]['durations_deployments'], dt.timedelta()).total_seconds() / 3600) for L in sorted(list(set(deploy['Longueur (m)'])))]
 
-fig, ax = plt.subplots(figsize=(16, 6), facecolor='#36454F')
+fig, ax = plt.subplots(figsize=(9, 9), facecolor='#36454F')
 ax.bar(x, y)
 ax.set_facecolor('#36454F')
 ax.tick_params(axis='both', colors='w')
@@ -193,10 +213,18 @@ plt.grid(visible=False)
 plt.suptitle('', color='w')
 ax.set_ylabel('Heures d\'enregistrement', fontsize=16, color='w')
 ax.set_xlabel('Longueur filière [m]', fontsize=16, color='w')
+plt.title('Distribution of net lengths', color='w')
+
 
 # %% Cumulated histogram of detections for a single detection file
 
-df_detections = data['df_detections'][0]
+df_detections = data['df_detections'][100]
+
+# from utilities.def_func import get_csv_file
+# import pytz
+# # data = get_csv_file(1)
+# df_detections, _ = sorting_detections(files=data, timebin_new=10, tz=pytz.FixedOffset(60), label='Odontocete buzz')
+
 threshold = 0.75
 
 [ID0] = list(set(df_detections['dataset']))
@@ -207,6 +235,7 @@ ID_test = ID1 + ' ' + ID2
 data_histo = df_detections['start_datetime']  # detections datetimes
 tb = df_detections['end_time'][0]  # timebin
 deploy_dt = [df_detections['start_deploy'][0], df_detections['end_deploy'][0]]  # beginning and end of deployment
+# deploy_dt = [pd.Timestamp('2023-02-11 12:00:00 +0100'), pd.Timestamp('2023-02-12 09:00:00 +0100')]  # beginning and end of deployment
 
 res_min = 1
 delta, start_vec, end_vec = dt.timedelta(seconds=60 * res_min), deploy_dt[0], deploy_dt[1]
@@ -234,7 +263,7 @@ ax.hist(data_histo, bins, cumulative=True)  # histo
 vline = ax.axvline(x=dt_thr, ymax=1, color='r', linestyle='-', label='75% of Detections')
 # hline = ax.axhline(y=threshold_detect, xmax = (dt_thr-bins[0])/(bins[-1]-bins[0]), color='r', linestyle='-', label='75% of Detections')
 hline = ax.axhline(y=threshold_detect, xmax=1, color='r', linestyle='-', label='75% of Detections')
-ax.set_ylabel("Detection rate [%] (" + str(res_min) + "min)", fontsize=20)
+ax.set_ylabel("Detections", fontsize=20)
 ax.grid(color='k', linestyle='-', linewidth=0.2, axis='both')
 ax.text(bins[bin_index + 10], 50, '{0} min - {1:.0f}%'.format(min_elapsed, 100 * perc_elapsed), color='r', ha='left', fontsize=16, fontweight='bold')
 ax.text(bins[0], threshold * total_detections * 1.02 + 2, '{0} detections'.format(threshold_detect), color='r', ha='left', fontsize=16, fontweight='bold')
@@ -247,12 +276,15 @@ fig.suptitle('Cumulated detections - {0}\n{1} - {2}'.format(ID_test, deploy_dt[0
 # the histogram is divided into n periods of equal durations
 # the periods number with the most/least detections are printed
 
-data_test = data.iloc[0]
+data_test = data.iloc[100]
 n_periods = 10
 
 df_detections = data_test['df_detections']
+# df_detections, _ = sorting_detections(files=data, timebin_new=10, tz=pytz.FixedOffset(60), label='Odontocete buzz')
+
 data_histo = df_detections['start_datetime']
 periods = pd.date_range(start=data_test['beg_deployment'], end=data_test['end_deployment'], freq=str(int(data_test['duration_deployment (s)'] / n_periods)) + 's')
+# periods = pd.date_range(start=pd.Timestamp('2023-02-11 12:00:00 +0100'), end=pd.Timestamp('2023-02-12 09:00:00 +0100'), freq=str(int((end-start).total_seconds() / n_periods)) + 's')
 
 fig, ax = plt.subplots(figsize=(20, 9), facecolor='#36454F')
 ax.set_facecolor('#36454F')
@@ -270,7 +302,7 @@ ax.tick_params(axis='both', colors='w')
 ax.yaxis.grid(color='gray', linestyle='--')
 
 # x-labels
-ax.set_xlabel('Periods', color='w')
+ax.set_xlabel('Periods', color='w', fontsize=20)
 
 [ax.axvline(x=period, color='lime') for period in periods]
 ax.grid(color='k', linestyle='-', linewidth=0.1, axis='both')
@@ -280,8 +312,12 @@ rank_max = np.argmax(detect_periods) + 1
 rank_min = np.argmin(detect_periods) + 1
 bars[rank_max - 1].set_color('orange')
 bars[rank_min - 1].set_color('#CD3333')
+
+ax.set_ylabel("Detections", fontsize=20, color='w')
+
 perc_max = detect_periods[rank_max - 1] / data_test['detections number']
 perc_min = detect_periods[rank_min - 1] / data_test['detections number']
+fig.suptitle('Odontocete whistle', fontsize=24, y=0.98, color='w')
 
 print(f'\nThe period {rank_max}/{n_periods} contains the most detections with {detect_periods[rank_max-1]:.0f}/{data_test["detections number"]} detections ({100*perc_max:.0f}%)')
 print(f'\nThe period {rank_min}/{n_periods} contains the least detections with {detect_periods[rank_min-1]:.0f}/{data_test["detections number"]} detections ({100*perc_min:.0f}%)')
@@ -290,11 +326,16 @@ print(f'\nThe period {rank_min}/{n_periods} contains the least detections with {
 # first, each detection dataframe is divided into n periods of equal durations
 # Then the distribution of the period with the most detections for each df is plotted
 
+# data2 = data[data['season'] == 'spring 2023']
+data2 = data[data['n_instru'] == 2].reset_index(drop=True)
+data3 = data2[data2.index % 2 == 1]
+# TODO : ajouter filtering
+
 n_periods = 10
 
 rank_max, rank_min = [], []
-for i in range(len(data)):
-    data_test = data.iloc[i]
+for i in range(len(data3)):
+    data_test = data3.iloc[i]
     df_detections = data_test['df_detections']
     data_histo = df_detections['start_datetime']
     periods = pd.date_range(start=data_test['beg_deployment'], end=data_test['end_deployment'], freq=str(int(data_test['duration_deployment (s)'] / n_periods)) + 's')
@@ -302,7 +343,7 @@ for i in range(len(data)):
     rank_max.append(np.argmax(detect_periods) + 1)
     rank_min.append(np.argmin(detect_periods) + 1)
 
-total = len(data)
+total = len(data3)
 value_max_counts = Counter(rank_max)
 value_min_counts = Counter(rank_min)
 
@@ -372,20 +413,68 @@ plt.show()
 #     if '1' in str(deploy['nb ST/filet'][i]): deploy_out['nb ST/filet'][i] = 1
 #     if '2' in str(deploy['nb ST/filet'][i]): deploy_out['nb ST/filet'][i] = 2
 
-# deploy_out.to_csv('L:/acoustock/Bioacoustique/DATASETS/APOCADO/Data QGIS/APOCADO - Suivi déploiements 13042023.csv', index=False, encoding='latin1')
+# deploy_out.to_csv('L:/acoustock/Bioacoustique/DATASETS/APOCADO/Code/Data QGIS/APOCADO - Suivi déploiements 09102023.csv', index=False, encoding='latin1')
 
 # %% Mean number of detection per hour of the day
 
-filtering = data[(data['deploy_ID'].str.contains('C6')) & (data['deploy_ID'].str.contains('7179'))]
+# filtering = data[(data['deploy_ID'].str.contains('C6')) & (data['deploy_ID'].str.contains('7179'))]
 # filtering = data[data['deploy_ID'].str.contains('C3')]
 # filtering = data[data['season'] == 'spring 2023']
+filtering = data[data['season'] == 'winter 2022']
 
 idx = list(filtering.index)
 detection_files = data['detection_file'][idx]
 [tb] = list(set(data['timebin']))
 df_detections, _ = sorting_detections(detection_files, timebin_new=tb)
+# df_detections, _ = sorting_detections(files=data, timebin_new=10, tz=pytz.FixedOffset(60), label='Odontocete buzz')
+
 
 df_result = stat_box_day(filtering, df_detections)
+
+hour_list = ['{:02d}:00'.format(i) for i in range(24)]
+hour_list.append('00:00')
+
+df_detections['date'] = [dt.datetime.strftime(i.date(), '%d/%m/%Y') for i in df_detections['start_datetime']]
+df_detections['season'] = [get_season(i) for i in df_detections['start_datetime']]
+df_detections['dataset'] = [i.replace('_', ' ') for i in df_detections['dataset']]
+
+# result = {}
+# list_dates = sorted(list(set(df_detections['date'])))  # list of dates
+# for date in list_dates:
+#     detection_bydate = df_detections[df_detections['date'] == date]  # sub-dataframe : per date
+#     list_datasets = sorted(list(set(detection_bydate['dataset'])))  # dataset list for date=date
+
+#     for dataset in list_datasets:
+#         df = detection_bydate[detection_bydate['dataset'] == dataset].set_index('start_datetime')  # sub-dataframe : per date & per dataset
+
+#         # number of detections per hour of the day at date and at dataset
+#         detection_per_dataset = [len(df.between_time(hour_list[j], hour_list[j + 1], inclusive='left')) for j in (range(len(hour_list) - 1))]
+
+#         deploy_beg_ts, deploy_end_ts = int(pd.Timestamp('2023-02-11 12:00:00 +0100').timestamp()), int(pd.Timestamp('2023-02-12 09:00:00 +0100').timestamp())  # beginning and end of deployment
+
+#         list_present_h = [dt.datetime.fromtimestamp(i) for i in list(range(deploy_beg_ts, deploy_end_ts, 3600))]
+#         list_present_h2 = [dt.datetime.strftime(list_present_h[i], '%d/%m/%Y %H') for i in range(len(list_present_h))]
+
+#         list_deploy_d = sorted(list(set([dt.datetime.strftime(dt.datetime.fromtimestamp(i), '%d/%m/%Y') for i in list(range(deploy_beg_ts, deploy_end_ts, 3600))])))
+#         list_deploy_d2 = [d for i, d in enumerate(list_deploy_d) if d in date][0]
+
+#         list_present_h3 = []
+#         for item in list_present_h2:
+#             if item.startswith(list_deploy_d2):
+#                 list_present_h3.append(item)
+
+#         list_deploy = [df['date'][0] + ' ' + n for n in [f'{i:02}' for i in range(0, 24)]]
+
+#         for i, h in enumerate(list_deploy):
+#             if h not in list_present_h3:
+#                 detection_per_dataset[i] = np.nan
+
+#         result[dataset, date] = detection_per_dataset
+
+# df_result = pd.DataFrame(result).T
+
+
+
 
 fig, ax = plt.subplots(figsize=(10, 6), facecolor='#36454F')
 ax.set_facecolor('#36454F')
@@ -414,7 +503,7 @@ ax.spines['top'].set_color('w')
 plt.grid(visible=False)
 
 plt.xticks(range(len(hour_list)), hour_list, rotation=90)
-plt.title('Mean detection number per hour of the day', color='w', fontsize=14)
+plt.title('Mean detection number per hour of the day - Odontocete buzz', color='w', fontsize=14)
 plt.xlabel('Hours of the day', fontsize=14, color='w')
 plt.ylabel('Detections', fontsize=14, color='w')
 
@@ -422,16 +511,24 @@ plt.show()
 
 # %% stat diel plot
 
-mode = 'multiple'
+mode = 'solo'
 if mode == 'solo':
-    i = [11]
-    data_test = data.iloc[i].iloc[0]
-    df_detections = data_test['df_detections']
-    begin_deploy = pd.to_datetime(data_test['beg_deployment'], format='%Y-%m-%dT%H:%M:%S%z')
-    end_deploy = pd.to_datetime(data_test['end_deployment'], format='%Y-%m-%dT%H:%M:%S%z')
-    duration = pd.to_timedelta(data_test['duration_deployment (s)'], unit='s')
-    lat = data_test['Latitude']
-    lon = data_test['Longitude']
+    # i = [11]
+    # data_test = data.iloc[i].iloc[0]
+    # df_detections = data_test['df_detections']
+    df_detections, _ = sorting_detections(files=data, timebin_new=10, tz=pytz.FixedOffset(60), label='Odontocete buzz')
+
+    # begin_deploy = pd.to_datetime(data_test['beg_deployment'], format='%Y-%m-%dT%H:%M:%S%z')
+    # end_deploy = pd.to_datetime(data_test['end_deployment'], format='%Y-%m-%dT%H:%M:%S%z')
+    # duration = pd.to_timedelta(data_test['duration_deployment (s)'], unit='s')
+    begin_deploy = pd.Timestamp('2023-02-11 12:00:00 +0100')
+    end_deploy = pd.Timestamp('2023-02-12 09:00:00 +0100')
+    duration = pd.to_timedelta((end_deploy-begin_deploy).total_seconds(), unit='s')
+    
+    # lat = data_test['Latitude']
+    # lon = data_test['Longitude']
+    lat=47.862
+    lon=-4.502
 
 elif mode == 'multiple':
     # filtering = data[data['season'] == 'spring 2023']
@@ -479,8 +576,10 @@ plt.xticks([1, 2, 3, 4], BoxNames)
 print(f'\nbegin date : {begin_deploy}')
 print(f'end date : {end_deploy}')
 print(f'duration : {duration}')
-print(f'latitude : {lat:.2f} +/- {u_lat:.2f}')
-print(f'longitude : {lon:.2f} +/- {u_lon:.2f}')
+# print(f'latitude : {lat:.2f} +/- {u_lat:.2f}')
+# print(f'longitude : {lon:.2f} +/- {u_lon:.2f}')
+
+plt.title('Odontocete buzz', color='w', fontsize=14)
 
 
 # %% Mean number of detection per hour of the day + stat diel plot

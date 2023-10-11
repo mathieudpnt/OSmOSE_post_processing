@@ -16,8 +16,8 @@ from utilities.def_func import get_csv_file, sorting_detections, t_rounder, get_
 
 # %% User inputs
 
-files_list = get_csv_file(1)
-df_detections, t_detections = sorting_detections(files=files_list, timebin_new=10, tz=pytz.FixedOffset(60), user_sel='intersection')
+files_list = get_csv_file(2)
+df_detections, t_detections = sorting_detections(files=files_list, timebin_new=10, tz=pytz.FixedOffset(60), user_sel='all')
 t_detections['max_time'][0]
 
 time_bin = list(set(t_detections['max_time']))
@@ -104,8 +104,8 @@ ax2.set_axisbelow(True)
 
 # titles
 title_font = {'fontsize': 15, 'color': 'w', 'fontweight': 'bold'}
-ax1.set_title('Number of annotations per label', color='w', fontdict=title_font, pad=5)
-ax2.set_title('Number of annotations per annotator', color='w', fontdict=title_font, pad=5)
+ax1.set_title('Number of annotations per label', color='w', fontdict=title_font, pad=5);
+ax2.set_title('Number of annotations per annotator', color='w', fontdict=title_font, pad=5);
 
 
 # %% Single seasonality plot

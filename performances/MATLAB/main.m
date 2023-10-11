@@ -2,7 +2,7 @@
 clear;clc
 
 % User inputs
-TZ = '+02:00';
+TZ = '+01:00';
 % TZ = 'Europe/Paris'; %TimeZone
 format_datestr = 'yyMMddHHmmss'; %APOCADO filename format
 % format_datestr = 'yyyy-MM-dd_HH-mm-ss'; %CETIROISE filename format
@@ -12,7 +12,7 @@ addpath(genpath(fullfile(fileparts(fileparts(pwd)), 'utilities')))
 %info written on Aplose csv file
 infoAplose.annotator = 'PAMGuard';
 infoAplose.annotation = 'Whistle and moan detector';
-infoAplose.dataset = 'C3D1_ST335556632';
+infoAplose.dataset = 'C6D3_ST7178_2';
 
 
 % Get files - Automatic
