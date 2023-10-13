@@ -48,7 +48,7 @@ def get_csv_file(num_files: int) -> List[str]:
     return file_paths
 
 
-def sorting_detections(files: List[str], tz: pytz._FixedOffset = None, date_begin: dt.datetime = None, date_end: dt.datetime = None, annotator: str = None, label: str = None, box: bool = False, timebin_new: int = None, force_upload: bool = False, user_sel: str = 'all', fmin_filter: int = None, fmax_filter: int = None) -> (pd.DataFrame, pd.DataFrame):
+def sorting_detections(file: List[str], tz: pytz._FixedOffset = None, date_begin: dt.datetime = None, date_end: dt.datetime = None, annotator: str = None, label: str = None, box: bool = False, timebin_new: int = None, user_sel: str = 'all', fmin_filter: int = None, fmax_filter: int = None) -> (pd.DataFrame, pd.DataFrame):
     ''' Filters an Aplose formatted detection file according to user specified filters
         Parameters :
             file : list of path(s) to the detection file(s), can be a str too
@@ -59,7 +59,6 @@ def sorting_detections(files: List[str], tz: pytz._FixedOffset = None, date_begi
             label : string to be specified if the user wants to select the detection of a particular label
             box : if set to True, keeps all the annotations, if False keeps only the absence/presence box (weak detection)
             timebin_new : integer to be specified if the user already know the new time resolution to set the detection file to
-            force_upload : boolean value, in the case where detection files have different timebins, user can choose wether or not to upload the detections
             user_sel: string to specify to filter detections of a file based on annotators
                 'union' : the common detections of all annotators and the unique detections of each annotators are selected
                 'intersection' : only the common detections of all annotators are selected
@@ -74,212 +73,138 @@ def sorting_detections(files: List[str], tz: pytz._FixedOffset = None, date_begi
             info : DataFrame containing infos such as max_time/max_freq/annotators/labels corresponding to each detection file
     '''
 
-    if isinstance(files, str):
-        files = [files]  # Convert the single string to a list with one element
+    # find the proper delimiter for file
+    with open(file, 'r', newline='') as csv_file:
+        try:
+            temp_lines = csv_file.readline() + '\n' + csv_file.readline()
+            dialect = csv.Sniffer().sniff(temp_lines, delimiters=',;')
+            delimiter = dialect.delimiter
+        except csv.Error:
+            delimiter = ','
+
+    df = pd.read_csv(file, sep=delimiter)
+    list_annotators = list(df['annotator'].drop_duplicates())
+    list_labels = list(df['annotation'].drop_duplicates())
+    max_freq = int(max(df['end_frequency']))
+    max_time = int(max(df['end_time']))
+
+    df['start_datetime'] = pd.to_datetime(df['start_datetime'], format='%Y-%m-%dT%H:%M:%S.%f%z')
+    df['end_datetime'] = pd.to_datetime(df['end_datetime'], format='%Y-%m-%dT%H:%M:%S.%f%z')
+    df = df.sort_values('start_datetime')
+
+    if tz is not None:
+        df['start_datetime'] = [x.tz_convert(tz) for x in df['start_datetime']]
+        df['end_datetime'] = [x.tz_convert(tz) for x in df['end_datetime']]
+
+    if date_begin is not None:
+        df = df[df['start_datetime'] >= date_begin]
+
+    if date_end is not None:
+        df = df[df['end_datetime'] <= date_end]
 
     if date_begin is not None and date_end is not None:
         if date_begin >= date_end:
             raise ValueError("Error: date_begin > date_end")
 
-    # if len(annotator) == len(files):
-    #     dict_annot = {}
-    #     for i in range(len(files)):
-    #         dict_annot[annotator[i]] = files[i]
+    if annotator is not None:
+        df = df.loc[(df['annotator'] == annotator)]
+        list_annotators = [annotator]
 
-    info, result_df = pd.DataFrame(), pd.DataFrame()
-    for file in files:
+    if label is not None:
+        df = df.loc[(df['annotation'] == label)]
+        list_labels = [label]
 
-        # find the proper delimiter for file
-        with open(file, 'r', newline='') as csv_file:
-            try:
-                temp_lines = csv_file.readline() + '\n' + csv_file.readline()
-                dialect = csv.Sniffer().sniff(temp_lines, delimiters=',;')
-                delimiter = dialect.delimiter
-            except csv.Error:
-                delimiter = ','
+    if fmin_filter is not None:
+        df = df[df['start_frequency'] >= fmin_filter]
+        if len(df) == 0:
+            raise Exception("No detection found after fmin filtering, upload aborted")
 
-        df = pd.read_csv(file, sep=delimiter)
-        list_annotators = list(df['annotator'].drop_duplicates())
-        list_labels = list(df['annotation'].drop_duplicates())
-        max_freq = int(max(df['end_frequency']))
-        max_time = int(max(df['end_time']))
+    if fmax_filter is not None:
+        df = df[df['end_frequency'] <= fmax_filter]
+        if len(df) == 0:
+            raise Exception("No detection found after fmax filtering, upload aborted")
 
-        if fmin_filter is not None:
-            df = df[df['start_frequency'] >= fmin_filter]
-            if len(df) == 0:
-                raise Exception("No detection found after fmin filtering, upload aborted")
+    df_nobox = df.loc[(df['start_time'] == 0) & (df['end_time'] == max_time) & (df['end_frequency'] == max_freq)]
+    if len(df_nobox) == 0:
+        max_time = 0
 
-        if fmax_filter is not None:
-            df = df[df['end_frequency'] <= fmax_filter]
-            if len(df) == 0:
-                raise Exception("No detection found after fmax filtering, upload aborted")
-
-        df_nobox = df.loc[(df['start_time'] == 0) & (df['end_time'] == max_time) & (df['end_frequency'] == max_freq)]
+    if box is False:
         if len(df_nobox) == 0:
-            max_time = 0
-
-        if box is False:
-            fmin = fmin_filter
-            fmax = fmax_filter
-            if len(df_nobox) == 0:
-                df = reshape_timebin(file, timebin_new=timebin_new, f_start=fmin, f_end=fmax)
+            df = reshape_timebin(df=df, timebin_new=timebin_new)
+            max_time = int(max(df['end_time']))
+        else:
+            if timebin_new is not None:
+                df = reshape_timebin(df=df, timebin_new=timebin_new)
                 max_time = int(max(df['end_time']))
             else:
-                if timebin_new is not None:
-                    df = reshape_timebin(file, timebin_new=timebin_new, f_start=fmin, f_end=fmax)
-                    max_time = int(max(df['end_time']))
-                else:
-                    df = df_nobox
+                df = df_nobox
 
-        # elif timebin_new < max_time:
-        #     raise ValueError(f'original timebin ({max_time}s) > new timebin ({timebin_new}s)')
+    if len(list_annotators) > 1:
+        if user_sel == 'union' or user_sel == 'intersection':
+            df_inter = pd.DataFrame()
+            df_diff = pd.DataFrame()
+            for label_sel in list_labels:
+                df_label = df[df['annotation'] == label_sel]
+                values = list(df_label['start_datetime'].drop_duplicates())
+                common_values = []
+                diff_values = []
+                error_values = []
+                for value in values:
+                    if df_label['start_datetime'].to_list().count(value) == 2:
+                        common_values.append(value)
+                    elif df_label['start_datetime'].to_list().count(value) == 1:
+                        diff_values.append(value)
+                    else:
+                        error_values.append(value)
 
-        df['start_datetime'] = pd.to_datetime(df['start_datetime'], format='%Y-%m-%dT%H:%M:%S.%f%z')
-        df['end_datetime'] = pd.to_datetime(df['end_datetime'], format='%Y-%m-%dT%H:%M:%S.%f%z')
+                df_label_inter = df_label[df_label['start_datetime'].isin(common_values)].reset_index(drop=True)
+                df_label_inter = df_label_inter.drop_duplicates(subset='start_datetime')
+                df_inter = pd.concat([df_inter, df_label_inter]).reset_index(drop=True)
 
-        if tz is not None:
-            df['start_datetime'] = [x.tz_convert(tz) for x in df['start_datetime']]
-            df['end_datetime'] = [x.tz_convert(tz) for x in df['end_datetime']]
+                df_label_diff = df_label[df_label['start_datetime'].isin(diff_values)].reset_index(drop=True)
+                df_diff = pd.concat([df_diff, df_label_diff]).reset_index(drop=True)
 
-        if date_begin is not None:
-            df = df[df['start_datetime'] >= date_begin]
-        if date_end is not None:
-            df = df[df['end_datetime'] <= date_end]
+            if user_sel == 'intersection':
+                df = df_inter
+                list_annotators = [' ∩ '.join(list_annotators)]
+            elif user_sel == 'union':
+                df = pd.concat([df_diff, df_inter]).reset_index(drop=True)
+                df = df.sort_values('start_datetime')
+                list_annotators = [' ∪ '.join(list_annotators)]
 
-        if annotator is not None:
-            df = df.loc[(df['annotator'] == annotator)]
-            list_annotators = [annotator]
+            df['annotator'] = list_annotators[0]
 
-        if label is not None:
-            df = df.loc[(df['annotation'] == label)]
-            list_labels = [label]
+    columns = ['file', 'max_time', 'max_freq', 'annotators', 'labels']
+    info = pd.DataFrame([[file, int(max_time), max_freq, list_annotators, list_labels]], columns=columns)
 
-        if len(list_annotators) > 1:
-            if user_sel == 'union' or user_sel == 'intersection':
-                df_inter = pd.DataFrame()
-                df_diff = pd.DataFrame()
-                for label_sel in list_labels:
-                    df_label = df[df['annotation'] == label_sel]
-                    values = list(df_label['start_datetime'].drop_duplicates())
-                    common_values = []
-                    diff_values = []
-                    error_values = []
-                    for value in values:
-                        if df_label['start_datetime'].to_list().count(value) == 2:
-                            common_values.append(value)
-                        elif df_label['start_datetime'].to_list().count(value) == 1:
-                            diff_values.append(value)
-                        else:
-                            error_values.append(value)
-
-                    df_label_inter = df_label[df_label['start_datetime'].isin(common_values)].reset_index(drop=True)
-                    df_label_inter = df_label_inter.drop_duplicates(subset='start_datetime')
-                    df_inter = pd.concat([df_inter, df_label_inter]).reset_index(drop=True)
-
-                    df_label_diff = df_label[df_label['start_datetime'].isin(diff_values)].reset_index(drop=True)
-                    df_diff = pd.concat([df_diff, df_label_diff]).reset_index(drop=True)
-
-                if user_sel == 'intersection':
-                    df = df_inter
-                    list_annotators = [' ∩ '.join(list_annotators)]
-                elif user_sel == 'union':
-                    df = pd.concat([df_diff, df_inter]).reset_index(drop=True)
-                    df = df.sort_values('start_datetime')
-                    list_annotators = [' ∪ '.join(list_annotators)]
-
-                df['annotator'] = list_annotators[0]
-
-        df = df.sort_values('start_datetime')
-        result_df = pd.concat([result_df, df]).reset_index(drop=True)
-        columns = ['file', 'max_time', 'max_freq', 'annotators', 'labels']
-        info = pd.concat([info, pd.DataFrame([[file, int(max_time), max_freq, list_annotators, list_labels]], columns=columns)]).reset_index(drop=True)
-    if len(list(set(info['max_time']))) > 1:
-        if force_upload is False:
-            raise Exception("Detection files with different timebins, upload aborted")
-        else:
-            print("\nDetection files with different timebins, forced upload")
-
-    return result_df, info
+    return df, info
 
 
-def task_status_selection(files: List[str], df_detections: pd.DataFrame, user: Union[str, List[str]] = 'all') -> pd.DataFrame:
-    ''' Filters a detection DataFrame to select only the segments that all annotator have completed (i.e. status == 'FINISHED')
-        Parameters :
-            file : list of path(s) to the status file(s), can be a str too
-            df_detections : df of the detections (output of sorting_detections)
-            user : string of list of strings, this argument is used to select the annotator to take into consideration
-                - user='all', then all the annotators of the status file are used
-                - user='annotator_name', then only one annotator is used
-                - user=[list of annotators], then only the annotators present in the list are used
-        Returns :
-            df_kept : df of the detections sorted according to the selected annotators
-    '''
-    if isinstance(files, str):
-        files = [files]  # Convert the single string to a list with one element
-        
-    result_df = pd.DataFrame()
-    for file in files:
-
-        # find the proper delimiter for file
-        with open(file, 'r', newline='') as csv_file:
-            try:
-                temp_lines = csv_file.readline() + '\n' + csv_file.readline()
-                dialect = csv.Sniffer().sniff(temp_lines, delimiters=',;')
-                delimiter = dialect.delimiter
-            except csv.Error:
-                delimiter = ','
-
-        df = pd.read_csv(file, sep=delimiter)
-        annotators_df = [i for i in list(df.columns) if i != 'dataset' and i != 'filename']
-
-        # selection of the annotators according to the user argument
-        if user == 'all':
-            list_annotators = [i for i in list(df.columns) if i != 'dataset' and i != 'filename']
-        elif isinstance(user, list):
-            for u in user:
-                if u not in annotators_df:
-                    raise Exception(f"'{u}' not present in the task satuts file")
-            list_annotators = user
-        elif isinstance(user, str) and user != 'all':
-            if user not in annotators_df:
-                raise Exception(f"'{user}' not present in the task satuts file")
-            list_annotators = [user]
-
-        df_users = df_detections[df_detections['annotator'].isin(list_annotators)]
-
-        filename_list = list(df[df[list_annotators].eq('FINISHED').all(axis=1)]['filename'])
-        ignored_list = list(df[~df[list_annotators].eq('FINISHED').all(axis=1)]['filename'])
-
-        df_kept = df_users[df_users['filename'].isin(filename_list)]
-        df_ignored = df_users[df_users['filename'].isin(ignored_list)]
-
-        print(f'\n{os.path.basename(file)}: {len(ignored_list)} files ignored', end='\n')
-        result_df = pd.concat([result_df, df_kept]).reset_index(drop=True)
-
-    return result_df
-
-
-def reshape_timebin(detections_file: str, timebin_new: int = None, f_start: int = None, f_end: int = None) -> pd.DataFrame:
-    ''' Changes the timebin (time resolution) of a detection file
+def reshape_timebin(df: pd.DataFrame, timebin_new: int = None) -> pd.DataFrame:
+    ''' Changes the timebin (time resolution) of a detection dataframe
     ex :    -from a raw PAMGuard detection file to a detection file with 10s timebin
             -from an 10s detection file to a 1min / 1h / 24h detection file
     Parameter:
-        detection_file: Path to the detection file
+        df : detection dataframe
         timebin_new : Time resolution to base the detections on, if not provided it is asked to the user
-        fmin/fmax : integers, based on wether the user wants to filter out some detections based on their frequencies
     Returns:
-        another dataframe with the new timebin
+        df_new : detection dataframe with the new timebin
     '''
+    if isinstance(df, pd.DataFrame) == False:
+        raise Exception("Not a dataframe passed, reshape aborted")
 
-    df_detections, t_detections = sorting_detections(files=detections_file, box=True)
-    timebin_orig = t_detections.iloc[0]['max_time']
-    fmax = t_detections.iloc[0]['max_freq']
-    annotators = t_detections.iloc[0]['annotators']
-    labels = t_detections.iloc[0]['labels']
-    tz_data = df_detections['start_datetime'][0].tz
+    annotators = list(df['annotator'].drop_duplicates())
+    labels = list(df['annotation'].drop_duplicates())
+
+    df_nobox = df.loc[(df['start_time'] == 0) & (df['end_time'] == max(df['end_time'])) & (df['end_frequency'] == max(df['end_frequency']))]
+    max_time = 0 if len(df_nobox) == 0 else int(max(df['end_time']))
+    max_freq = int(max(df['end_frequency']))
+
+    tz_data = df['start_datetime'][0].tz
+
     if timebin_new is None:
         while True:
-            timebin_new = easygui.buttonbox('Select a new time resolution for the detection file', detections_file.split('/')[-1], ['10s', '1min', '10min', '1h', '24h'])
+            timebin_new = easygui.buttonbox('Select a new time resolution for the detections', df['dataset'][0], ['10s', '1min', '10min', '1h', '24h'])
             if timebin_new == '10s':
                 f = timebin_new
                 timebin_new = 10
@@ -296,7 +221,7 @@ def reshape_timebin(detections_file: str, timebin_new: int = None, f_start: int 
                 f = timebin_new
                 timebin_new = 86400
 
-            if timebin_new > timebin_orig: break
+            if timebin_new > max_time: break
             else: easygui.msgbox('New time resolution is equal or smaller than the original one', 'Warning', 'Ok')
     else: f = str(timebin_new) + 's'
 
@@ -305,9 +230,10 @@ def reshape_timebin(detections_file: str, timebin_new: int = None, f_start: int 
     if isinstance(labels, str): labels = [labels]
     for annotator in annotators:
         for label in labels:
-            df_detect_prov, _ = sorting_detections(files=detections_file, annotator=annotator, label=label, box=True, fmin_filter=f_start, fmax_filter=f_end)
-            
-            t = t_rounder(df_detect_prov['start_datetime'].iloc[0], timebin_new)
+
+            df_detect_prov = df[(df['annotator'] == annotator) & (df['annotation'] == label)]
+
+            t = t_rounder(t=df_detect_prov['start_datetime'].iloc[0], res=timebin_new)
             t2 = t_rounder(df_detect_prov['start_datetime'].iloc[-1], timebin_new) + dt.timedelta(seconds=timebin_new)
             time_vector = [ts.timestamp() for ts in pd.date_range(start=t, end=t2, freq=f)]
 
@@ -318,8 +244,7 @@ def reshape_timebin(detections_file: str, timebin_new: int = None, f_start: int 
                     # FPOD case: the filenames of a FPOD csv file are NaN values
                     filenames = [i.strftime('%Y-%m-%dT%H:%M:%S%z') for i in df_detect_prov['start_datetime']]
 
-            tz = df_detect_prov['start_datetime'][0].tz
-            ts_filenames = [extract_datetime(filename, tz=tz).timestamp()for filename in filenames]
+            ts_filenames = [extract_datetime(filename, tz=tz_data).timestamp()for filename in filenames]
 
             filename_vector = []
             for ts in time_vector:
@@ -355,8 +280,6 @@ def reshape_timebin(detections_file: str, timebin_new: int = None, f_start: int 
                     start_datetime_str.append(start_datetime.strftime('%Y-%m-%dT%H:%M:%S.%f%z')[:-8] + start_datetime.strftime('%Y-%m-%dT%H:%M:%S.%f%z')[-5:-2] + ':' + start_datetime.strftime('%Y-%m-%dT%H:%M:%S.%f%z')[-2:])
                     end_datetime = pd.Timestamp(time_vector[i] + timebin_new, unit='s', tz=tz_data)
                     end_datetime_str.append(end_datetime.strftime('%Y-%m-%dT%H:%M:%S.%f%z')[:-8] + end_datetime.strftime('%Y-%m-%dT%H:%M:%S.%f%z')[-5:-2] + ':' + end_datetime.strftime('%Y-%m-%dT%H:%M:%S.%f%z')[-2:])
-                    # filename.append(str(pd.Timestamp(time_vector[i], unit='s', tz=tz_data)))
-                    # filename.append(df_detect_prov['filename'][i])
                     filename.append(filename_vector[i])
 
             df_new_prov = pd.DataFrame()
@@ -367,18 +290,76 @@ def reshape_timebin(detections_file: str, timebin_new: int = None, f_start: int 
             df_new_prov['start_time'] = [0] * len(start_datetime_str)
             df_new_prov['end_time'] = [timebin_new] * len(start_datetime_str)
             df_new_prov['start_frequency'] = [0] * len(start_datetime_str)
-            df_new_prov['end_frequency'] = [fmax] * len(start_datetime_str)
-
+            df_new_prov['end_frequency'] = [max_freq] * len(start_datetime_str)
             df_new_prov['annotation'] = list(set(df_detect_prov['annotation'])) * len(start_datetime_str)
             df_new_prov['annotator'] = list(set(df_detect_prov['annotator'])) * len(start_datetime_str)
-
             df_new_prov['start_datetime'], df_new_prov['end_datetime'] = start_datetime_str, end_datetime_str
 
             df_new = pd.concat([df_new, df_new_prov])
 
+        df_new['start_datetime'] = pd.to_datetime(df_new['start_datetime'], format='%Y-%m-%dT%H:%M:%S.%f%z')
+        df_new['end_datetime'] = pd.to_datetime(df_new['end_datetime'], format='%Y-%m-%dT%H:%M:%S.%f%z')
         df_new = df_new.sort_values(by=['start_datetime'])
 
     return df_new
+
+
+def task_status_selection(files: List[str], df_detections: pd.DataFrame, user: Union[str, List[str]] = 'all') -> pd.DataFrame:
+    ''' Filters a detection DataFrame to select only the segments that all annotator have completed (i.e. status == 'FINISHED')
+        Parameters :
+            file : list of path(s) to the status file(s), can be a str too
+            df_detections : df of the detections (output of sorting_detections)
+            user : string of list of strings, this argument is used to select the annotator to take into consideration
+                - user='all', then all the annotators of the status file are used
+                - user='annotator_name', then only one annotator is used
+                - user=[list of annotators], then only the annotators present in the list are used
+        Returns :
+            df_kept : df of the detections sorted according to the selected annotators
+    '''
+    if isinstance(files, str):
+        files = [files]  # Convert the single string to a list with one element
+
+    result_df = pd.DataFrame()
+    for file in files:
+
+        # find the proper delimiter for file
+        with open(file, 'r', newline='') as csv_file:
+            try:
+                temp_lines = csv_file.readline() + '\n' + csv_file.readline()
+                dialect = csv.Sniffer().sniff(temp_lines, delimiters=',;')
+                delimiter = dialect.delimiter
+            except csv.Error:
+                delimiter = ','
+
+        df = pd.read_csv(file, sep=delimiter)
+        annotators_df = [i for i in list(df.columns) if i != 'dataset' and i != 'filename']
+
+        # selection of the annotators according to the user argument
+        if user == 'all':
+            list_annotators = [i for i in list(df.columns) if i != 'dataset' and i != 'filename']
+        elif isinstance(user, list):
+            for u in user:
+                if u not in annotators_df:
+                    raise Exception(f"'{u}' not present in the task satuts file")
+            list_annotators = user
+        elif isinstance(user, str) and user != 'all':
+            if user not in annotators_df:
+                raise Exception(f"'{user}' not present in the task satuts file")
+            list_annotators = [user]
+
+        df_users = df_detections[df_detections['annotator'].isin(list_annotators)]
+
+        filename_list = list(df[df[list_annotators].eq('FINISHED').all(axis=1)]['filename'])
+        ignored_list = list(df[~df[list_annotators].eq('FINISHED').all(axis=1)]['filename'])
+
+        df_kept = df_users[df_users['filename'].isin(filename_list)]
+        # df_ignored = df_users[df_users['filename'].isin(ignored_list)]
+
+        print(f'\n{os.path.basename(file)}: {len(ignored_list)} files ignored', end='\n')
+        result_df = pd.concat([result_df, df_kept]).reset_index(drop=True)
+
+    return result_df
+
 
 # def read_header(file:str) -> Tuple[int, int, int, int, int]:
 #     #reads header of a wav file to get info such as duration, samplerate etc...
@@ -666,7 +647,8 @@ def pick_datetimes(time_vector_ts, time_vector_str, vec, selected_dates, selecte
     return selected_time_vector_ts, selected_time_vector_str, selected_vec, selected_df_out
 
 
-def export2Raven(tuple_info, time_vec, time_str, bin_height, selection_vec=None) -> pd.DataFrame:
+# def export2Raven(tuple_info, time_vec, time_str, bin_height, selection_vec=None) -> pd.DataFrame:
+def export2Raven(tuple_info, timestamps, df, timebin_new, bin_height, selection_vec:bool = False) -> pd.DataFrame:
     ''' Export a given vector to Raven formatted table
         Parameters :
             time_vec : the vector to export
@@ -679,47 +661,125 @@ def export2Raven(tuple_info, time_vec, time_str, bin_height, selection_vec=None)
     '''
 
     # TODO: gérer les dernieres timebin de chaque wav car elles peuvent être < à la timebin duration et donc elles débordent sur le wav suivant pour l'instant
-
+    
     file_list = tuple_info[0]
     file_datetimes = tuple_info[1]
     dur = tuple_info[2]
-    if selection_vec is None: selection_vec = np.ones(len(time_vec) - 1)
 
-    offsets = [(file_datetimes[i] + dt.timedelta(seconds=dur[i])).timestamp() - (file_datetimes[i + 1]).timestamp() for i in range(len(file_datetimes) - 1)]
-    offsets_cumsum = (list(np.cumsum([offsets[i] for i in range(len(offsets))])))
-    offsets_cumsum.insert(0, 0)
+    if timebin_new > 0:
 
-    test_name = list(np.array([file.split('.wav')[0] for file in file_list]))  # extract file names without extension
-    idx_wav_Raven = [test_name.index(time_str[i].split('_+')[0]) for i in tqdm(range(len(time_vec) - 1), position=0, leave=True, desc='1/3')]
-    start_datetime = [int(time_vec[i] - file_datetimes[0].timestamp()) + offsets_cumsum[idx_wav_Raven[i]] for i in tqdm(range(len(time_vec) - 1), position=0, leave=True, desc='2/3') if selection_vec[i] == 1]
-    end_datetime = [int(time_vec[i] - file_datetimes[0].timestamp()) + (time_vec[i + 1] - time_vec[i]) + offsets_cumsum[idx_wav_Raven[i]] for i in tqdm(range(len(time_vec) - 1), position=0, leave=True, desc='3/3') if selection_vec[i] == 1]
+        time_vec = [elem for i in range(len(timestamps)) for elem in file_datetimes[i].timestamp() + np.arange(0, dur[i], timebin_new).astype(int)]
+        ###
+        time_vec = list(set(time_vec))
+        time_vec.sort()
+        ###
+        time_str = [str(file_list[i]).split('.wav')[0] + '_+' + str(elem) for i in range(len(file_list)) for elem in np.arange(0, dur[i], timebin_new).astype(int)]
 
-    df_PG2Raven = pd.DataFrame()
-    df_PG2Raven['Selection'] = np.arange(1, len(start_datetime) + 1)
-    df_PG2Raven['View'], df_PG2Raven['Channel'] = [1] * len(start_datetime), [1] * len(start_datetime)
-    df_PG2Raven['Begin Time (s)'] = start_datetime
-    df_PG2Raven['End Time (s)'] = end_datetime
-    df_PG2Raven['Low Freq (Hz)'] = [0] * len(start_datetime)
-    df_PG2Raven['High Freq (Hz)'] = [bin_height] * len(start_datetime)
+        # if selection_vec is None: selection_vec = [1] * len(time_vec)
+        if selection_vec is True:
+            times_det_beg = [df['start_datetime'][i].timestamp() for i in range(len(df))]
+            times_det_end = [df['end_datetime'][i].timestamp() for i in range(len(df))]
 
-    # durations = df_PG2Raven['End Time (s)']-df_PG2Raven['Begin Time (s)']
-    # rows = [idx for idx, dur in tqdm(enumerate(durations), position=0, leave=True, desc = '4/3') if dur > stat.median(durations)]
-    # df_PG2Raven = df_PG2Raven.drop(rows)
-    # df_PG2Raven['Selection'] = np.arange(1,len(df_PG2Raven)+1)
+            det_vec, ranks, k = np.zeros(len(time_vec), dtype=int), [], 0
+            for i in range(len(times_det_beg)):
+                for j in range(k, len(time_vec) - 1):
+                    if int(times_det_beg[i] * 1000) in range(int(time_vec[j] * 1000), int(time_vec[j + 1] * 1000)) or int(times_det_end[i] * 1000) in range(int(time_vec[j] * 1000), int(time_vec[j + 1] * 1000)):
+                        ranks.append(j)
+                        k = j
+                        break
+                    else: continue
+            ranks = sorted(list(set(ranks)))
+            det_vec[np.isin(range(len(time_vec)), ranks)] = 1
+        else:
+            det_vec = [1] * len(time_vec)
 
-    # Convert relevant columns to NumPy arrays
-    begin_times = np.array(df_PG2Raven['Begin Time (s)'])
-    end_times = np.array(df_PG2Raven['End Time (s)'])
+        offsets = [(file_datetimes[i] + dt.timedelta(seconds=dur[i])).timestamp() - (file_datetimes[i + 1]).timestamp() for i in range(len(file_datetimes) - 1)]
+        offsets_cumsum = (list(np.cumsum([offsets[i] for i in range(len(offsets))])))
+        offsets_cumsum.insert(0, 0)
 
-    # Calculate durations using vectorized operations
-    durations = end_times - begin_times
+        test_name = list(np.array([file.split('.wav')[0] for file in file_list]))  # extract file names without extension
+        idx_wav_Raven = [test_name.index(time_str[i].split('_+')[0]) for i in range(len(time_vec))]
+        
+        
+        #### investigation boite 419 JB
+        # start_datetime = int(time_vec[i] - file_datetimes[0].timestamp()) + offsets_cumsum[idx_wav_Raven[i]]
+        # start_datetime = time_vec[i]
+        # pd.to_datetime(time_vec[i], unit='s')
+        # pd.to_datetime(time_vec[i+1], unit='s')
 
-    # Filter rows based on duration using boolean indexing
-    rows_to_keep = durations <= 10 * np.median(durations)
-    df_PG2Raven = df_PG2Raven[rows_to_keep]
+        # test = np.where(det_vec == 1)[0] #i=74234
+        # file_list[1125]
+        # det_vec[i-1]
+        # det_vec[i]
+        # det_vec[i+1]
+        ####
+        #### investigation boite 163
+        # start_datetime = int(time_vec[i] - file_datetimes[0].timestamp()) + offsets_cumsum[idx_wav_Raven[i]]
+        # start_datetime = time_vec[i]
+        # pd.to_datetime(time_vec[i], unit='s')
+        # pd.to_datetime(time_vec[i+1], unit='s')
 
-    # Update the 'Selection' column with consecutive numbers
-    df_PG2Raven['Selection'] = np.arange(1, len(df_PG2Raven) + 1)
+        # test = np.where(det_vec == 1)[0] #i=74234
+        # file_list[1125]
+        # det_vec[i-1]
+        # det_vec[i]
+        # det_vec[i+1]
+        ####
+        
+        start_datetime = [int(time_vec[i] - file_datetimes[0].timestamp()) + offsets_cumsum[idx_wav_Raven[i]] for i in range(len(time_vec) - 1) if det_vec[i-1] == 1]
+        end_datetime = [int(time_vec[i] - file_datetimes[0].timestamp()) + (time_vec[i + 1] - time_vec[i]) + offsets_cumsum[idx_wav_Raven[i]] for i in range(len(time_vec) - 1) if det_vec[i-1] == 1]
+
+        ###
+        # delta = [end_datetime[i] - start_datetime[i] for i in range(len(start_datetime))]
+        # start_datetime = int(time_vec[i] - file_datetimes[0].timestamp()) + offsets_cumsum[idx_wav_Raven[i]]
+        # end_datetime = int(time_vec[i] - file_datetimes[0].timestamp()) + (time_vec[i + 1] - time_vec[i]) + offsets_cumsum[idx_wav_Raven[i]]
+
+        ###
+
+
+
+
+        df_PG2Raven = pd.DataFrame()
+        df_PG2Raven['Selection'] = np.arange(1, len(start_datetime) + 1)
+        df_PG2Raven['View'], df_PG2Raven['Channel'] = [1] * len(start_datetime), [1] * len(start_datetime)
+        df_PG2Raven['Begin Time (s)'] = start_datetime
+        df_PG2Raven['End Time (s)'] = end_datetime
+        df_PG2Raven['Low Freq (Hz)'] = [0] * len(start_datetime)
+        df_PG2Raven['High Freq (Hz)'] = [bin_height] * len(start_datetime)
+
+        # Convert relevant columns to NumPy arrays
+        begin_times = np.array(df_PG2Raven['Begin Time (s)'])
+        end_times = np.array(df_PG2Raven['End Time (s)'])
+
+        # Calculate durations using vectorized operations
+        durations = end_times - begin_times
+
+        # Filter rows based on duration using boolean indexing
+        rows_to_keep = durations <= 10 * np.median(durations)
+        df_PG2Raven = df_PG2Raven[rows_to_keep]
+
+        # Update the 'Selection' column with consecutive numbers
+        df_PG2Raven['Selection'] = np.arange(1, len(df_PG2Raven) + 1)
+
+    else:
+        file_list = list(file_list)
+
+        offsets = [(file_datetimes[i] + dt.timedelta(seconds=dur[i])).timestamp() - (file_datetimes[i + 1]).timestamp() for i in range(len(file_datetimes) - 1)]
+        offsets_cumsum = (list(np.cumsum([offsets[i] for i in range(len(offsets))])))
+        offsets_cumsum.insert(0, 0)
+
+        idx_wav_Raven = [file_list.index(df['filename'][i]) for i in range(len(df))]
+
+        start_time = [df['start_time'][i] + offsets_cumsum[idx_wav_Raven[i]] for i in range(len(df))]
+        end_time = [df['end_time'][i] + offsets_cumsum[idx_wav_Raven[i]] for i in range(len(df))]
+
+        df_PG2Raven = pd.DataFrame()
+        df_PG2Raven['Selection'] = np.arange(1, len(df) + 1)
+        df_PG2Raven['View'], df_PG2Raven['Channel'] = [1] * len(df), [1] * len(df)
+        df_PG2Raven['Begin Time (s)'] = start_time
+        df_PG2Raven['End Time (s)'] = end_time
+        df_PG2Raven['Low Freq (Hz)'] = df['start_frequency']
+        df_PG2Raven['High Freq (Hz)'] = df['end_frequency']
 
     return df_PG2Raven
 
