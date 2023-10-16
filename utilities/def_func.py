@@ -652,7 +652,7 @@ def export2Raven(tuple_info, timestamps, df, timebin_new, bin_height, selection_
     ''' Export a given vector to Raven formatted table
         Parameters :
             df : dataframe of the detections
-            timebin_new : int, duration of the detection boxes to export
+            timebin_new : int, duration of the detection boxes to export, if set to 0, the original detections are exported
             bin_height : the maximum frequency of the exported timebins
             tuple_info : tuple containing info such as the filenames of the wav files, their durations and datetimes
             selection_vec : if it is set to False, all the timebins are exported, else the selection_vec is used to selec the wanted timebins to export, for instance it corresponds to all the positives timebins, containing detections
