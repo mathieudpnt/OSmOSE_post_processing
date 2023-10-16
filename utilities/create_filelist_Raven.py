@@ -7,7 +7,6 @@ of your dataset for opening them in RavenPro
 
 @author: torterma
 """
-import os
 import glob
 from tkfilebrowser import askopendirnames
 from tkinter import *
@@ -19,18 +18,18 @@ import tkinter
 list_dirs = askopendirnames(title="Select folders")
 
 
-files_list=[]
+files_list = []
 for directory in list_dirs:
     files_list.extend(glob.glob(directory + '\\*.wav'))
 
-#%% 2 - Save the Raven txt at the root of wav files
+# %% 2 - Save the Raven txt at the root of wav files
 date_first_dir = list_dirs[0].rpartition('\\')[-1]
 date_last_dir = list_dirs[-1].rpartition('\\')[-1]
 save_dir = directory.rpartition('\\')[0] + '\\Raven_' + date_first_dir + date_last_dir + '.txt'
 with open(save_dir, 'w') as f:
-     for item in files_list:
-         f.write("%s\n" % item)
-         
+    for item in files_list:
+        f.write("%s\n" % item)
+
 print("File saved in " + save_dir)
 
 
@@ -40,3 +39,5 @@ print("File saved in " + save_dir)
 # with open(file, 'w') as f:
 #     for item in files_list:
 #         f.write("%s\n" % item)
+
+
