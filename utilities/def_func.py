@@ -703,13 +703,12 @@ def export2Raven(tuple_info, timestamps, df, timebin_new, bin_height, selection_
         df_time_sorted = df_time[(df_time['d'] == timebin_new) & (df_time['vec'] == 1)].reset_index(drop=True)
 
         df_PG2Raven = pd.DataFrame()
-        df_PG2Raven['Selection'] = np.arange(1, len(df) + 1)
-        df_PG2Raven['View'], df_PG2Raven['Channel'] = [1] * len(df), [1] * len(df)
+        df_PG2Raven['Selection'] = np.arange(1, len(df_time_sorted) + 1)
+        df_PG2Raven['View'], df_PG2Raven['Channel'] = [1] * len(df_time_sorted), [1] * len(df_time_sorted)
         df_PG2Raven['Begin Time (s)'] = df_time_sorted['start']
         df_PG2Raven['End Time (s)'] = df_time_sorted['end']
         df_PG2Raven['Low Freq (Hz)'] = [0] * len(df_time_sorted)
         df_PG2Raven['High Freq (Hz)'] = [bin_height] * len(df_time_sorted)
-        df_PG2Raven['offset_cumsum'] = offsets_cumsum[idx_wav_df[i]]
 
     else:
         start_time = [df['start_time'][i] + offsets_cumsum[idx_wav_df[i]] for i in range(len(df))]
@@ -727,7 +726,7 @@ def export2Raven(tuple_info, timestamps, df, timebin_new, bin_height, selection_
         df_offset = pd.DataFrame({'filename': file_list, 'offset_cumsum': offsets_cumsum})
         return df_PG2Raven, df_offset
     else:
-        return df_PG2Raven
+        return df_PG2Raven, None
 
 
 def get_season(ts: dt.datetime) -> str:
