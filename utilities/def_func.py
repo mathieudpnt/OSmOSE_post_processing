@@ -96,6 +96,8 @@ def sorting_detections(file: List[str], tz: pytz._FixedOffset = None, date_begin
         df['start_datetime'] = [x.tz_convert(tz) for x in df['start_datetime']]
         df['end_datetime'] = [x.tz_convert(tz) for x in df['end_datetime']]
 
+    tz_data = df['start_datetime'][0].tz
+
     if date_begin is not None:
         df = df[df['start_datetime'] >= date_begin]
 
@@ -174,8 +176,8 @@ def sorting_detections(file: List[str], tz: pytz._FixedOffset = None, date_begin
 
             df['annotator'] = list_annotators[0]
 
-    columns = ['file', 'max_time', 'max_freq', 'annotators', 'labels']
-    info = pd.DataFrame([[file, int(max_time), max_freq, list_annotators, list_labels]], columns=columns)
+    columns = ['file', 'max_time', 'max_freq', 'annotators', 'labels', 'tz_data']
+    info = pd.DataFrame([[file, int(max_time), max_freq, list_annotators, list_labels, tz_data]], columns=columns)
 
     return df, info
 
