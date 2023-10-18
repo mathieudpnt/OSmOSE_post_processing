@@ -22,7 +22,7 @@ arguments_list = [
         'file': files_list[0],
         'timebin_new': 10,
         'tz': pytz.FixedOffset(60),
-        'fmin_filter': 5000
+        'fmin_filter': 10000
     },
     {
         'file': files_list[1],
@@ -34,12 +34,9 @@ arguments_list = [
 ]
 df_detections, info = pd.DataFrame(), pd.DataFrame()
 for args in arguments_list:
-    df_detections_file, info_file = sorting_detections(**args) for 
-    
+    df_detections_file, info_file = sorting_detections(**args)
     df_detections = pd.concat([df_detections, df_detections_file], ignore_index=True)
     info = pd.concat([info, info_file], ignore_index=True)
-
-df_detections_file, info_file = [sorting_detections(**args) for args in arguments_list]
 
 
 time_bin = list(set(info['max_time'].explode()))
@@ -159,7 +156,7 @@ list_labels = info[info['annotators'].apply(lambda x: annot_ref in x)]['labels']
 # selection of the label
 label_ref = easygui.buttonbox('Select a label', 'Single plot', list_labels) if len(list_labels) > 1 else list_labels[0]
 
-time_bin_ref = info[info['annotators'].apply(lambda x: annot_ref in x)]['max_time'].reset_index(drop=True).iloc[0][0]
+time_bin_ref = int(info[info['annotators'].apply(lambda x: annot_ref in x)]['max_time'].reset_index(drop=True).iloc[0])
 file_ref = info[info['annotators'].apply(lambda x: annot_ref in x)]['file'].reset_index(drop=True).iloc[0]
 
 # Ask user if their resolution_bin is in minutes or in months or in seasons
@@ -434,10 +431,8 @@ elif len(annotators) == 1:
 
 # list of the labels corresponding to the selected user
 list_labels = info[info['annotators'].apply(lambda x: annot_ref in x)]['labels'].reset_index(drop=True)[0]
-# selection of the label
-label_ref = easygui.buttonbox('Select a label', 'Single plot', list_labels) if len(list_labels) > 1 else list_labels[0]
 # selection of the timebin
-time_bin_ref = info[info['annotators'].apply(lambda x: annot_ref in x)]['max_time'].reset_index(drop=True).iloc[0][0]
+time_bin_ref = int(info[info['annotators'].apply(lambda x: annot_ref in x)]['max_time'].reset_index(drop=True).iloc[0])
 # selection of the detection file
 file_ref = info[info['annotators'].apply(lambda x: annot_ref in x)]['file'].reset_index(drop=True).iloc[0]
 
@@ -509,17 +504,13 @@ else:
     label_ref2 = list_labels
     easygui.msgbox('Only one label available for annotator 2, {0} : {1}'.format(annot_ref2, list_labels))
 
-time_bin_ref1 = info[info['annotators'].apply(lambda x: annot_ref1 in x)]['max_time'].reset_index(drop=True).iloc[0][0]
-time_bin_ref2 = info[info['annotators'].apply(lambda x: annot_ref2 in x)]['max_time'].reset_index(drop=True).iloc[0][0]
-# time_bin_ref1 = int(t_detections[t_detections['annotators'].apply(lambda x: annot_ref1 in x)]['max_time'].iloc[0])
-# time_bin_ref2 = int(t_detections[t_detections['annotators'].apply(lambda x: annot_ref2 in x)]['max_time'].iloc[0])
+time_bin_ref1 = int(info[info['annotators'].apply(lambda x: annot_ref1 in x)]['max_time'].reset_index(drop=True).iloc[0])
+time_bin_ref2 = int(info[info['annotators'].apply(lambda x: annot_ref2 in x)]['max_time'].reset_index(drop=True).iloc[0])
 if time_bin_ref1 == time_bin_ref2:
     time_bin_ref = time_bin_ref1
 else:
     sys.exit('The timebin of the detections {0}/{1} is {2}s whereas the timebin for {3}/{4} is {5}s!'.format(annot_ref1, label_ref1, time_bin_ref1, annot_ref2, label_ref2, time_bin_ref2))
 
-# file_ref1 = t_detections[t_detections['annotators'].apply(lambda x: annot_ref1 in x)]['file']
-# file_ref2 = t_detections[t_detections['annotators'].apply(lambda x: annot_ref2 in x)]['file']
 file_ref1 = info[info['annotators'].apply(lambda x: annot_ref1 in x)]['file'].reset_index(drop=True).iloc[0]
 file_ref2 = info[info['annotators'].apply(lambda x: annot_ref2 in x)]['file'].reset_index(drop=True).iloc[0]
 
@@ -532,8 +523,6 @@ time_vector = [start_vec + i * delta for i in range(int((end_vec - start_vec) / 
 
 n_annot_max = (res_min * 60) / time_bin_ref  # max nb of annoted time_bin max per res_min slice
 
-# df1_1annot_1label, _ = sorting_detections(files=file_ref1, annotator=annot_ref1, label=label_ref1, timebin_new=time_bin_ref)
-# df2_1annot_1label, _ = sorting_detections(files=file_ref2, annotator=annot_ref2, label=label_ref2, timebin_new=time_bin_ref)
 df1_1annot_1label = df_detections[(df_detections['annotator'] == annot_ref1) & (df_detections['annotation'] == label_ref1)]
 df2_1annot_1label = df_detections[(df_detections['annotator'] == annot_ref2) & (df_detections['annotation'] == label_ref2)]
 
