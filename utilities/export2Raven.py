@@ -25,7 +25,8 @@ from utilities.def_func import get_csv_file, sorting_detections, get_timestamps,
 file = get_csv_file(1)
 
 # Import the detections in a dataframe
-df_detections, t_detections = sorting_detections(file=file[0], box=True, tz=pytz.FixedOffset(120))
+df_detections, t_detections = sorting_detections(file=file[0], box=True)
+# df_detections, t_detections = sorting_detections(file=file[0], box=True, tz=pytz.FixedOffset(60))
 fmax = t_detections['max_freq'][0]
 tz_data = df_detections['start_datetime'][0].tz
 

@@ -8,25 +8,48 @@ import numpy as np
 import easygui
 import datetime as dt
 from scipy import stats
+import pytz
 from utilities.def_func import get_csv_file, sorting_detections, input_date, t_rounder, task_status_selection
 
 # %% Load data - user inputs
 
 # get the path of the detections files
-file_list = get_csv_file(2)
+files_list = get_csv_file(2)
 
 # choose which file is used as the reference or "ground truth"
-if len(file_list) > 1:
-    choice_ref = easygui.buttonbox('Select the reference', '{0}'.format(file_list[0].split('/')[-1]), [file.split('/')[-1] for file in file_list])
-    if file_list[0].split('/')[-1] != choice_ref:
-        file_list[0], file_list[1] = file_list[1], file_list[0]
-else: file_list = 2 * [file_list[0]]
+if len(files_list) > 1:
+    choice_ref = easygui.buttonbox('Select the reference', '{0}'.format(files_list[0].split('/')[-1]), [file.split('/')[-1] for file in files_list])
+    if files_list[0].split('/')[-1] != choice_ref:
+        files_list[0], files_list[1] = files_list[1], files_list[0]
+else: files_list = 2 * [files_list[0]]
+
+arguments_list = [
+    {
+        'file': files_list[0],
+        'timebin_new': 10,
+        'tz': pytz.FixedOffset(120),
+        # 'fmin_filter': 10000
+    },
+    {
+        'file': files_list[1],
+        'timebin_new': 10,
+        'tz': pytz.FixedOffset(120),
+        # 'fmin_filter': 10000
+    }
+]
 
 # import detections, reference timebin, labels and annotators for each file
-df_detections, t_detections = sorting_detections(files=file_list, timebin_new=10, user_sel='all', fmin_filter=10000)
-timebin_detections = int(list(set(t_detections['max_time']))[0])
-labels_detections = list(set(t_detections['labels'].explode()))
-annotators_detections = list(set(t_detections['annotators'].explode()))
+# df_detections, t_detections = sorting_detections(files=files_list, timebin_new=10, user_sel='all', fmin_filter=10000)
+df_detections, info = pd.DataFrame(), pd.DataFrame()
+for args in arguments_list:
+    df_detections_file, info_file = sorting_detections(**args)
+    df_detections = pd.concat([df_detections, df_detections_file], ignore_index=True)
+    info = pd.concat([info, info_file], ignore_index=True)
+
+timebin_detections = list(set(info['max_time'].explode()))
+annotators_detections = list(set(info['annotators'].explode()))
+labels_detections = list(set(info['labels'].explode()))
+
 
 # select only detections/annotations of certain annotators
 # status_list = get_csv_file(1)
@@ -42,16 +65,16 @@ if mode == 'input':
     begin_date = input_date('Enter begin datetime')
     end_date = input_date('Enter end datetime')
 elif mode == 'fixed':
-    begin_date = pd.Timestamp('2023-02-11 12:00:00 +0100')
-    end_date = pd.Timestamp('2023-02-12 09:00:00 +0100')
+    begin_date = pd.Timestamp('2022-07-06 23:59:47 +0200')
+    end_date = pd.Timestamp('2022-07-08 01:59:28 +0200')
 
 # annotators
-annotator1 = easygui.buttonbox('Select annotator 1 (reference)', 'file 1 : {0}'.format(file_list[0].split('/')[-1]), t_detections['annotators'][0]) if len(t_detections['annotators'][0]) > 1 else t_detections['annotators'][0][0]
-annotator2 = easygui.buttonbox('Select annotator 2', 'file 2 : {0}'.format(file_list[1].split('/')[-1]), t_detections['annotators'][1]) if len(t_detections['annotators'][1]) > 1 else t_detections['annotators'][1][0]
+annotator1 = easygui.buttonbox('Select annotator 1 (reference)', 'file 1 : {0}'.format(files_list[0].split('/')[-1]), info['annotators'][0]) if len(info['annotators'][0]) > 1 else info['annotators'][0][0]
+annotator2 = easygui.buttonbox('Select annotator 2', 'file 2 : {0}'.format(files_list[1].split('/')[-1]), info['annotators'][1]) if len(info['annotators'][1]) > 1 else info['annotators'][1][0]
 
 # labels
-labels1 = t_detections.iloc[0]['labels']
-labels2 = t_detections.iloc[1]['labels']
+labels1 = info.iloc[0]['labels']
+labels2 = info.iloc[1]['labels']
 
 # data recap
 print('\n### Detections ###')
@@ -60,19 +83,19 @@ print('Begin date: {0}'.format(begin_date))
 print('End date: {0}'.format(end_date))
 
 print('\n### Reference file ###')
-print('detection file: {0}'.format(file_list[0].split('/')[-1]))
+print('detection file: {0}'.format(files_list[0].split('/')[-1]))
 print('labels: {0}'.format(labels1))
 print('annotator: {0}'.format(annotator1))
 
 print('\n### file 2 ###')
-print('detection file: {0}'.format(file_list[1].split('/')[-1]))
+print('detection file: {0}'.format(files_list[1].split('/')[-1]))
 print('labels: {0}'.format(labels2))
 print('annotator: {0}'.format(annotator2))
 
 # %% FORMAT DATA
 
 # creation of a time vector that goes from the start date to the end date with every timebin
-time_vector = [i.timestamp() for i in pd.date_range(start=begin_date, end=end_date, freq=str(timebin_detections) + 's')]
+time_vector = [i.timestamp() for i in pd.date_range(start=begin_date, end=end_date, freq=str(timebin_detections[0]) + 's')]
 
 # For each file, a dataframe is created, df1 (reference) and df2.
 # For each dataframe, whithin each time_vector timestamp is checked if
@@ -82,7 +105,7 @@ time_vector = [i.timestamp() for i in pd.date_range(start=begin_date, end=end_da
 # corresponding to the presence/absence of detections at the corresponding datetime frame
 
 # df1 - REFERENCE
-selected_label1 = easygui.buttonbox('Select a label', 'file 1 : {0}'.format(file_list[0].split('/')[-1]), labels1) if len(labels1) > 1 else labels1[0]
+selected_label1 = easygui.buttonbox('Select a label', 'file 1 : {0}'.format(files_list[0].split('/')[-1]), labels1) if len(labels1) > 1 else labels1[0]
 selected_annotations1 = df_detections[(df_detections['annotator'] == annotator1) & (df_detections['annotation'] == selected_label1) & (df_detections['start_datetime'] >= begin_date) & (df_detections['end_datetime'] <= end_date)]
 
 times1_beg = sorted(list(set(x.timestamp() for x in selected_annotations1['start_datetime'])))
@@ -101,7 +124,7 @@ ranks = sorted(list(set(ranks)))
 vec1[np.isin(range(len(time_vector)), ranks)] = 1
 
 # df2
-selected_label2 = easygui.buttonbox('Select a label', '{0}'.format(file_list[1].split('/')[-1]), labels2) if len(labels2) > 1 else labels2[0]
+selected_label2 = easygui.buttonbox('Select a label', '{0}'.format(files_list[1].split('/')[-1]), labels2) if len(labels2) > 1 else labels2[0]
 selected_annotations2 = df_detections[(df_detections['annotator'] == annotator2) & (df_detections['annotation'] == selected_label2) & (df_detections['start_datetime'] >= begin_date) & (df_detections['end_datetime'] <= end_date)]
 
 times2_beg = [i.timestamp() for i in selected_annotations2['start_datetime']]
@@ -157,12 +180,11 @@ else: print('Error : ', error)
 annot_ref = annotator1
 label_ref = selected_label1
 
-df_detections1, _ = sorting_detections(files=file_list[0], timebin_new=60, user_sel='all', annotator=annotator1, label = label_ref)
-df_detections2, _ = sorting_detections(files=file_list[1], timebin_new=60, user_sel='all', annotator=annotator2, label = label_ref)
+df_detections1 = df_detections[(df_detections['annotator'] == annotator1) & (df_detections['annotation'] == label_ref)]
+df_detections2 = df_detections[(df_detections['annotator'] == annotator2) & (df_detections['annotation'] == label_ref)]
 
-
-time_bin_ref = int(t_detections[t_detections['annotators'].apply(lambda x: annot_ref in x)]['max_time'].iloc[0])
-file_ref = t_detections[t_detections['annotators'].apply(lambda x: annot_ref in x)]['file']
+time_bin_ref = int(info[info['annotators'].apply(lambda x: annot_ref in x)]['max_time'].iloc[0])
+file_ref = info[info['annotators'].apply(lambda x: annot_ref in x)]['file']
 tz_data = df_detections['start_datetime'][0].tz
 
 # Ask user if their resolution_bin is in minutes or in months or in seasons

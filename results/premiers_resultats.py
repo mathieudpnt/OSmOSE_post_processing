@@ -22,7 +22,7 @@ arguments_list = [
         'file': files_list[0],
         'timebin_new': 10,
         'tz': pytz.FixedOffset(60),
-        'fmin_filter': 10000
+        # 'fmin_filter': 10000
     },
     {
         'file': files_list[1],
