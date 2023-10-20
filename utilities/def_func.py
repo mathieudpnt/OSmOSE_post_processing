@@ -15,12 +15,11 @@ import math
 import easygui
 import glob
 from typing import Union
-import sys
 import bisect
 from astral.sun import sun
 import astral
 import csv
-import warnings
+import yaml
 
 
 def get_csv_file(num_files: int) -> List[str]:
@@ -48,7 +47,7 @@ def get_csv_file(num_files: int) -> List[str]:
     return file_paths
 
 
-def sorting_detections(file: List[str], tz: pytz._FixedOffset = None, date_begin: dt.datetime = None, date_end: dt.datetime = None, annotator: str = None, label: str = None, box: bool = False, timebin_new: int = None, user_sel: str = 'all', fmin_filter: int = None, fmax_filter: int = None) -> (pd.DataFrame, pd.DataFrame):
+def sorting_detections(file: List[str], tz: pytz._FixedOffset = None, date_begin: dt.datetime = None, date_end: dt.datetime = None, annotator: str = None, annotation: str = None, box: bool = False, timebin_new: int = None, user_sel: str = 'all', fmin_filter: int = None, fmax_filter: int = None) -> (pd.DataFrame, pd.DataFrame):
     ''' Filters an Aplose formatted detection file according to user specified filters
         Parameters :
             file : list of path(s) to the detection file(s), can be a str too
@@ -56,7 +55,7 @@ def sorting_detections(file: List[str], tz: pytz._FixedOffset = None, date_begin
             date_begin : datetime to be specified if the user wants to select detections after date_begin
             date_end : datetime to be specified if the user wants to select detections before date_end
             annotator : string to be specified if the user wants to select the detection of a particular annotator
-            label : string to be specified if the user wants to select the detection of a particular label
+            annotation : string to be specified if the user wants to select the detection of a particular label
             box : if set to True, keeps all the annotations, if False keeps only the absence/presence box (weak detection)
             timebin_new : integer to be specified if the user already know the new time resolution to set the detection file to
             user_sel: string to specify to filter detections of a file based on annotators
@@ -112,9 +111,9 @@ def sorting_detections(file: List[str], tz: pytz._FixedOffset = None, date_begin
         df = df.loc[(df['annotator'] == annotator)]
         list_annotators = [annotator]
 
-    if label is not None:
-        df = df.loc[(df['annotation'] == label)]
-        list_labels = [label]
+    if annotation is not None:
+        df = df.loc[(df['annotation'] == annotation)]
+        list_labels = [annotation]
 
     if fmin_filter is not None:
         df = df[df['start_frequency'] >= fmin_filter]
@@ -132,11 +131,11 @@ def sorting_detections(file: List[str], tz: pytz._FixedOffset = None, date_begin
 
     if box is False:
         if len(df_nobox) == 0:
-            df = reshape_timebin(df=df, timebin_new=timebin_new)
+            df = reshape_timebin(df=df.reset_index(drop=True), timebin_new=timebin_new)
             max_time = int(max(df['end_time']))
         else:
             if timebin_new is not None:
-                df = reshape_timebin(df=df, timebin_new=timebin_new)
+                df = reshape_timebin(df=df.reset_index(drop=True), timebin_new=timebin_new)
                 max_time = int(max(df['end_time']))
             else:
                 df = df_nobox
@@ -309,6 +308,53 @@ def reshape_timebin(df: pd.DataFrame, timebin_new: int = None) -> pd.DataFrame:
     return df_new
 
 
+def read_param(file: str):
+    ''' Reads parameters from a yaml file for importing detections from an APLOSE formatted csv file with sorting_detection
+        Parameters :
+            file : path to the yaml file, str
+        Returns :
+            arguments_list : list of dict containing a set of parameters for each csv file
+    '''
+    # TODO : Add warnings if the parameters are not properly formatted
+
+    with open(file, 'r') as yaml_file:
+        parameters = yaml.safe_load(yaml_file)
+
+    arguments_list = []
+
+    for param in parameters:
+        argument = {'file': param['file']}
+
+        if 'timebin_new' in param:
+            argument['timebin_new'] = param['timebin_new']
+        if 'tz' in param:
+            offset_string = param['tz']
+            hours, minutes = map(int, offset_string.lstrip('+').split(':'))
+            total_offset_minutes = (hours * 60) + minutes
+            argument['tz'] = pytz.FixedOffset(total_offset_minutes)
+        if 'fmin_filter' in param:
+            argument['fmin_filter'] = param['fmin_filter']
+        if 'fmax_filter' in param:
+            argument['fmax_filter'] = param['fmax_filter']
+        if 'date_begin' in param:
+            argument['date_begin'] = pd.Timestamp(param['date_begin'])
+        if 'date_end' in param:
+            argument['date_end'] = pd.Timestamp(param['date_end'])
+        if 'annotator' in param:
+            argument['annotator'] = param['annotator']
+        if 'annotation' in param:
+            argument['annotation'] = param['annotation']
+        if 'box' in param:
+            box_string = param['box']
+            argument['box'] = box_string.lower() != 'false'
+        if 'user_sel' in param:
+            argument['user_sel'] = param['user_sel']
+
+        arguments_list.append(argument)
+
+    return arguments_list
+
+
 def task_status_selection(files: List[str], df_detections: pd.DataFrame, user: Union[str, List[str]] = 'all') -> pd.DataFrame:
     ''' Filters a detection DataFrame to select only the segments that all annotator have completed (i.e. status == 'FINISHED')
         Parameters :
@@ -321,6 +367,7 @@ def task_status_selection(files: List[str], df_detections: pd.DataFrame, user: U
         Returns :
             df_kept : df of the detections sorted according to the selected annotators
     '''
+
     if isinstance(files, str):
         files = [files]  # Convert the single string to a list with one element
 

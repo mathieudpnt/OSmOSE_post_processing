@@ -9,35 +9,23 @@ from collections import Counter
 import seaborn as sns
 from scipy import stats
 import sys
-import pytz
+import os
 
-from utilities.def_func import get_csv_file, sorting_detections, t_rounder, get_timestamps, input_date, suntime_hour
+from utilities.def_func import get_csv_file, sorting_detections, t_rounder, get_timestamps, input_date, suntime_hour, read_param
 
 # %% User inputs
 
 files_list = get_csv_file(2)
 
-arguments_list = [
-    {
-        'file': files_list[0],
-        'timebin_new': 10,
-        'tz': pytz.FixedOffset(60),
-        # 'fmin_filter': 10000
-    },
-    {
-        'file': files_list[1],
-        'timebin_new': 10,
-        # 'label': 'Odontocete whistle',
-        'tz': pytz.FixedOffset(60),
-        # 'fmin_filter': 10000
-    }
-]
+# Load parameters from the YAML file
+yaml_file_path = os.path.join(os.getcwd(), 'results', 'premiers_resultats_parameters.yaml')
+parameters = read_param(file=yaml_file_path)
+
 df_detections, info = pd.DataFrame(), pd.DataFrame()
-for args in arguments_list:
+for args in parameters:
     df_detections_file, info_file = sorting_detections(**args)
     df_detections = pd.concat([df_detections, df_detections_file], ignore_index=True)
     info = pd.concat([info, info_file], ignore_index=True)
-
 
 time_bin = list(set(info['max_time'].explode()))
 fmax = list(set(info['max_freq'].explode()))
@@ -48,7 +36,6 @@ if len(tz_data) == 1:
     [tz_data] = tz_data
 else:
     raise Exception('More than one timezone in the detections')
-
 
 # Chose your mode :
 # fixed : hard coded date interval

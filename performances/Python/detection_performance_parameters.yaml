@@ -1,0 +1,16 @@
+- file: 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 2/IROISE/335556632/analysis/C2D1_070722/results/APOCADO_C2D1_07072022_results.csv'
+  timebin_new: 10
+  tz: '+02:00'
+  # annotator: 'bcolon'
+  # annotation: 'Odontocete click'
+  # date_begin: '2022-07-07 08:00:00 +0200'
+  # date_end: '2022-07-07 09:00:00 +0200'
+
+
+- file: 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 2/IROISE/335556632/analysis/C2D1_070722/PG_rawdata_220706_220707.csv'
+  timebin_new: 10
+  tz: '+02:00'
+  fmin_filter: 8000
+  fmax_filter: 25000
+  # date_begin: '2022-07-07 08:00:00 +0200'
+  # date_end: '2022-07-07 09:00:00 +0200'
