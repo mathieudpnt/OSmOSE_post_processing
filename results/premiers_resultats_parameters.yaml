@@ -1,20 +1,33 @@
-- file: 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 2/IROISE/335556632/analysis/C2D1_070722/results/APOCADO_C2D1_07072022_results.csv'
-  timebin_new: 10
-  tz: '+02:00'
-  # box: 'False'
-  # annotator: 'bcolon'
-  # annotation: 'Odontocete click'
-  # date_begin: '2022-07-07 08:00:00 +0200'
-  # date_end: '2022-07-07 09:00:00 +0200'
-  # user_sel: 'all'
-  # fmin_filter: 8000
-  # fmax_filter: 25000
+# -file: 'Y:\Bioacoustique\APOCADO2\Campagne 5\IROISE\bouts bleus\7181\analysis\C5D9\results/APOCADO_C5D9_ST7181_results.csv'
+# -file: 'Y:\Bioacoustique\APOCADO2\Campagne 6\PASSE PARTOUT\bouts rouges\7178\analysis\C6D3\results/APOCADO_C6D3 ST7178_results.csv'
+  #timebin_new: 10
+  #tz: '+01:00'
+  #annotator: 'bcolon'
+  #annotation: 'Odontocete click'
+  #date_begin: '2022-07-07 08:00:00 +0200'
+  #date_end: '2022-07-07 09:00:00 +0200'
 
 
-- file: 'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/Campagne 2/IROISE/335556632/analysis/C2D1_070722/PG_rawdata_220706_220707.csv'
+- file: 'Y:\Bioacoustique\APOCADO2\Campagne 6\PASSE PARTOUT\bouts rouges\7180\analysis\C6D3\result/APOCADO_C6D3 ST7180_results.csv'
   timebin_new: 10
-  tz: '+02:00'
-  # fmin_filter: 8000
-  # fmax_filter: 25000
-  # date_begin: '2022-07-07 08:00:00 +0200'
-  # date_end: '2022-07-07 09:00:00 +0200'
+  tz: '+01:00'
+  #fmin_filter: 8000
+  #fmax_filter: 25000
+  #date_begin: '2022-07-07 08:00:00 +0200'
+  #date_end: '2022-07-07 09:00:00 +0200'
+
+- file: 'Y:\Bioacoustique\APOCADO2\Campagne 6\PASSE PARTOUT\bouts rouges\7180\analysis\C6D3\result/thalassa_APOCADO_C6D3_ST7180_modele_3_85_0.25_8_115x1_6_20000.0_130000.0.csv'
+  timebin_new: 10
+  tz: '+01:00'
+  #fmin_filter: 8000
+  #fmax_filter: 25000
+  #date_begin: '2022-07-07 08:00:00 +0200'
+  #date_end: '2022-07-07 09:00:00 +0200'
+
+- file: 'Y:\Bioacoustique\APOCADO2\Campagne 6\PASSE PARTOUT\bouts rouges\7180\analysis\C6D3/PG_rawdata_230211_230212.csv'
+  timebin_new: 10
+  tz: '+01:00'
+  fmin_filter: 15000
+  fmax_filter: 25000
+  #date_begin: '2022-07-07 08:00:00 +0200'
+  #date_end: '2022-07-07 09:00:00 +0200'

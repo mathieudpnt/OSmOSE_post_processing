@@ -1,5 +1,5 @@
 import struct
-from typing import Tuple, List
+from typing import Tuple, List, Union
 import pytz
 import pandas as pd
 import re
@@ -14,7 +14,6 @@ import gzip
 import math
 import easygui
 import glob
-from typing import Union
 import bisect
 from astral.sun import sun
 import astral
@@ -178,7 +177,7 @@ def sorting_detections(file: List[str], tz: pytz._FixedOffset = None, date_begin
     columns = ['file', 'max_time', 'max_freq', 'annotators', 'labels', 'tz_data']
     info = pd.DataFrame([[file, int(max_time), max_freq, list_annotators, list_labels, tz_data]], columns=columns)
 
-    return df, info
+    return df.reset_index(drop=True), info
 
 
 def reshape_timebin(df: pd.DataFrame, timebin_new: int = None) -> pd.DataFrame:
@@ -528,7 +527,8 @@ def extract_datetime(var: str, tz: pytz._FixedOffset, formats=None) -> Union[dt.
             dt_format = '%Y_%m_%d_%H_%M_%S'
         elif f == r'\d{4}_\d{2}_\d{2}T\d{2}_\d{2}_\d{2}':
             dt_format = '%Y_%m_%dT%H_%M_%S'
-        date_obj = dt.datetime.strptime(dt_string, dt_format)
+        # date_obj = dt.datetime.strptime(dt_string, dt_format)
+        date_obj = pd.to_datetime(dt_string, format=dt_format)
 
         if type(tz) is pytz._FixedOffset or tz is pytz.UTC: date_obj = tz.localize(date_obj)
         else: date_obj = pytz.timezone(tz).localize(date_obj)
@@ -561,6 +561,10 @@ def t_rounder(t: dt.datetime, res: int):
         t = t.replace(minute=0, second=0, microsecond=0)
     elif res == 86400:  # 24h
         t = t.replace(hour=0, minute=0, second=0, microsecond=0)
+    elif res == 3:
+        t = t.replace(microsecond=0)
+    else:
+        raise ValueError(f'res={res}s: Resolution not available')
     return t
 
 # def from_str2ts(date):

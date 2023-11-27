@@ -11,7 +11,7 @@ directory = filedialog.askdirectory(title="Select master folder")
 for filename in os.listdir(directory):
     if filename.endswith('.csv'):
         continue  # Skip files that already have the .csv extension
-    new_filename = os.path.join(directory, filename + '.csv')
+    new_filename = os.path.join(directory, filename.split('.gz.csv')[0] + '.gz')
     old_filepath = os.path.join(directory, filename)
     new_filepath = os.path.join(directory, new_filename)
     os.rename(old_filepath, new_filepath)
@@ -227,7 +227,7 @@ for i in list(set(df['Deployment'])):
 
 #%%
 
-from post_processing_detections.utilities.def_func import load_glider_nav
+from utilities.def_func import load_glider_nav
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
@@ -240,8 +240,10 @@ df.loc[(df['yo'] >= 7) & (df['yo'] <= 29), 'Deployment'] = 2
 df.loc[(df['yo'] >= 30) & (df['yo'] <= 44), 'Deployment'] = 3
 df.loc[(df['yo'] >= 46) & (df['yo'] <= 54), 'Deployment'] = 4
 
+
+df_test = df.loc[(df['Deployment'] == 4)]
 #%%
-i = 3
+i = 1
 criterion = 'Depth'
 plt.plot(df[df['Deployment']==i]['Datetime'], df[df['Deployment']==i][criterion])
 # plt.ylabel('Depth (m)')
@@ -253,8 +255,8 @@ date_formatter = mdates.DateFormatter('%d/%m %H:%M')
 plt.gca().xaxis.set_major_formatter(date_formatter)
 
 # Set the desired interval for the x-axis labels (e.g., every 2 hours)
-hours_interval = mdates.HourLocator(byhour=[0, 12])  # Adjust the interval value to change the interval
-plt.gca().xaxis.set_major_locator(hours_interval)
+# hours_interval = mdates.HourLocator(byhour=[0, 12])  # Adjust the interval value to change the interval
+# plt.gca().xaxis.set_major_locator(hours_interval)
 
 plt.show()
 

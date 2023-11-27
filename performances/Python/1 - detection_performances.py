@@ -14,19 +14,8 @@ from utilities.def_func import get_csv_file, sorting_detections, input_date, t_r
 
 # %% Load data - user inputs
 
-# get the path of the detections files
-files_list = get_csv_file(2)
-
-# choose which file is used as the reference or "ground truth"
-if len(files_list) > 1:
-    choice_ref = easygui.buttonbox('Select the reference', '{0}'.format(files_list[0].split('/')[-1]), [file.split('/')[-1] for file in files_list])
-    if files_list[0].split('/')[-1] != choice_ref:
-        files_list[0], files_list[1] = files_list[1], files_list[0]
-else: files_list = 2 * [files_list[0]]
-
-
 # Load parameters from the YAML file
-yaml_file_path = os.path.join(os.getcwd(), 'Python', 'detection_performance_parameters.yaml')
+yaml_file_path = os.path.join(os.getcwd(), 'performances', 'Python', 'detection_performance_parameters.yaml')
 parameters = read_param(file=yaml_file_path)
 
 
@@ -40,6 +29,14 @@ for args in parameters:
 timebin_detections = list(set(info['max_time'].explode()))
 annotators_detections = list(set(info['annotators'].explode()))
 labels_detections = list(set(info['labels'].explode()))
+
+
+# choose which file is used as the reference or "ground truth"
+if len(parameters) == 2:
+    choice_ref = easygui.buttonbox('Select the reference', '{0}'.format('Loading data'), [os.path.basename(parameters[i]['file']) for i in range(len(parameters))])
+    if os.path.basename(parameters[0]['file']) != choice_ref:
+        info.iloc[0], info.iloc[1] = info.iloc[1], info.iloc[0]
+else: raise Exception("Passed sets of parameters different than 2")
 
 
 # select only detections/annotations of certain annotators
@@ -56,16 +53,19 @@ if mode == 'input':
     begin_date = input_date('Enter begin datetime')
     end_date = input_date('Enter end datetime')
 elif mode == 'fixed':
-    begin_date = pd.Timestamp('2022-07-07 00:00:00 +0200')
-    end_date = pd.Timestamp('2022-07-08 00:00:00 +0200')
+    begin_date = pd.Timestamp('2023-02-11 12:15:00 +0100')
+    end_date = pd.Timestamp('2023-02-12 09:00:00 +0100')
 
 # annotators
-annotator1 = easygui.buttonbox('Select annotator 1 (reference)', 'file 1 : {0}'.format(files_list[0].split('/')[-1]), info['annotators'][0]) if len(info['annotators'][0]) > 1 else info['annotators'][0][0]
-annotator2 = easygui.buttonbox('Select annotator 2', 'file 2 : {0}'.format(files_list[1].split('/')[-1]), info['annotators'][1]) if len(info['annotators'][1]) > 1 else info['annotators'][1][0]
+annotator1 = easygui.buttonbox('Select annotator 1 (reference)', 'file 1 : {0}'.format(os.path.basename(parameters[0]['file'])), info['annotators'][0]) if len(info['annotators'][0]) > 1 else info['annotators'][0][0]
+annotator2 = easygui.buttonbox('Select annotator 2', 'file 2 : {0}'.format(os.path.basename(parameters[1]['file'])), info['annotators'][1]) if len(info['annotators'][1]) > 1 else info['annotators'][1][0]
 
 # labels
 labels1 = info.iloc[0]['labels']
 labels2 = info.iloc[1]['labels']
+
+# files list
+files_list = [parameters[i]['file'] for i in range(len(parameters))]
 
 # data recap
 print('\n### Detections ###')
@@ -74,12 +74,12 @@ print('Begin date: {0}'.format(begin_date))
 print('End date: {0}'.format(end_date))
 
 print('\n### Reference file ###')
-print('detection file: {0}'.format(files_list[0].split('/')[-1]))
+print('detection file: {0}'.format(os.path.basename(parameters[0]['file'])))
 print('labels: {0}'.format(labels1))
 print('annotator: {0}'.format(annotator1))
 
 print('\n### file 2 ###')
-print('detection file: {0}'.format(files_list[1].split('/')[-1]))
+print('detection file: {0}'.format(os.path.basename(parameters[1]['file'])))
 print('labels: {0}'.format(labels2))
 print('annotator: {0}'.format(annotator2))
 
