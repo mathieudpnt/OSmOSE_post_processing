@@ -83,7 +83,6 @@ for track in gpx.tracks:
             
 
 time_unix = [time.mktime(t.timetuple()) for t in time_dt]
-depth = np.array([0.]*len(time_unix))
 track_data = np.column_stack((np.array(time_unix),np.array(longitude), np.array(latitude), depth))
 
 
@@ -114,20 +113,80 @@ for ts in time_det_unix:
 
         if len(lon)>0:
             res.append([ts,lon[0][0],lat[0][0]])
+
+# Find depth of glider for each detections
+depthD = []
+timestampD2 = []
+for j, detT in enumerate(time_det_unix):
+    if ts_min < detT < ts_max :
+        a = np.abs(np.array(time_unix)-detT)
+        idx = np.where( a == a.min())
+        depthD.append(depth[np.array(idx[0]).min()])
+
+    else:
+        continue
+
             
 df_detections['longitude'] = [res[i][1] for i in list(range(0,len(res)))]
 df_detections['latitude'] = [res[i][2] for i in list(range(0,len(res)))]
-
+df_detections['depth'] = depthD
 
 #%% Save the csv file in the same folder as the FPOD results csv file
-df_detections.to_csv(files_list[0] + '_coordinates.csv', index=False)
+#df_detections.to_csv(files_list[0] + '_coordinates.csv', index=False)
+
+#%% Find depth of each detection
 
 
 
 
 
+# # Read csv file with depth glider as a function of time (ne pas prendre le fichier de position 'sampled', il est moins précis )
+# filename = './02_Position_glider/navigation.csv'
+# positionG = genfromtxt(filename, delimiter=',')
+# # SAve timestamp and corresponding glider depth
+# depthG = positionG[:,3]
+# timestampG =  positionG[:,0]
+# # Convert the epoch format to matplotlib date format 
+# mpl_timestampG = mdates.epoch2num(timestampG)
+# # Get timestamp start and end mission
+# tmin = timestampG[0]
+# tmax = timestampG[-1]
+
+# #Compute figure for each call type
+# for i, calltype in enumerate(lf):
+# # Read annotations timestamps and corresponding depth
+#     filenameD = './01_Detections/' + calltype
+#timestampD = genfromtxt(filenameD)
 
 
+    
+    
+    
+    
+    
+    
+# Number of detections for the mission
+nb_det_mission = len(timestampD2)
+# Convert depth to numpy array
+depthD_np = np.array(depthD)
+# Convert detections timestamps to date format 
+mpl_timestampD = mdates.epoch2num(timestampD2)
+
+fig, ax = plt.subplots(figsize=(20,8))
+plt.plot(mpl_timestampG,depthG, zorder = 1, color = 'darkgrey', linewidth = 0.5)
+
+locator = mdates.AutoDateLocator()
+ax.xaxis.set_major_locator(locator)
+ax.xaxis.set_major_formatter(mdates.DateFormatter('%d.%m'))
+plt.grid(color='k', linestyle='-', linewidth=0.2)
+
+plt.scatter(mpl_timestampD,depthD_np, s=10, zorder = 2, color = list_colors[i] )
+ax.set_title(list_ct[i], fontsize = 30)
+plt.xlim(mpl_timestampG[0]-1, mpl_timestampG[-1]+1)
+
+ax.tick_params(labelsize=20)
+#savename = './Figures/' + 'DetDepth_' + missionnb + '_' +list_ct[i] + '.png'
+#plt.savefig(savename)
 
 
 
