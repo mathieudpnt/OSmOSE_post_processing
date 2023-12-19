@@ -9,6 +9,7 @@ from tqdm import tqdm
 import numpy as np
 import re
 from collections import Counter
+import pytz
 from utilities.def_func import stat_box_day, stats_diel_pattern, sorting_detections, get_season
 
 # %% Import csv deployments
@@ -17,6 +18,8 @@ deploy = pd.read_excel('L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_202
 deploy = deploy.loc[~((deploy['N° campagne'] == 1)), :]  # deleting C1
 deploy = deploy.loc[~((deploy['N° campagne'] == 4) & (deploy['N° déploiement'] == 9)), :]  # deleting C4D9
 deploy = deploy.loc[~((deploy['N° campagne'] == 7) & (deploy['N° déploiement'] == 1)), :]  # deleting C7D1
+deploy = deploy.loc[~((deploy['N° campagne'] == 8)), :]  # deleting C8 for now
+
 deploy = deploy.reset_index(drop=True)
 
 deploy['durations_deployments'] = [dt.datetime.combine(deploy['Date fin déploiement'][i], deploy['Heure fin déploiement'][i])
@@ -45,7 +48,10 @@ for i in range(len(data)):
     data['df_detections'][i]['end_deploy'] = pd.to_datetime(data['end_deployment'][i])
 
 deploy['detection_num'] = [len(data.loc[data['deploy_ID'] == ID, 'df_detections'].reset_index(drop=True)[0]) for ID in deploy['ID']]
+
 deploy['detection_rate'] = [((len(data[data['deploy_ID'] == ID].reset_index(drop=True)['df_detections'][0]) * data[data['deploy_ID'] == ID].reset_index(drop=True)['timebin'][0]) / deploy['durations_deployments'][i].total_seconds()) * 100 for i, ID in enumerate(deploy['ID'])]
+
+
 deploy['dt_begin'] = [dt.datetime.strftime(dt.datetime.combine(deploy['Date début déploiement'][i], deploy['Heure début déploiement'][i]), '%d/%m/%Y %H:%M:%S') for i in range(len(deploy))]
 deploy['dt_end'] = [dt.datetime.strftime(dt.datetime.combine(deploy['Date fin déploiement'][i], deploy['Heure fin déploiement'][i]), '%d/%m/%Y %H:%M:%S') for i in range(len(deploy))]
 # %% Positive detection rate for whistles and 10s windows
@@ -424,7 +430,15 @@ filtering = data[data['season'] == 'winter 2022']
 
 idx = list(filtering.index)
 detection_files = data['detection_file'][idx]
+detection_files2 = list(detection_files)
 [tb] = list(set(data['timebin']))
+
+df_final = pd.DataFrame()
+# for i in range(len(detection_files2)):
+for i in tqdm(range(len(detection_files2))):
+    df_detections, _ = sorting_detections(detection_files2[i], timebin_new=tb)
+    df_final = df_final.append(df_detections)
+
 df_detections, _ = sorting_detections(detection_files, timebin_new=tb)
 # df_detections, _ = sorting_detections(files=data, timebin_new=10, tz=pytz.FixedOffset(60), label='Odontocete buzz')
 
@@ -513,22 +527,23 @@ plt.show()
 
 mode = 'solo'
 if mode == 'solo':
-    # i = [11]
+    i = [11]
     # data_test = data.iloc[i].iloc[0]
     # df_detections = data_test['df_detections']
-    df_detections, _ = sorting_detections(files=data, timebin_new=10, tz=pytz.FixedOffset(60), label='Odontocete buzz')
+    df_detections, _ = sorting_detections(file=data['detection_file'][i], timebin_new=10, tz=pytz.FixedOffset(60), annotation='Odontocete whistle')
+    
 
     # begin_deploy = pd.to_datetime(data_test['beg_deployment'], format='%Y-%m-%dT%H:%M:%S%z')
     # end_deploy = pd.to_datetime(data_test['end_deployment'], format='%Y-%m-%dT%H:%M:%S%z')
     # duration = pd.to_timedelta(data_test['duration_deployment (s)'], unit='s')
     begin_deploy = pd.Timestamp('2023-02-11 12:00:00 +0100')
     end_deploy = pd.Timestamp('2023-02-12 09:00:00 +0100')
-    duration = pd.to_timedelta((end_deploy-begin_deploy).total_seconds(), unit='s')
-    
+    duration = pd.to_timedelta((end_deploy - begin_deploy).total_seconds(), unit='s')
+
     # lat = data_test['Latitude']
     # lon = data_test['Longitude']
-    lat=47.862
-    lon=-4.502
+    lat = 47.862
+    lon = -4.502
 
 elif mode == 'multiple':
     # filtering = data[data['season'] == 'spring 2023']

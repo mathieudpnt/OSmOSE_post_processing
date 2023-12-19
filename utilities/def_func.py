@@ -484,7 +484,7 @@ def read_header(file: str) -> Tuple[int, int, int, int]:
 #     return durations
 
 
-def extract_datetime(var: str, tz: pytz._FixedOffset, formats=None) -> Union[dt.datetime, str]:
+def extract_datetime(var: str, tz: pytz._FixedOffset = None, formats=None) -> Union[dt.datetime, str]:
     ''' Extracts datetime from filename based on the date format
         Parameters :
             var : name of the wav file
@@ -503,7 +503,8 @@ def extract_datetime(var: str, tz: pytz._FixedOffset, formats=None) -> Union[dt.
                    r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}',
                    r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}',
                    r'\d{4}_\d{2}_\d{2}_\d{2}_\d{2}_\d{2}',
-                   r'\d{4}_\d{2}_\d{2}T\d{2}_\d{2}_\d{2}']
+                   r'\d{4}_\d{2}_\d{2}T\d{2}_\d{2}_\d{2}',
+                   r'\d{4}\d{2}\d{2}T\d{2}\d{2}\d{2}']
     match = None
     for f in formats:
         match = re.search(f, var)
@@ -527,10 +528,15 @@ def extract_datetime(var: str, tz: pytz._FixedOffset, formats=None) -> Union[dt.
             dt_format = '%Y_%m_%d_%H_%M_%S'
         elif f == r'\d{4}_\d{2}_\d{2}T\d{2}_\d{2}_\d{2}':
             dt_format = '%Y_%m_%dT%H_%M_%S'
+        elif f == r'\d{4}\d{2}\d{2}T\d{2}\d{2}\d{2}':
+            dt_format = '%Y%m%dT%H%M%S'
+
         # date_obj = dt.datetime.strptime(dt_string, dt_format)
         date_obj = pd.to_datetime(dt_string, format=dt_format)
 
         if type(tz) is pytz._FixedOffset or tz is pytz.UTC: date_obj = tz.localize(date_obj)
+        if tz is None:
+            return date_obj
         else: date_obj = pytz.timezone(tz).localize(date_obj)
 
         return date_obj

@@ -61,12 +61,13 @@ for i in list(set(df['Deployment'])):
 print(f'All files exported to {output_path}')
 
 
-# %% Plot one deployment
-i = 1
+# %% Plot a criterion for a deployment
+
+d = 1
 criterion = 'Depth'
-plt.plot(df[df['Deployment'] == i]['Datetime'], df[df['Deployment'] == i][criterion])
-# plt.ylabel('Depth (m)')
-plt.title('Deployment {0} - {1}'.format(i, criterion))
+
+plt.plot(df[df['Deployment'] == d]['Datetime'], df[df['Deployment'] == d][criterion])
+plt.title('Deployment {0} - {1}'.format(d, criterion))
 plt.grid(color='k', linestyle='-', linewidth=0.2, axis='y')
 
 # Format the x-axis labels as '%H:%M'
@@ -81,3 +82,14 @@ plt.show()
 
 # import statistics as st
 # st.mean(df[df['Deployment']==4]['Voltage'])
+
+# %%
+
+#utiliser les csv de detections avec les positions et les tracer sur QGIS
+#plotter la profondeur du glider sur le deploiement avec les detection aussi dessus
+
+
+
+
+
+
