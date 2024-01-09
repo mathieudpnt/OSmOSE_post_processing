@@ -1,64 +1,52 @@
+"""
+Modified on Tue Jan 9 2023
+
+@author: torterma
+
+This script allows to write a new csv file with data formatted (eg raw detections converted to 10 sec time bin)
+
+"""
 import os
-from tqdm import tqdm
-from post_processing_detections.utilities.def_func import get_detection_files, sorting_detections, t_rounder, get_timestamps, get_tz
+import pandas as pd
+import pytz
+from utilities.def_func import get_csv_file, sorting_detections
 
 #%% LOAD DATA - User inputs
 
-files_list = get_detection_files(3)
-timestamps_file = get_timestamps(tz=get_tz(files_list[0]), f_type='dir', ext= 'wav', n_dir=2)
-wav_names = timestamps_file['filename']
-wav_datetimes = timestamps_file['timestamp']
-df_detections, t_detections = sorting_detections(files_list, timebin_new=10)
-timebin = int(t_detections['max_time'][0])
-
-## EXPORT RESHAPPED DETECTIONS
-
-# APLOSE FORMAT
-dataset_str = list(set(df_detections['dataset']))
-PG2Ap_str = "/PG_formatteddata_" + t_rounder(timestamps_file['timestamp'][0], res=600).strftime('%y%m%d') + '_' + t_rounder(timestamps_file['timestamp'].iloc[-1], res=600).strftime('%y%m%d') +'_'+ str(t_detections['max_time'][0]) + 's'+ '.csv'
-df_detections['start_datetime'] = [i.strftime('%Y-%m-%dT%H:%M:%S')+ '.'+ i.strftime('%f')[:3]+ i.strftime('%z')[:3] +':'  + i.strftime('%z')[3:] for i in df_detections['start_datetime']]
-df_detections['end_datetime'] = [i.strftime('%Y-%m-%dT%H:%M:%S')+ '.'+ i.strftime('%f')[:3]+ i.strftime('%z')[:3] +':' + i.strftime('%z')[3:] for i in df_detections['end_datetime']]
-df_detections.to_csv(os.path.dirname(files_list[0]) + PG2Ap_str, index=False)  
-print('\n\nAplose formatted data file exported to '+ os.path.dirname(files_list[0]))
-
-# # RAVEN FORMAT
-# df_PG2Raven = pd.DataFrame()
-
-# df_PG2Raven['Selection'] = np.arange(1,len(df_detections)+1)
-# df_PG2Raven['View'], df_PG2Raven['Channel'] = [1]*len(df_detections), [1]*len(df_detections)
-
-# datetime_begfiles, datetime_endfiles = [],[]
-# for i in range(len(wav_names)):
-#     datetime_begfiles.append((wav_datetimes[i]).strftime('%Y-%m-%d %H:%M:%S.%f'))
-#     datetime_endfiles.append((wav_datetimes[i]+dt.timedelta(seconds=timebin)).strftime('%Y-%m-%d %H:%M:%S.%f'))
+files_list = get_csv_file(1)
+arguments_list = [
+    {
+        'file': files_list[0],
+        'timebin_new': 60,
+        'tz': pytz.FixedOffset(0),
+        #'fmin_filter': 10000
+    },
+    # {
+    #     'file': files_list[1],
+    #     'timebin_new': 60,
+    #     'tz': pytz.FixedOffset(120),
+    #     #'fmin_filter': 10000
+    # },
+   ] 
+    
+df_detections, info = pd.DataFrame(), pd.DataFrame()
+for args in arguments_list:
+    df_detections_file, info_file = sorting_detections(**args)
+    df_detections = pd.concat([df_detections, df_detections_file], ignore_index=True)
+    info = pd.concat([info, info_file], ignore_index=True)
 
 
-# offsets =[]
-# for i in range(len(datetime_endfiles)-1):
-#     offsets.append(((wav_datetimes[i]+dt.timedelta(seconds=timebin)).timestamp() - (wav_datetimes[i+1]).timestamp()))
-#     offsets_cumsum=(list(np.cumsum([offsets[i] for i in range(len(offsets))])))
-#     offsets_cumsum.insert(0, 0)
+time_bin = list(set(info['max_time'].explode()))
+fmax = list(set(info['max_freq'].explode()))
+annotators = list(set(info['annotators'].explode()))
+labels = list(set(info['labels'].explode()))
+tz_data = list(set(info['tz_data'].explode()))
+if len(tz_data) == 1:
+    [tz_data] = tz_data
+else:
+    raise Exception('More than one timezone in the detections')
 
-# test3 = [wav_names[i].split('.wav')[0] for i in range(len(wav_names))] #names of the waves without extension
-# start_datetime, end_datetime = [],[] 
-# for i in range(len(time_vector)):
-#     if PG_vec[i] == 1:
-#         test4 = [time_vector_str[i].split('_+')[0] == test3[j] for j in range(len(wav_list))] #finding which wav the detection is belonging to
-#         idx_wav_Raven = [i for i, x in enumerate(test4) if x][0] #index of the wav the detection i is belonging to
-#         start_datetime.append(int(time_vector[i] - wav_datetimes[0].timestamp())      + offsets_cumsum[idx_wav_Raven] )
-#         end_datetime.append(int(time_vector[i] - wav_datetimes[0].timestamp())+10     + offsets_cumsum[idx_wav_Raven] )
+f = os.path.splitext(files_list[0])[0]
+new_fn = f + '_' + str(arguments_list[0]['timebin_new']) + 's.csv'
 
-# df_PG2Raven['Begin Time (s)'] = start_datetime     
-# df_PG2Raven['End Time (s)'] = end_datetime     
-
-# df_PG2Raven['Low Freq (Hz)'] = [0]*len(start_datetime_str)
-# df_PG2Raven['High Freq (Hz)'] = [0.8*fmax]*len(start_datetime_str)
-
-# PG2Raven_str = "/PG_formatteddata_" + t_rounder(wav_datetimes[0]).strftime('%y%m%d') + '_' + t_rounder(wav_datetimes[-1]).strftime('%y%m%d') + '_'+ str(time_bin_duration) + 's' + '.txt'
-
-# df_PG2Raven.to_csv(os.path.dirname(pamguard_path) + PG2Raven_str, index=False, sep='\t')  
-# print('\n\nRaven formatted data file exported to '+ os.path.dirname(pamguard_path))
-
-
-
-
+df_detections.to_csv(new_fn,index=False, sep=',')
