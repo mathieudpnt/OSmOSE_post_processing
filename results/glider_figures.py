@@ -61,26 +61,39 @@ def get_track_data(gpx_path):
     return track_data
 
 
-    
+def compute_loc_from_time(track_data, time_unix):
+    dict_mmsi={}
+    key_mmsi=dict_mmsi.keys()
+    # ix : index de la position
+    # row : ligne de la position (time, lat, lon, depth)
+    for ix,row in enumerate(track_data): 
+        # on commence par chercher si le navire existe déjà dans le flux
+        if 0 not in key_mmsi:
+            dict_mmsi[0]=TrajectoryFda(0,0.001,3) 
+
+        dict_mmsi[0].setNewData(row[0], row[2], row[1])
 
 
-    #track_data.insert(len(track_data),td)
-    
-    #%%
-    
-    
-    
-    
+    ts_min=time_unix[0]
+    ts_max=time_unix[-1]
+    res=[]
+    for ts in time_unix:
+        if ts_min<=ts <=ts_max:
+            lat,lon=dict_mmsi[0].getPosition(ts) 
 
-    
+            if len(lon)>0:
+                res.append([ts,lon[0][0],lat[0][0]])
+                
+    return res
 
 
-    
+
+
 
 
 #%%┴Figure 'planning'
 #Select all csv files with detections/annotations that will appear in the following Figures
-files_list = get_csv_file(6)
+files_list = get_csv_file(1)
 
 arguments_list = [
     {
@@ -185,9 +198,15 @@ for i, label in enumerate(list_labels):
 
 
 #%% Compute acoustic diversity
-filename_audioF = 'C:/Users/torterma/Documents/Projets_GLIDER/Delgost/DELGOST2_D2 HF_task_status.csv'
+# filename_audioF = 'C:/Users/torterma/Documents/Projets_GLIDER/Delgost/DELGOST2_D2 HF_task_status.csv'
+filename_audioF = get_csv_file(2, 'Select task status csv')
 # Download task results
-list_audioF = pd.read_csv(filename_audioF, delimiter=',')
+for i, f in filename_audioF:
+    
+    l = pd.read_csv(f, delimiter=',')
+    if i==0:
+        list_audioF = l
+    else : list_audioF = pd.concat([list_audioF, l])
 # Put a coordinate on each audio file
 # Download track data
 gpx_paths = get_gpx(2)
@@ -198,40 +217,18 @@ for i,p in enumerate(gpx_paths):
     if i==0:
         track_data = td
     else : track_data = np.concatenate((track_data,td), axis = 0)
-    
+# Sort track data     
 track_data = track_data[np.argsort(track_data[:, 0])]
 
-dict_mmsi={}
-key_mmsi=dict_mmsi.keys()
-# ix : index de la position
-# row : ligne de la position (time, lat, lon, depth)
-for ix,row in enumerate(track_data): 
-    # on commence par chercher si le navire existe déjà dans le flux
-    if 0 not in key_mmsi:
-        dict_mmsi[0]=TrajectoryFda(0,0.001,3) 
-
-    dict_mmsi[0].setNewData(row[0], row[2], row[1])
-
-
-
-
-# Create array with unix time of detections
+# Create array with unix time of files
 name_audioF = list_audioF['filename']
 audioF_dt = [dt.datetime.strptime(t, "%Y_%m_%d_%H_%M_%S.wav") for t in name_audioF]
-audioF_unix = [time.mktime(t.timetuple()) for t in audioF_dt]
-ts_min=audioF_unix[0]
-ts_max=audioF_unix[-1]
-res=[]
-r=[]
-for ts in audioF_unix:
-    if ts_min<=ts <=ts_max:
-        lat,lon=dict_mmsi[0].getPosition(ts) 
+time_unix = [time.mktime(t.timetuple()) for t in audioF_dt]
 
-        if len(lon)>0:
-            res.append([ts,lon[0][0],lat[0][0]])
-            r.append(ts)
+# Compute localisation of each audio file            
+res=compute_loc_from_time(track_data, time_unix)
 
-#%% REad detections
+#%% Read detections
 files_list = get_csv_file(2)
 
 arguments_list = [
@@ -274,10 +271,10 @@ time_det = det['start_datetime']
 time_det_unix = [time.mktime(t.timetuple()) for t in time_det]
 
 
-AD = np.zeros(len(r))
+AD = np.zeros(len(time_unix))
 list_det = []
 
-for i, file in enumerate(r):
+for i, file in enumerate(time_unix):
     for d in time_det_unix:
         if d == file:
             AD[i]+=1
