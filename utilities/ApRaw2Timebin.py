@@ -3,15 +3,15 @@ import pandas as pd
 import pytz
 from utilities.def_func import get_csv_file, sorting_detections
 
-#%% LOAD DATA - User inputs
+# %% LOAD DATA - User inputs
 
 files_list = get_csv_file(1)
 arguments_list = [
     {
         'file': files_list[0],
         'timebin_new': 60,
-        'tz': pytz.FixedOffset(0),
-        #'fmin_filter': 10000
+        'tz': pytz.FixedOffset(120),
+        # 'fmin_filter': 10000
     },
     # {
     #     'file': files_list[1],
@@ -19,8 +19,8 @@ arguments_list = [
     #     'tz': pytz.FixedOffset(120),
     #     #'fmin_filter': 10000
     # },
-   ] 
-    
+    ] 
+
 df_detections, info = pd.DataFrame(), pd.DataFrame()
 for args in arguments_list:
     df_detections_file, info_file = sorting_detections(**args)
@@ -41,4 +41,4 @@ else:
 f = os.path.splitext(files_list[0])[0]
 new_fn = f + '_' + str(arguments_list[0]['timebin_new']) + 's.csv'
 
-df_detections.to_csv(new_fn,index=False, sep=',')
+df_detections.to_csv(new_fn, index=False, sep=',')

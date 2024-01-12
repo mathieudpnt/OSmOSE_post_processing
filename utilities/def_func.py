@@ -21,7 +21,7 @@ import csv
 import yaml
 
 
-def get_csv_file(num_files: int, message = 'Select csv') -> List[str]:
+def get_csv_file(num_files: int, message='Select csv') -> List[str]:
     '''Opens a file dialog multiple times
     to get X csv files (APLOSE formatted detection file, task status file...).
     Parameters :
@@ -531,23 +531,16 @@ def extract_datetime(var: str, tz: pytz._FixedOffset = None, formats=None) -> Un
         elif f == r'\d{4}\d{2}\d{2}T\d{2}\d{2}\d{2}':
             dt_format = '%Y%m%dT%H%M%S'
 
-        # date_obj = dt.datetime.strptime(dt_string, dt_format)
         date_obj = pd.to_datetime(dt_string, format=dt_format)
-
-        # if type(tz) is pytz._FixedOffset or tz is pytz.UTC: date_obj = tz.localize(date_obj)
 
         if tz is None:
             return date_obj
-        elif type(tz) is pytz._FixedOffset:
-            date_obj = tz.localize(date_obj)
-        elif type(tz) is pytz.UTC:
-            date_obj = tz.localize(date_obj)
         elif type(tz) is dt.timezone:
             offset_minutes = tz.utcoffset(None).total_seconds() / 60
             pytz_fixed_offset = pytz.FixedOffset(int(offset_minutes))
-            pytz_fixed_offset.localize(date_obj)
+            date_obj = pytz_fixed_offset.localize(date_obj)
         else:
-            date_obj = pytz.timezone(tz).localize(date_obj)
+            date_obj = tz.localize(date_obj)
 
         return date_obj
     else:
@@ -582,14 +575,6 @@ def t_rounder(t: dt.datetime, res: int):
     else:
         raise ValueError(f'res={res}s: Resolution not available')
     return t
-
-# def from_str2ts(date):
-#     #from APLOSE date string to a timestamp
-#     return dt.datetime.strptime(date, '%Y-%m-%dT%H:%M:%S.%f%z').timestamp()
-
-# def from_str2dt(date):
-#     #from APLOSE date string to a datetime
-#     return dt.datetime.strptime(date, '%Y-%m-%dT%H:%M:%S.%f%z')
 
 
 def oneday_per_month(time_vector_ts, time_vector_str, vec) -> Tuple[list, list, list, list]:
@@ -683,7 +668,8 @@ def pick_datetimes(time_vector_ts, time_vector_str, vec, selected_dates, selecte
     selected_df_out = pd.DataFrame({'datetimes': selected_dates, 'durations': selected_durations})
 
     # format the datetimes and durations from strings to datetimes/timedeltas
-    selected_dates = [dt.datetime.strptime(i, '%d/%m/%Y %H:%M:%S').timestamp() for i in selected_dates]
+    # selected_dates = [dt.datetime.strptime(i, '%d/%m/%Y %H:%M:%S').timestamp() for i in selected_dates]
+    selected_dates = [pd.to_datetime(i, format='%d/%m/%Y %H:%M:%S').timestamp() for i in selected_dates]
     timedeltas = []
     for i in selected_durations:
         if i.endswith('h'):
@@ -870,7 +856,8 @@ def load_glider_nav():
     df = df.drop(df[(df['Lat'] == 0) & (df['Lon'] == 0)].index).reset_index(drop=True)
     df['Lat DD'] = [int(x) + (((x - int(x)) / 60) * 100) for x in df['Lat'] / 100]
     df['Lon DD'] = [int(x) + (((x - int(x)) / 60) * 100) for x in df['Lon'] / 100]
-    df['Datetime'] = [dt.datetime.strptime(x, '%d/%m/%Y %H:%M:%S') for x in df['Timestamp']]
+    # df['Datetime'] = [dt.datetime.strptime(x, '%d/%m/%Y %H:%M:%S') for x in df['Timestamp']]
+    df['Datetime'] = [pd.to_datetime(x, format='%d/%m/%Y %H:%M:%S') for x in df['Timestamp']]
     df['Depth'] = -df['Depth']
 
     return df
