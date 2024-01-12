@@ -40,7 +40,7 @@ for file_path in tqdm(list_json):
         data.append(json.load(i))
 data = pd.DataFrame.from_dict(data)
 
-data['df_detections'] = [sorting_detections(data['detection_file'][i], timebin_new=data['timebin'].tolist()[i])[0] for i in tqdm(range(len(data)))]
+data['df_detections'] = [sorting_detections(file=data['detection_file'][i], timebin_new=data['timebin'].tolist()[i])[0] for i in tqdm(range(len(data)))]
 data['season'] = [get_season(i) for i in [pd.to_datetime(d) for d in data['beg_deployment']]]
 
 for i in range(len(data)):

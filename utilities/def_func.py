@@ -245,7 +245,7 @@ def reshape_timebin(df: pd.DataFrame, timebin_new: int = None) -> pd.DataFrame:
                     # FPOD case: the filenames of a FPOD csv file are NaN values
                     filenames = [i.strftime('%Y-%m-%dT%H:%M:%S%z') for i in df_detect_prov['start_datetime']]
 
-            ts_filenames = [extract_datetime(filename, tz=tz_data).timestamp()for filename in filenames]
+            ts_filenames = [extract_datetime(var=filename, tz=tz_data).timestamp()for filename in filenames]
 
             filename_vector = []
             for ts in time_vector:
@@ -534,10 +534,20 @@ def extract_datetime(var: str, tz: pytz._FixedOffset = None, formats=None) -> Un
         # date_obj = dt.datetime.strptime(dt_string, dt_format)
         date_obj = pd.to_datetime(dt_string, format=dt_format)
 
-        if type(tz) is pytz._FixedOffset or tz is pytz.UTC: date_obj = tz.localize(date_obj)
+        # if type(tz) is pytz._FixedOffset or tz is pytz.UTC: date_obj = tz.localize(date_obj)
+
         if tz is None:
             return date_obj
-        else: date_obj = pytz.timezone(tz).localize(date_obj)
+        elif type(tz) is pytz._FixedOffset:
+            date_obj = tz.localize(date_obj)
+        elif type(tz) is pytz.UTC:
+            date_obj = tz.localize(date_obj)
+        elif type(tz) is dt.timezone:
+            offset_minutes = tz.utcoffset(None).total_seconds() / 60
+            pytz_fixed_offset = pytz.FixedOffset(int(offset_minutes))
+            pytz_fixed_offset.localize(date_obj)
+        else:
+            date_obj = pytz.timezone(tz).localize(date_obj)
 
         return date_obj
     else:

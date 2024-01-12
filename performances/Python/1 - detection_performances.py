@@ -53,8 +53,8 @@ if mode == 'input':
     begin_date = input_date('Enter begin datetime')
     end_date = input_date('Enter end datetime')
 elif mode == 'fixed':
-    begin_date = pd.Timestamp('2023-02-11 12:15:00 +0100')
-    end_date = pd.Timestamp('2023-02-12 09:00:00 +0100')
+    begin_date = pd.Timestamp('2023-02-11 19:00:00 +0100')
+    end_date = pd.Timestamp('2023-02-12 23:00:00 +0100')
 
 # annotators
 annotator1 = easygui.buttonbox('Select annotator 1 (reference)', 'file 1 : {0}'.format(os.path.basename(parameters[0]['file'])), info['annotators'][0]) if len(info['annotators'][0]) > 1 else info['annotators'][0][0]
