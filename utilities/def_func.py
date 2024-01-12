@@ -1,5 +1,5 @@
 import struct
-from typing import Tuple, List
+from typing import Tuple, List, Union
 import pytz
 import pandas as pd
 import re
@@ -14,13 +14,11 @@ import gzip
 import math
 import easygui
 import glob
-from typing import Union
-import sys
 import bisect
 from astral.sun import sun
 import astral
 import csv
-import warnings
+import yaml
 
 
 def get_csv_file(num_files: int, message = 'Select csv') -> List[str]:
@@ -48,7 +46,7 @@ def get_csv_file(num_files: int, message = 'Select csv') -> List[str]:
     return file_paths
 
 
-def sorting_detections(file: List[str], tz: pytz._FixedOffset = None, date_begin: dt.datetime = None, date_end: dt.datetime = None, annotator: str = None, label: str = None, box: bool = False, timebin_new: int = None, user_sel: str = 'all', fmin_filter: int = None, fmax_filter: int = None) -> (pd.DataFrame, pd.DataFrame):
+def sorting_detections(file: List[str], tz: pytz._FixedOffset = None, date_begin: dt.datetime = None, date_end: dt.datetime = None, annotator: str = None, annotation: str = None, box: bool = False, timebin_new: int = None, user_sel: str = 'all', fmin_filter: int = None, fmax_filter: int = None) -> (pd.DataFrame, pd.DataFrame):
     ''' Filters an Aplose formatted detection file according to user specified filters
         Parameters :
             file : list of path(s) to the detection file(s), can be a str too
@@ -56,7 +54,7 @@ def sorting_detections(file: List[str], tz: pytz._FixedOffset = None, date_begin
             date_begin : datetime to be specified if the user wants to select detections after date_begin
             date_end : datetime to be specified if the user wants to select detections before date_end
             annotator : string to be specified if the user wants to select the detection of a particular annotator
-            label : string to be specified if the user wants to select the detection of a particular label
+            annotation : string to be specified if the user wants to select the detection of a particular label
             box : if set to True, keeps all the annotations, if False keeps only the absence/presence box (weak detection)
             timebin_new : integer to be specified if the user already know the new time resolution to set the detection file to
             user_sel: string to specify to filter detections of a file based on annotators
@@ -112,9 +110,9 @@ def sorting_detections(file: List[str], tz: pytz._FixedOffset = None, date_begin
         df = df.loc[(df['annotator'] == annotator)]
         list_annotators = [annotator]
 
-    if label is not None:
-        df = df.loc[(df['annotation'] == label)]
-        list_labels = [label]
+    if annotation is not None:
+        df = df.loc[(df['annotation'] == annotation)]
+        list_labels = [annotation]
 
     if fmin_filter is not None:
         df = df[df['start_frequency'] >= fmin_filter]
@@ -132,11 +130,11 @@ def sorting_detections(file: List[str], tz: pytz._FixedOffset = None, date_begin
 
     if box is False:
         if len(df_nobox) == 0:
-            df = reshape_timebin(df=df, timebin_new=timebin_new)
+            df = reshape_timebin(df=df.reset_index(drop=True), timebin_new=timebin_new)
             max_time = int(max(df['end_time']))
         else:
             if timebin_new is not None:
-                df = reshape_timebin(df=df, timebin_new=timebin_new)
+                df = reshape_timebin(df=df.reset_index(drop=True), timebin_new=timebin_new)
                 max_time = int(max(df['end_time']))
             else:
                 df = df_nobox
@@ -179,7 +177,7 @@ def sorting_detections(file: List[str], tz: pytz._FixedOffset = None, date_begin
     columns = ['file', 'max_time', 'max_freq', 'annotators', 'labels', 'tz_data']
     info = pd.DataFrame([[file, int(max_time), max_freq, list_annotators, list_labels, tz_data]], columns=columns)
 
-    return df, info
+    return df.reset_index(drop=True), info
 
 
 def reshape_timebin(df: pd.DataFrame, timebin_new: int = None) -> pd.DataFrame:
@@ -247,7 +245,7 @@ def reshape_timebin(df: pd.DataFrame, timebin_new: int = None) -> pd.DataFrame:
                     # FPOD case: the filenames of a FPOD csv file are NaN values
                     filenames = [i.strftime('%Y-%m-%dT%H:%M:%S%z') for i in df_detect_prov['start_datetime']]
 
-            ts_filenames = [extract_datetime(filename, tz=tz_data).timestamp()for filename in filenames]
+            ts_filenames = [extract_datetime(var=filename, tz=tz_data).timestamp()for filename in filenames]
 
             filename_vector = []
             for ts in time_vector:
@@ -300,11 +298,60 @@ def reshape_timebin(df: pd.DataFrame, timebin_new: int = None) -> pd.DataFrame:
 
             df_new = pd.concat([df_new, df_new_prov])
 
-        df_new['start_datetime'] = pd.to_datetime(df_new['start_datetime'], format='%Y-%m-%dT%H:%M:%S.%f%z')
-        df_new['end_datetime'] = pd.to_datetime(df_new['end_datetime'], format='%Y-%m-%dT%H:%M:%S.%f%z')
+        df_new['start_datetime'] = [pd.to_datetime(d, format='%Y-%m-%dT%H:%M:%S.%f%z') for d in df_new['start_datetime']]
+        # df_new['start_datetime'] = pd.to_datetime(df_new['start_datetime'], format='%Y-%m-%dT%H:%M:%S.%f%z')
+        df_new['end_datetime'] = [pd.to_datetime(d, format='%Y-%m-%dT%H:%M:%S.%f%z') for d in df_new['end_datetime']]
+        # df_new['end_datetime'] = pd.to_datetime(df_new['end_datetime'], format='%Y-%m-%dT%H:%M:%S.%f%z')
         df_new = df_new.sort_values(by=['start_datetime'])
 
     return df_new
+
+
+def read_param(file: str):
+    ''' Reads parameters from a yaml file for importing detections from an APLOSE formatted csv file with sorting_detection
+        Parameters :
+            file : path to the yaml file, str
+        Returns :
+            arguments_list : list of dict containing a set of parameters for each csv file
+    '''
+    # TODO : Add warnings if the parameters are not properly formatted
+
+    with open(file, 'r') as yaml_file:
+        parameters = yaml.safe_load(yaml_file)
+
+    arguments_list = []
+
+    for param in parameters:
+        argument = {'file': param['file']}
+
+        if 'timebin_new' in param:
+            argument['timebin_new'] = param['timebin_new']
+        if 'tz' in param:
+            offset_string = param['tz']
+            hours, minutes = map(int, offset_string.lstrip('+').split(':'))
+            total_offset_minutes = (hours * 60) + minutes
+            argument['tz'] = pytz.FixedOffset(total_offset_minutes)
+        if 'fmin_filter' in param:
+            argument['fmin_filter'] = param['fmin_filter']
+        if 'fmax_filter' in param:
+            argument['fmax_filter'] = param['fmax_filter']
+        if 'date_begin' in param:
+            argument['date_begin'] = pd.Timestamp(param['date_begin'])
+        if 'date_end' in param:
+            argument['date_end'] = pd.Timestamp(param['date_end'])
+        if 'annotator' in param:
+            argument['annotator'] = param['annotator']
+        if 'annotation' in param:
+            argument['annotation'] = param['annotation']
+        if 'box' in param:
+            box_string = param['box']
+            argument['box'] = box_string.lower() != 'false'
+        if 'user_sel' in param:
+            argument['user_sel'] = param['user_sel']
+
+        arguments_list.append(argument)
+
+    return arguments_list
 
 
 def task_status_selection(files: List[str], df_detections: pd.DataFrame, user: Union[str, List[str]] = 'all') -> pd.DataFrame:
@@ -319,6 +366,7 @@ def task_status_selection(files: List[str], df_detections: pd.DataFrame, user: U
         Returns :
             df_kept : df of the detections sorted according to the selected annotators
     '''
+
     if isinstance(files, str):
         files = [files]  # Convert the single string to a list with one element
 
@@ -436,7 +484,7 @@ def read_header(file: str) -> Tuple[int, int, int, int]:
 #     return durations
 
 
-def extract_datetime(var: str, tz: pytz._FixedOffset, formats=None) -> Union[dt.datetime, str]:
+def extract_datetime(var: str, tz: pytz._FixedOffset = None, formats=None) -> Union[dt.datetime, str]:
     ''' Extracts datetime from filename based on the date format
         Parameters :
             var : name of the wav file
@@ -455,7 +503,8 @@ def extract_datetime(var: str, tz: pytz._FixedOffset, formats=None) -> Union[dt.
                    r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}',
                    r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}',
                    r'\d{4}_\d{2}_\d{2}_\d{2}_\d{2}_\d{2}',
-                   r'\d{4}_\d{2}_\d{2}T\d{2}_\d{2}_\d{2}']
+                   r'\d{4}_\d{2}_\d{2}T\d{2}_\d{2}_\d{2}',
+                   r'\d{4}\d{2}\d{2}T\d{2}\d{2}\d{2}']
     match = None
     for f in formats:
         match = re.search(f, var)
@@ -479,10 +528,26 @@ def extract_datetime(var: str, tz: pytz._FixedOffset, formats=None) -> Union[dt.
             dt_format = '%Y_%m_%d_%H_%M_%S'
         elif f == r'\d{4}_\d{2}_\d{2}T\d{2}_\d{2}_\d{2}':
             dt_format = '%Y_%m_%dT%H_%M_%S'
-        date_obj = dt.datetime.strptime(dt_string, dt_format)
+        elif f == r'\d{4}\d{2}\d{2}T\d{2}\d{2}\d{2}':
+            dt_format = '%Y%m%dT%H%M%S'
 
-        if type(tz) is pytz._FixedOffset or tz is pytz.UTC: date_obj = tz.localize(date_obj)
-        else: date_obj = pytz.timezone(tz).localize(date_obj)
+        # date_obj = dt.datetime.strptime(dt_string, dt_format)
+        date_obj = pd.to_datetime(dt_string, format=dt_format)
+
+        # if type(tz) is pytz._FixedOffset or tz is pytz.UTC: date_obj = tz.localize(date_obj)
+
+        if tz is None:
+            return date_obj
+        elif type(tz) is pytz._FixedOffset:
+            date_obj = tz.localize(date_obj)
+        elif type(tz) is pytz.UTC:
+            date_obj = tz.localize(date_obj)
+        elif type(tz) is dt.timezone:
+            offset_minutes = tz.utcoffset(None).total_seconds() / 60
+            pytz_fixed_offset = pytz.FixedOffset(int(offset_minutes))
+            pytz_fixed_offset.localize(date_obj)
+        else:
+            date_obj = pytz.timezone(tz).localize(date_obj)
 
         return date_obj
     else:
@@ -512,6 +577,10 @@ def t_rounder(t: dt.datetime, res: int):
         t = t.replace(minute=0, second=0, microsecond=0)
     elif res == 86400:  # 24h
         t = t.replace(hour=0, minute=0, second=0, microsecond=0)
+    elif res == 3:
+        t = t.replace(microsecond=0)
+    else:
+        raise ValueError(f'res={res}s: Resolution not available')
     return t
 
 # def from_str2ts(date):

@@ -1,11 +1,3 @@
-"""
-Modified on Tue Jan 9 2023
-
-@author: torterma
-
-This script allows to write a new csv file with data formatted (eg raw detections converted to 10 sec time bin)
-
-"""
 import os
 import pandas as pd
 import pytz

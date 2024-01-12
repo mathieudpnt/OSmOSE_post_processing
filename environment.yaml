@@ -1,0 +1,27 @@
+# To install the ennvironment, open an Anaconda prompt, then enter the following command
+# conda env create -n env_name -f /path/to/environment.yaml
+
+name: post_processing_env
+channels:
+ - anaconda
+ - pytorch
+ - conda-forge
+ - defaults
+dependencies:
+ - astral=3.1
+ - easygui=0.98.3
+ - folium=0.14.0
+ - gpxpy=1.5.0
+ - matplotlib=3.5.3
+ - numpy=1.21.5
+ - pandas=1.4.2
+ - pysoundfile=0.12.1
+ - python-dateutil=2.8.2
+ - pytz=2022.1
+ - scipy=1.9.1
+ - seaborn=0.12.0
+ - spyder-kernels=2.5
+ - tk=8.6.12
+ - tqdm=4.64.1
+ - pip:
+     - pyyaml==6.0.1

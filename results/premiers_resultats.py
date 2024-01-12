@@ -9,35 +9,21 @@ from collections import Counter
 import seaborn as sns
 from scipy import stats
 import sys
-import pytz
+import os
 
-from utilities.def_func import get_csv_file, sorting_detections, t_rounder, get_timestamps, input_date, suntime_hour
+from utilities.def_func import sorting_detections, t_rounder, get_timestamps, input_date, suntime_hour, read_param
 
 # %% User inputs
 
-files_list = get_csv_file(2)
+# Load parameters from the YAML file
+yaml_file_path = os.path.join(os.getcwd(), 'results', 'premiers_resultats_parameters.yaml')
+parameters = read_param(file=yaml_file_path)
 
-arguments_list = [
-    {
-        'file': files_list[0],
-        'timebin_new': 10,
-        'tz': pytz.FixedOffset(60),
-        'fmin_filter': 10000
-    },
-    {
-        'file': files_list[1],
-        'timebin_new': 10,
-        # 'label': 'Odontocete whistle',
-        'tz': pytz.FixedOffset(60),
-        # 'fmin_filter': 10000
-    }
-]
 df_detections, info = pd.DataFrame(), pd.DataFrame()
-for args in arguments_list:
+for args in parameters:
     df_detections_file, info_file = sorting_detections(**args)
     df_detections = pd.concat([df_detections, df_detections_file], ignore_index=True)
     info = pd.concat([info, info_file], ignore_index=True)
-
 
 time_bin = list(set(info['max_time'].explode()))
 fmax = list(set(info['max_freq'].explode()))
@@ -49,17 +35,17 @@ if len(tz_data) == 1:
 else:
     raise Exception('More than one timezone in the detections')
 
-
-# Chose your mode :
-# fixed : hard coded date interval
-# auto : the script automatically extract the timestamp from the timestamp file
-# input : you will fill a dialog box with the start and end date
-
+'''
+Chose your mode :
+    -fixed: hard coded date interval
+    -auto: the script automatically extract the timestamp from the timestamp file
+    -input: you will fill a dialog box with the start and end date
+'''
 dt_mode = 'fixed'
 
 if dt_mode == 'fixed':
-    begin_date = pd.Timestamp('2023-02-11 12:00:00 +0100')
-    end_date = pd.Timestamp('2023-02-12 09:00:00 +0100')
+    begin_date = pd.Timestamp('2023-02-11 12:10:00 +0100')
+    end_date = pd.Timestamp('2023-02-12 08:50:00 +0100')
 elif dt_mode == 'auto':
     timestamps_file = get_timestamps()
     begin_date = pd.to_datetime(timestamps_file['timestamp'].iloc[0], format='%Y-%m-%dT%H:%M:%S.%f%z')
@@ -385,16 +371,16 @@ for idx_j, j in enumerate(time_vector_str):
 
 x_lims = mdates.date2num((begin_date, end_date))
 
-y_lims = [0,24]
+y_lims = [0, 24]
 cbarmax = 20
-      
-fig, ax = plt.subplots(figsize=(50, 15))
-im = ax.imshow(M, extent = [x_lims[0], x_lims[1],  y_lims[0], y_lims[1]], vmin = 0, vmax = cbarmax, aspect='auto', origin='lower')
-# Colorbar
 
+fig, ax = plt.subplots(figsize=(50, 15))
+im = ax.imshow(M, extent=[x_lims[0], x_lims[1], y_lims[0], y_lims[1]], vmin=0, vmax=cbarmax, aspect='auto', origin='lower')
+
+# Colorbar
 cbar = fig.colorbar(im)
 cbar.ax.tick_params(labelsize=30)
-cbar.ax.set_ylabel('Nombre de minutes positives', rotation=270, fontsize = 30, labelpad = 40)
+cbar.ax.set_ylabel('Nombre de minutes positives', rotation=270, fontsize=30, labelpad=40)
 
 y_lims = [0, 24]
 
@@ -430,7 +416,7 @@ elif len(annotators) == 1:
     annot_ref = annotators[0]
 
 # list of the labels corresponding to the selected user
-list_labels = info[info['annotators'].apply(lambda x: annot_ref in x)]['labels'].reset_index(drop=True)[0]
+list_labels = sorted(info[info['annotators'].apply(lambda x: annot_ref in x)]['labels'].reset_index(drop=True)[0])
 # selection of the timebin
 time_bin_ref = int(info[info['annotators'].apply(lambda x: annot_ref in x)]['max_time'].reset_index(drop=True).iloc[0])
 # selection of the detection file
@@ -557,10 +543,6 @@ ax.spines['left'].set_color('w')
 list1 = list(df1_1annot_1label['start_datetime'])
 list2 = list(df2_1annot_1label['start_datetime'])
 
-
-test1 = df1_1annot_1label
-test2 = df2_1annot_1label
-
 unique_annotations = len([elem for elem in list1 if elem not in list2]) + len([elem for elem in list2 if elem not in list1])
 common_annotations = len([elem for elem in list1 if elem in list2])
 
@@ -578,6 +560,11 @@ plt.ylim(0, 1)
 
 
 def annotate(data, **kws):
+    '''
+    Compute and plot the Pearson correlation coefficient
+    which is the correlation of 2 distributions of positives timebins (length timebin_ref) overs bins of length res_min
+    '''
+
     r, p = stats.pearsonr(data[annot_ref1], data[annot_ref2])
     ax = plt.gca()
     ax.text(.05, .8, 'R²={0:.2f}'.format(r * r),
@@ -586,3 +573,23 @@ def annotate(data, **kws):
 
 plot.map_dataframe(annotate)
 plt.show()
+
+# %%
+# tb=3600
+# df1_test, _ = sorting_detections(file='Y:/Bioacoustique/APOCADO2/Campagne 6/PASSE PARTOUT/bouts rouges/7178/analysis/C6D3/results/APOCADO_C6D3 ST7178_results.csv',
+#                                                       timebin_new=tb,
+#                                                       annotation='Odontocete whistle')
+
+# df2_test, _ = sorting_detections(file='Y:/Bioacoustique/APOCADO2/Campagne 6/PASSE PARTOUT/bouts rouges/7180/analysis/C6D3/result/APOCADO_C6D3 ST7180_results.csv',
+#                                                       timebin_new=tb,
+#                                                       annotation='Odontocete whistle') 
+
+# # accord inter-annot
+# list12 = list(df1_test['start_datetime'])
+# list22 = list(df2_test['start_datetime'])
+
+# unique_annotations2 = len([elem for elem in list12 if elem not in list22]) + len([elem for elem in list22 if elem not in list12])
+# common_annotations2 = len([elem for elem in list12 if elem in list22])
+
+# print('Pourcentage d\'accord pour timebin de {1:.0f}s: {0:.0f}%'.format(100 * (common_annotations2) / (unique_annotations2 + common_annotations2), tb))
+
