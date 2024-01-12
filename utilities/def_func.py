@@ -21,7 +21,7 @@ import csv
 import yaml
 
 
-def get_csv_file(num_files: int) -> List[str]:
+def get_csv_file(num_files: int, message = 'Select csv') -> List[str]:
     '''Opens a file dialog multiple times
     to get X csv files (APLOSE formatted detection file, task status file...).
     Parameters :
@@ -35,7 +35,7 @@ def get_csv_file(num_files: int) -> List[str]:
     file_paths = []
     for _ in range(num_files):
         file_path = filedialog.askopenfilename(
-            title=f'Select csv ({len(file_paths) + 1}/{num_files})',
+            title=message + f' ({len(file_paths) + 1}/{num_files})',
             filetypes=[('CSV files', '*.csv')],
             parent=None
         )
