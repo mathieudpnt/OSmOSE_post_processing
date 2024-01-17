@@ -118,6 +118,60 @@ ax1.set_title('Number of annotations per label', color='w', fontdict=title_font,
 ax2.set_title('Number of annotations per annotator', color='w', fontdict=title_font, pad=5);
 
 
+# %% % labels / species
+
+# Créer une nouvelle colonne 'species' en regroupant les labels par espèce
+df_detections['species'] = np.where(df_detections['annotation'].str.startswith('Tt'), 'Tt',
+                                   np.where(df_detections['annotation'].str.startswith('Sc'), 'Sc',
+                                            np.where(df_detections['annotation'].str.startswith('Pm'), 'Pm',
+                                                     np.where(df_detections['annotation'].str.startswith('Gm'), 'Gm', 'Other'))))
+
+# Mapping des nouvelles valeurs pour les espèces
+species_mapping = {'Tt': 'Tursiops truncatus', 'Sc': 'Stenella coeruleoalba', 'Pm': 'Physeter macrocephalus', 'Gm': 'Globicephala melas'}
+
+# Remplacer les valeurs de la colonne 'species' par les nouvelles valeurs
+df_detections['species'] = df_detections['species'].map(species_mapping)
+
+# Résumé des annotations par espèce
+summary_species_percentage = df_detections.groupby('species')['annotator'].count() / len(df_detections) * 100
+
+# Utiliser la palette de couleurs 'coolwarm'
+colors = sns.color_palette('husl')
+
+# Création du camembert avec la palette 'coolwarm'
+plt.figure(figsize=(8, 8), facecolor='#36454F')
+plt.pie(summary_species_percentage, labels=summary_species_percentage.index, autopct='%1.1f%%', startangle=140, colors=colors, textprops={'color': 'w'})
+
+# Titre du camembert
+plt.title('Pourcentage d\'annotations par espèce', color='w', fontsize=15, fontweight='bold', pad=20)
+
+# Affichage du camembert
+plt.show()
+
+
+####
+# Résumé des annotations par type
+summary_label_percentage = df_detections.groupby('annotation')['annotator'].count() / len(df_detections) * 100
+
+# Utiliser la palette de couleurs 'coolwarm'
+colors = sns.color_palette('husl', 16)
+
+# Création du camembert avec la palette 'coolwarm'
+plt.figure(figsize=(8, 8), facecolor='#36454F')
+patches, texts, autotexts = plt.pie(summary_label_percentage, labels=summary_label_percentage.index, autopct='%1.1f%%', startangle=140, colors=colors,
+                                   textprops={'color': 'w'})
+
+# Ajuster la couleur du texte à l'intérieur des tranches
+for autotext in autotexts:
+    autotext.set_color('w')
+
+# Titre du camembert
+plt.title('Pourcentage d\'annotations par type de vocalisation', color='w', fontsize=15, fontweight='bold', pad=20)
+
+# Affichage du camembert
+plt.show()
+
+
 # %% Single seasonality plot
 
 # ----------- User set mdate time xticks-----------------------------
@@ -573,7 +627,7 @@ def annotate(data, **kws):
 
 plot.map_dataframe(annotate)
 plt.show()
-#hihihihi
+
 # %%
 # tb=3600
 # df1_test, _ = sorting_detections(file='Y:/Bioacoustique/APOCADO2/Campagne 6/PASSE PARTOUT/bouts rouges/7178/analysis/C6D3/results/APOCADO_C6D3 ST7178_results.csv',
