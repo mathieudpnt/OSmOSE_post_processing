@@ -233,6 +233,9 @@ def reshape_timebin(df: pd.DataFrame, timebin_new: int = None) -> pd.DataFrame:
 
             df_detect_prov = df[(df['annotator'] == annotator) & (df['annotation'] == label)]
 
+            if len(df_detect_prov) == 0:
+                continue
+
             t = t_rounder(t=df_detect_prov['start_datetime'].iloc[0], res=timebin_new)
             t2 = t_rounder(df_detect_prov['start_datetime'].iloc[-1], timebin_new) + dt.timedelta(seconds=timebin_new)
 
