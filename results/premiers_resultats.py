@@ -44,8 +44,8 @@ Chose your mode :
 dt_mode = 'fixed'
 
 if dt_mode == 'fixed':
-    begin_date = pd.Timestamp('2023-04-07 02:30:00 +0200')
-    end_date = pd.Timestamp('2023-04-08 01:45:00 +0200')
+    begin_date = pd.Timestamp('2019-01-25 00:00:00 +0700')
+    end_date = pd.Timestamp('2022-12-04 00:00:00 +0700')
 elif dt_mode == 'auto':
     timestamps_file = get_timestamps()
     begin_date = pd.to_datetime(timestamps_file['timestamp'].iloc[0], format='%Y-%m-%dT%H:%M:%S.%f%z')
@@ -176,8 +176,8 @@ plt.show()
 
 # ----------- User set mdate time xticks-----------------------------
 # One tick per month
-# mdate1 = mdates.MonthLocator(interval=1)
-# mdate2 = mdates.DateFormatter('%B', tz=tz_data)
+mdate1 = mdates.MonthLocator(interval=1)
+mdate2 = mdates.DateFormatter('%B', tz=tz_data)
 # One tick every 2 weeks
 # mdate1 = mdates.DayLocator(interval=15, tz=tz_data)
 # mdate2 = mdates.DateFormatter('%d-%B', tz=tz_data)
@@ -185,8 +185,8 @@ plt.show()
 # mdate1 = mdates.DayLocator(interval=1, tz=tz_data)
 # mdate2 = mdates.DateFormatter('%d-%m', tz=tz_data)
 # One tick every hour
-mdate1 = mdates.HourLocator(interval=1, tz=tz_data)
-mdate2 = mdates.DateFormatter('%H:%M', tz=tz_data)
+# mdate1 = mdates.HourLocator(interval=1, tz=tz_data)
+# mdate2 = mdates.DateFormatter('%H:%M', tz=tz_data)
 # -------------------------------------------------------------------
 
 # selection of the user
@@ -283,8 +283,8 @@ if choice_percentage == 'Percentage':
 
 # ----------- User set mdate time xticks-----------------------------
 # One tick per month
-# mdate1 = mdates.MonthLocator(interval=1)
-# mdate2 = mdates.DateFormatter('%B', tz=tz_data)
+mdate1 = mdates.MonthLocator(interval=1)
+mdate2 = mdates.DateFormatter('%B', tz=tz_data)
 # One tick every 2 weeks
 # mdate1 = mdates.DayLocator(interval=15, tz=tz_data)
 # mdate2 = mdates.DateFormatter('%d-%B', tz=tz_data)
@@ -292,8 +292,8 @@ if choice_percentage == 'Percentage':
 # mdate1 = mdates.DayLocator(interval=1, tz=tz_data)
 # mdate2 = mdates.DateFormatter('%d-%m', tz=tz_data)
 # One tick every hour
-mdate1 = mdates.HourLocator(interval=1,tz=tz_data)
-mdate2 = mdates.DateFormatter('%H:%M', tz=tz_data)
+# mdate1 = mdates.HourLocator(interval=1,tz=tz_data)
+# mdate2 = mdates.DateFormatter('%H:%M', tz=tz_data)
 # ----------------------------------------------------------------------------
 
 # User input : gps coordinates in Decimal Degrees
