@@ -44,8 +44,8 @@ Chose your mode :
 dt_mode = 'fixed'
 
 if dt_mode == 'fixed':
-    begin_date = pd.Timestamp('2023-04-07 02:30:00 +0200')
-    end_date = pd.Timestamp('2023-04-08 01:45:00 +0200')
+    begin_date = pd.Timestamp('2023-02-04 09:40:00 +0100')
+    end_date = pd.Timestamp('2023-02-05 08:00:00 +0100')
 elif dt_mode == 'auto':
     timestamps_file = get_timestamps()
     begin_date = pd.to_datetime(timestamps_file['timestamp'].iloc[0], format='%Y-%m-%dT%H:%M:%S.%f%z')
