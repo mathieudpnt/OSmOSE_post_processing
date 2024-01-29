@@ -176,8 +176,8 @@ plt.show()
 
 # ----------- User set mdate time xticks-----------------------------
 # One tick per month
-# mdate1 = mdates.MonthLocator(interval=1)
-# mdate2 = mdates.DateFormatter('%B', tz=tz_data)
+mdate1 = mdates.MonthLocator(interval=1)
+mdate2 = mdates.DateFormatter('%B', tz=tz_data)
 # One tick every 2 weeks
 # mdate1 = mdates.DayLocator(interval=15, tz=tz_data)
 # mdate2 = mdates.DateFormatter('%d-%B', tz=tz_data)
@@ -185,8 +185,8 @@ plt.show()
 # mdate1 = mdates.DayLocator(interval=1, tz=tz_data)
 # mdate2 = mdates.DateFormatter('%d-%m', tz=tz_data)
 # One tick every hour
-mdate1 = mdates.HourLocator(interval=1, tz=tz_data)
-mdate2 = mdates.DateFormatter('%H:%M', tz=tz_data)
+# mdate1 = mdates.HourLocator(interval=1, tz=tz_data)
+# mdate2 = mdates.DateFormatter('%H:%M', tz=tz_data)
 # -------------------------------------------------------------------
 
 # selection of the user
@@ -283,8 +283,8 @@ if choice_percentage == 'Percentage':
 
 # ----------- User set mdate time xticks-----------------------------
 # One tick per month
-# mdate1 = mdates.MonthLocator(interval=1)
-# mdate2 = mdates.DateFormatter('%B', tz=tz_data)
+mdate1 = mdates.MonthLocator(interval=1)
+mdate2 = mdates.DateFormatter('%B', tz=tz_data)
 # One tick every 2 weeks
 # mdate1 = mdates.DayLocator(interval=15, tz=tz_data)
 # mdate2 = mdates.DateFormatter('%d-%B', tz=tz_data)
@@ -292,8 +292,8 @@ if choice_percentage == 'Percentage':
 # mdate1 = mdates.DayLocator(interval=1, tz=tz_data)
 # mdate2 = mdates.DateFormatter('%d-%m', tz=tz_data)
 # One tick every hour
-mdate1 = mdates.HourLocator(interval=1,tz=tz_data)
-mdate2 = mdates.DateFormatter('%H:%M', tz=tz_data)
+# mdate1 = mdates.HourLocator(interval=1,tz=tz_data)
+# mdate2 = mdates.DateFormatter('%H:%M', tz=tz_data)
 # ----------------------------------------------------------------------------
 
 # User input : gps coordinates in Decimal Degrees
