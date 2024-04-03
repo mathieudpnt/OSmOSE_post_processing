@@ -1,51 +1,11 @@
-- file: 'C:\Users\michelma3\Bureau\PROJET SUIVI\MIRACETI\result_campagne\MIRACETI_2017_44100Hz_results.csv'
+- file: 'Y:\Bioacoustique\APOCADO2\Campagne 5\IROISE\bouts bleus\7181\analysis\C5D9\aplose\APOCADO_C5D9_ST7181_results.csv'
   timebin_new: 10
-  tz: '+00:00'
+  tz: '+01:00'
 
-- file: 'C:\Users\michelma3\Bureau\PROJET SUIVI\MIRACETI\result_campagne\MIRACETI_2017_96000Hz_results.csv'
-  timebin_new: 10
-  tz: '+00:00'
+# - file: 'Y:\Bioacoustique\APOCADO2\Campagne 5\IROISE\bouts bleus\7181\analysis\C5D9\pamguard\PG_rawdata_230205_230206.csv'
+#   timebin_new: 10
+#   tz: '+01:00'
 
-- file: 'C:\Users\michelma3\Bureau\PROJET SUIVI\MIRACETI\result_campagne\MIRACETI_2018_44100Hz_results.csv'
+- file: 'Y:\Bioacoustique\APOCADO2\Campagne 5\IROISE\bouts bleus\7181\analysis\C5D9\thalassa\thalassa_APOCADO_C5D9_ST7181_V1.csv'
   timebin_new: 10
-  tz: '+00:00'
-
-- file: 'C:\Users\michelma3\Bureau\PROJET SUIVI\MIRACETI\result_campagne\MIRACETI_2018_96000Hz_results.csv'
-  timebin_new: 10
-  tz: '+00:00'
-
-- file: 'C:\Users\michelma3\Bureau\PROJET SUIVI\MIRACETI\result_campagne\MIRACETI_2019_44100Hz_results.csv'
-  timebin_new: 10
-  tz: '+00:00'
-
-- file: 'C:\Users\michelma3\Bureau\PROJET SUIVI\MIRACETI\result_campagne\MIRACETI_2020_44100Hz_results.csv'
-  timebin_new: 10
-  tz: '+00:00'
-
-- file: 'C:\Users\michelma3\Bureau\PROJET SUIVI\MIRACETI\result_campagne\MIRACETI_2020_96000Hz_results.csv'
-  timebin_new: 10
-  tz: '+00:00'
-
-- file: 'C:\Users\michelma3\Bureau\PROJET SUIVI\MIRACETI\result_campagne\MIRACETI_2021_44100Hz_results.csv'
-  timebin_new: 10
-  tz: '+00:00'
-
-- file: 'C:\Users\michelma3\Bureau\PROJET SUIVI\MIRACETI\result_campagne\MIRACETI_2021_48000Hz_results.csv'
-  timebin_new: 10
-  tz: '+00:00'
-
-- file: 'C:\Users\michelma3\Bureau\PROJET SUIVI\MIRACETI\result_campagne\MIRACETI_2021_96000Hz_results.csv'
-  timebin_new: 10
-  tz: '+00:00'
-
-- file: 'C:\Users\michelma3\Bureau\PROJET SUIVI\MIRACETI\result_campagne\MIRACETI_2022_44100Hz_results.csv'
-  timebin_new: 10
-  tz: '+00:00'
-
-- file: 'C:\Users\michelma3\Bureau\PROJET SUIVI\MIRACETI\result_campagne\MIRACETI_2022_96000Hz_results.csv'
-  timebin_new: 10
-  tz: '+00:00'
-
-- file: 'C:\Users\michelma3\Bureau\PROJET SUIVI\MIRACETI\result_campagne\MIRACETI_2023_96000Hz_results.csv'
-  timebin_new: 10
-  tz: '+00:00'
+  tz: '+01:00'

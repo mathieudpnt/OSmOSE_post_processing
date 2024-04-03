@@ -3,85 +3,60 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 import matplotlib as mpl
 import datetime as dt
-import locale
 
-##### DATA #####
+# Load and format data
 data = pd.read_excel('L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/APOCADO - Suivi déploiements.xlsx', skiprows=[0])
-
-data = data.rename(columns={'N° campagne': 'Campagne', 'ID Soundtrap': 'Instrument', 'Date début campagne': 'Start', 'Date fin campagne': 'End'})
-data['Instrument'] = data['Instrument'].astype(str)
-data = data[~((data['Campagne'] == 7) & (data['N° déploiement'] == 1))]
-data = data[~((data['Campagne'] == 4) & (data['N° déploiement'] == 9) & (data['Instrument'] == '336363566'))]
+data = data[data['check heure Raven'] == 1]
 data = data.reset_index(drop=True)
 
+data['datetime deployment'] = [pd.Timestamp.combine(data['date deployment'][i].date(), data['time deployment'][i]) for i in range(len(data))]
+data['datetime recovery'] = [pd.Timestamp.combine(data['date recovery'][i].date(), data['time recovery'][i]) for i in range(len(data))]
 
-data['Start2'] = [pd.Timestamp.combine(data['Date début déploiement'][i].date(), data['Heure début déploiement'][i]) for i in range(len(data))]
-data['End2'] = [pd.Timestamp.combine(data['Date fin déploiement'][i].date(), data['Heure fin déploiement'][i]) for i in range(len(data))]
-
-n = 0
-for i in range(len(data)):
-    if isinstance(data['nb ST/filet'][i], int):
-        if data['nb ST/filet'][i] == 1: n += 1
-        else: n += 0.5
-    else:
-        if int(data['nb ST/filet'][i][0]) == 1: n += 1
-        else: n += 0.5
-print(n)    
-
-
-# %%
-# project start date
-proj_start = data['Start2'].min()
-
-# number of days from project start to task start
-data['start_num'] = (data['Start2'] - proj_start).dt.days
-
-# number of days from project start to end of tasks
-data['end_num'] = (data['End2'] - proj_start).dt.days
-
-# days between start and end of each task
-data['days_start_to_end'] = data['end_num'] - data['start_num']
+data_gant = pd.DataFrame(columns=['campaign', 'recorder', 'dt_deployment', 'dt_recovery'])
+campaign_list = list(set(data['campaign']))
+for C in campaign_list:
+    recorder_list = list(set(data[data['campaign'] == C]['ID recorder']))
+    for R in recorder_list:
+        date_beg = data[(data['campaign'] == C) & (data['ID recorder'] == R)]['datetime deployment'].min()
+        date_end = data[(data['campaign'] == C) & (data['ID recorder'] == R)]['datetime recovery'].max()
+        data_gant.loc[len(data_gant)] = [C, str(R), date_beg, date_end]
 
 # create a column with the color for each element of the arg variable
-arg = 'Campagne'
-list_arg = sorted(list(data[arg].unique()))
-colors = [mpl.colors.rgb2hex(i) for i in mpl.cm.tab10(range(len(list_arg)))]
+arg = 'campaign'
+list_arg = sorted(list(data_gant[arg].unique()))
+colors = [mpl.colors.rgb2hex(i) for i in mpl.cm.tab20(range(len(list_arg)))]
 c_dict = dict(zip(list_arg, colors))
-data['color'] = data[arg].map(c_dict)
+data_gant['color'] = data_gant[arg].map(c_dict)
 
-arg2 = 'Instrument'
-data = data.sort_values(arg2, ascending=False).reset_index(drop=True)
+arg2 = 'recorder'
+data_gant = data_gant.sort_values(arg2, ascending=False).reset_index(drop=True)
 
-
-# Plot
-fig, (ax, ax1) = plt.subplots(2, figsize=(16,6), gridspec_kw={'height_ratios':[6, 1]}, facecolor='#36454F')
+# %% Plot
+fig, (ax, ax1) = plt.subplots(2, figsize=(32, 12), gridspec_kw={'height_ratios': [6, 1]}, facecolor='#36454F')
 ax.set_facecolor('#36454F')
 ax1.set_facecolor('#36454F')
 
+# data to plot
+for i in range(len(data_gant)):
+    ax.barh(y=data_gant[arg2][i], width=(data_gant['dt_recovery'][i] - data_gant['dt_deployment'][i]), left=data_gant['dt_deployment'][i], color=data_gant.color[i], alpha=0.8)  # ticks
+ax.set_xlim(data_gant['dt_deployment'].min() - dt.timedelta(days=7), data_gant['dt_recovery'].max() + dt.timedelta(days=7))
 
-# bars
-ax.barh(data[arg2], data.days_start_to_end, left=data.start_num, color=data.color, alpha=0.8)# ticks
-ax.set_xlim(-10, data.end_num.max())
-
-# #labels
-# ylab_dict = dict(zip(list(data[arg2].unique()), range(len(data[arg2].unique()))))
-# for idx, row in data.iterrows():
+# labels
+# ylab_dict = dict(zip(list(data_gant[arg2].unique()), range(len(data_gant[arg2].unique()))))
+# for idx, row in data_gant.iterrows():
 #     row_lab = ylab_dict[row[arg2]]
-#     ax.text(row.start_num-0.1, row_lab, row[arg], va='center', ha='right', alpha=0.8, color='w')
+#     ax.text(row['dt_deployment']- dt.timedelta(hours=45), row_lab, row[arg], va='center', ha='right', alpha=0.8, color='w')
 
 # grid lines
 ax.set_axisbelow(True)
 ax.xaxis.grid(color='k', linestyle='dashed', alpha=0.4, which='both')
 
 # ticks
-locale.setlocale(locale.LC_TIME, '')
-first_of_month = pd.date_range(start=data.Start.min(), end=data.End.max(), freq='MS')
-xticks = [(date - proj_start).days + 1 for date in first_of_month]
-xticks_labels = [date.strftime("%B %y") for date in first_of_month]
-
+xticks = pd.date_range(start=data_gant['dt_deployment'].min(), end=data_gant['dt_recovery'].max(), freq='MS')
+xticks_labels = [date.strftime("%m/%y") for date in xticks]
 ax.set_xticks(xticks)
 ax.set_xticklabels(xticks_labels, color='w')
-ax.tick_params(axis='both', colors='w')
+ax.tick_params(axis='both', colors='w', rotation=0)
 
 # spines
 ax.spines['right'].set_visible(False)
@@ -91,6 +66,10 @@ ax.spines['left'].set_color('w')
 
 plt.suptitle('APOCADO', color='w')
 
+acqui_ST = pd.Timestamp('2022-09-01')
+ax.axvline(x=acqui_ST, ymin=0, ymax=0.15, color='w')
+ax.text(acqui_ST - dt.timedelta(days=5), ax.get_ylim()[1] * 0, 'Acquisition\n ST400HF', color='w', ha='right', va='bottom')
+
 # seasons
 # printemps : 21/03 -> jour 79
 # été : 21/06 -> jour 171
@@ -98,32 +77,24 @@ plt.suptitle('APOCADO', color='w')
 # hiver : 21/12 -> jour 355
 
 # Add vertical lines for the first day of each season
-season_dates = pd.date_range(start=data.Start.min(), end=data.End.max(), freq='D')
-season_days = [abs(date - proj_start).days for date in season_dates]
-for day in season_days:
-    if season_dates[day].timetuple().tm_yday in [80, 172, 264, 355]:
-        ax.axvline(day, color='white', linestyle='--', linewidth=1, alpha=0.5)
-        if season_dates[day].timetuple().tm_yday == 80:
-            ax.text(day, ax.get_ylim()[1] * 1.02, 'Printemps', color='white', ha='left', va='bottom')
-        if season_dates[day].timetuple().tm_yday == 172:
-            ax.text(day, ax.get_ylim()[1] * 1.02, 'Été', color='white', ha='left', va='bottom')
-        if season_dates[day].timetuple().tm_yday == 264:
-            ax.text(day, ax.get_ylim()[1] * 1.02, 'Automne', color='white', ha='left', va='bottom')
-        if season_dates[day].timetuple().tm_yday == 355:
-            ax.text(day, ax.get_ylim()[1] * 1.02, 'Hiver', color='white', ha='left', va='bottom')
+season_dates = pd.date_range(start=data['date deployment'].min(), end=data['date recovery'].max(), freq='D')
+for date in season_dates:
+    yday = date.timetuple().tm_yday
+    year = date.timetuple().tm_year
+    season_yday = [79, 171, 266, 355]
+    if yday in season_yday:
+        ax.axvline(date, color='white', linestyle='--', linewidth=1, alpha=0.5)
+        if yday == season_yday[0]:
+            ax.text(date, ax.get_ylim()[1] * 1.02, f'Printemps {year}', color='white', ha='left', va='bottom')
+        if yday == season_yday[1]:
+            ax.text(date, ax.get_ylim()[1] * 1.02, f'Été {year}', color='white', ha='left', va='bottom')
+        if yday == season_yday[2]:
+            ax.text(date, ax.get_ylim()[1] * 1.02, f'Automne {year}', color='white', ha='left', va='bottom')
+        if yday == season_yday[3]:
+            ax.text(date, ax.get_ylim()[1] * 1.02, f'Hiver {year}', color='white', ha='left', va='bottom')
 
-pd.Timestamp('2022-09-01').timetuple().tm_year
-acqui_ST = pd.Timestamp('2022-09-01').timetuple().tm_yday - proj_start.timetuple().tm_yday
-ax.axvline(x=acqui_ST, ymin=0, ymax=0.15, color='w')
-ax.text(acqui_ST - 2, ax.get_ylim()[1] * 0, 'Acquisition\ndes ST400HF', color='w', ha='right', va='bottom')
-
-# test_date = (pd.Timestamp('2023-01-01').timetuple().tm_yday+365) - proj_start.timetuple().tm_yday
-# ax.axvline(x=test_date, ymin=0, ymax=0.15, color='r')
-# ax.text(test_date-2, ax.get_ylim()[1] * 0, 'test', color='r', ha='right', va='bottom')
-
-
-# Legend
-legend_elements = [Patch(facecolor=c_dict[dep], label=dep) for dep in sorted(list(data[arg].unique()))]
+# legend
+legend_elements = [Patch(facecolor=c_dict[dep], label=dep) for dep in sorted(list(data_gant[arg].unique()))]
 legend = ax1.legend(handles=legend_elements, loc='upper center', ncol=len(legend_elements), frameon=False, title=arg)
 plt.setp(legend.get_texts(), color='w')
 legend.get_title().set_color('w')
@@ -136,3 +107,5 @@ ax1.spines['bottom'].set_visible(False)
 ax1.set_xticks([])
 ax1.set_yticks([])
 
+# font size
+plt.rcParams['font.size'] = 30

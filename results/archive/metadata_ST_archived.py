@@ -10,37 +10,45 @@ import numpy as np
 import re
 from collections import Counter
 import pytz
+
+os.chdir(r'U:/Documents_U/Git/post_processing_detections')
 from utilities.def_func import stat_box_day, stats_diel_pattern, sorting_detections, get_season
 
 # %% Import csv deployments
 
-deploy = pd.read_excel('L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/APOCADO - Suivi déploiements.xlsx', skiprows=[0])
-deploy = deploy.loc[~((deploy['N° campagne'] == 1)), :]  # deleting C1
-deploy = deploy.loc[~((deploy['N° campagne'] == 4) & (deploy['N° déploiement'] == 9)), :]  # deleting C4D9
-deploy = deploy.loc[~((deploy['N° campagne'] == 7) & (deploy['N° déploiement'] == 1)), :]  # deleting C7D1
-deploy = deploy.loc[~((deploy['N° campagne'] == 8)), :]  # deleting C8 for now
-
+deploy = pd.read_excel(r'L:\acoustock\Bioacoustique\DATASETS\APOCADO\PECHEURS_2022_PECHDAUPHIR_APOCADO\APOCADO - Suivi déploiements.xlsx', skiprows=[0])
+deploy = deploy[deploy['check heure Raven'] == 1]
 deploy = deploy.reset_index(drop=True)
 
-deploy['durations_deployments'] = [dt.datetime.combine(deploy['Date fin déploiement'][i], deploy['Heure fin déploiement'][i])
-                                   - dt.datetime.combine(deploy['Date début déploiement'][i], deploy['Heure début déploiement'][i]) for i in range(len(deploy))]
+deploy['durations_deployments'] = [dt.datetime.combine(deploy['date recovery'][i], deploy['time recovery'][i])\
+                                   - dt.datetime.combine(deploy['date deployment'][i], deploy['time deployment'][i]) for i in range(len(deploy))]
 
-deploy['season'] = [get_season(i) for i in deploy['Date début déploiement']]
+deploy['season'] = [get_season(i) for i in deploy['date deployment']]
+
+t_tot = sum(deploy['durations_deployments'], dt.timedelta()).total_seconds() / 3600
+print('-total duration: {:.0f} h'.format(t_tot))
+
+num_deploy = len(list(set(deploy['ID platform'])))  # number of unique platform, i.e. number of unique deployment
+print(f'-number of deployments: {num_deploy}')
+
+
+
 
 # %% Load all metadata files
 
-list_json = glob.glob(os.path.join('L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO', "**/metadata.json"), recursive=True)\
-    + glob.glob(os.path.join('L:/acoustock2/Bioacoustique/APOCADO2', '**/metadata.json'), recursive=True)
+path_json = [r'L:\acoustock\Bioacoustique\DATASETS\APOCADO\PECHEURS_2022_PECHDAUPHIR_APOCADO',
+            r'Y:\Bioacoustique\APOCADO2',
+            r'Z:\Bioacoustique\DATASETS\APOCADO3']
 
-list_json = [i for i in list_json if '070722' not in i]  # deleting campaing extracts of 07072022 C2D1
+list_json = [file_path for path in path_json for file_path in glob.glob(os.path.join(path, "**/metadata.json"), recursive=True)]
 
 data = []
-for file_path in tqdm(list_json):
+for file_path in tqdm(list_json, leave=True):
     with open(file_path, 'r') as i:
         data.append(json.load(i))
 data = pd.DataFrame.from_dict(data)
 
-data['df_detections'] = [sorting_detections(file=data['detection_file'][i], timebin_new=data['timebin'].tolist()[i])[0] for i in tqdm(range(len(data)))]
+data['df_detections'] = [sorting_detections(file=data['pamguard detection file'][i], timebin_new=data['pamguard timebin'].tolist()[i])[0] for i in tqdm(range(len(data)))]
 data['season'] = [get_season(i) for i in [pd.to_datetime(d) for d in data['beg_deployment']]]
 
 for i in range(len(data)):

@@ -507,6 +507,7 @@ def extract_datetime(var: str, tz: pytz._FixedOffset = None, formats=None) -> Un
                    r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}',
                    r'\d{4}_\d{2}_\d{2}_\d{2}_\d{2}_\d{2}',
                    r'\d{4}_\d{2}_\d{2}T\d{2}_\d{2}_\d{2}',
+                   r'\d{4}-\d{2}-\d{2}T\d{2}_\d{2}_\d{2}',
                    r'\d{4}\d{2}\d{2}T\d{2}\d{2}\d{2}']
     match = None
     for f in formats:
@@ -531,6 +532,8 @@ def extract_datetime(var: str, tz: pytz._FixedOffset = None, formats=None) -> Un
             dt_format = '%Y_%m_%d_%H_%M_%S'
         elif f == r'\d{4}_\d{2}_\d{2}T\d{2}_\d{2}_\d{2}':
             dt_format = '%Y_%m_%dT%H_%M_%S'
+        elif f == r'\d{4}-\d{2}-\d{2}T\d{2}_\d{2}_\d{2}':
+            dt_format = '%Y-%m-%dT%H_%M_%S'
         elif f == r'\d{4}\d{2}\d{2}T\d{2}\d{2}\d{2}':
             dt_format = '%Y%m%dT%H%M%S'
 
@@ -789,24 +792,35 @@ def export2Raven(tuple_info, timestamps, df, timebin_new, bin_height, selection_
         return df_PG2Raven, None
 
 
-def get_season(ts: dt.datetime) -> str:
+def get_season(ts: pd.Timestamp) -> str:
     ''' 'day of year' ranges for the northern hemisphere
         Parameter :
-            ts : datetime
+            ts : Timestamp
         Returns :
             season : string corresponding to the season and year of the datetime (ex : if datetime is 01/01/2023, returns 'winter 2022')
     '''
-    winter1 = range(1, 80)
-    spring = range(80, 172)
-    summer = range(172, 264)
-    autumn = range(264, 355)
-    winter2 = range(355, 367)
+    # winter1 = range(1, 80)
+    # spring = range(80, 172)
+    # summer = range(172, 264)
+    # autumn = range(264, 355)
+    # winter2 = range(355, 367)
 
-    if ts.dayofyear in spring: season = 'spring' + ' ' + str(ts.year)
-    elif ts.dayofyear in summer: season = 'summer' + ' ' + str(ts.year)
-    elif ts.dayofyear in autumn: season = 'autumn' + ' ' + str(ts.year)
-    elif ts.dayofyear in winter1: season = 'winter' + ' ' + str(ts.year - 1)
-    elif ts.dayofyear in winter2: season = 'winter' + ' ' + str(ts.year)
+    # if ts.dayofyear in spring: season = 'spring' + ' ' + str(ts.year)
+    # elif ts.dayofyear in summer: season = 'summer' + ' ' + str(ts.year)
+    # elif ts.dayofyear in autumn: season = 'autumn' + ' ' + str(ts.year)
+    # elif ts.dayofyear in winter1: season = 'winter' + ' ' + str(ts.year - 1)
+    # elif ts.dayofyear in winter2: season = 'winter' + ' ' + str(ts.year)
+
+    winter = [1, 2, 12]
+    spring = [3, 4, 5]
+    summer = [6, 7, 8]
+    autumn = [9, 10, 11]
+
+    if ts.month in spring: season = 'spring' + ' ' + str(ts.year)
+    elif ts.month in summer: season = 'summer' + ' ' + str(ts.year)
+    elif ts.month in autumn: season = 'autumn' + ' ' + str(ts.year)
+    elif ts.month in winter and ts.month != 12: season = 'winter' + ' ' + str(ts.year - 1)
+    elif ts.month in winter and ts.month == 12: season = 'winter' + ' ' + str(ts.year)
 
     return season
 
@@ -1241,11 +1255,12 @@ def stats_diel_pattern(df_detections: pd.DataFrame, begin_date: dt.datetime, end
     return lr, BoxName
 
 
-def stat_box_day(data_test: pd.DataFrame, df_detections: pd.DataFrame) -> pd.DataFrame:
+def stat_box_day(data_test: pd.DataFrame, df_detections: pd.DataFrame, detector: str) -> pd.DataFrame:
     """ Plot detection proportions for each hour of the day
     Parameters :
         data_test : df with data infos
         df_detections : APLOSE formatted df of the detections
+        detector : name of the automatic detector to use
     Returns :
         result : df used to plot the detections
     """
@@ -1257,8 +1272,8 @@ def stat_box_day(data_test: pd.DataFrame, df_detections: pd.DataFrame) -> pd.Dat
     df_detections['season'] = [get_season(i) for i in df_detections['start_datetime']]
     df_detections['dataset'] = [i.replace('_', ' ') for i in df_detections['dataset']]
 
-    vec1 = [[data_test['beg_deployment'][i]] * len(data_test['df_detections'][i]) for i in data_test.index]
-    vec2 = [[data_test['end_deployment'][i]] * len(data_test['df_detections'][i]) for i in data_test.index]
+    vec1 = [[data_test['datetime deployment'][i]] * len(data_test[f'df {detector}'][i]) for i in data_test.index]
+    vec2 = [[data_test['datetime recovery'][i]] * len(data_test[f'df {detector}'][i]) for i in data_test.index]
     start_deploy, end_deploy = [], []
     [start_deploy.extend(inner_list) for inner_list in vec1]
     [end_deploy.extend(inner_list) for inner_list in vec2]

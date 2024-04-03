@@ -11,6 +11,7 @@ from scipy import stats
 import sys
 import os
 
+os.chdir(r'U:/Documents_U/Git/post_processing_detections')
 from utilities.def_func import sorting_detections, t_rounder, get_timestamps, input_date, suntime_hour, read_param
 
 # %% User inputs
@@ -44,8 +45,8 @@ Chose your mode :
 dt_mode = 'fixed'
 
 if dt_mode == 'fixed':
-    begin_date = pd.Timestamp('2023-02-04 09:40:00 +0100')
-    end_date = pd.Timestamp('2023-02-05 08:00:00 +0100')
+    begin_date = pd.Timestamp('2023-02-05 11:39:00 +0100')
+    end_date = pd.Timestamp('2023-02-06 08:51:00 +0100')
 elif dt_mode == 'auto':
     timestamps_file = get_timestamps()
     begin_date = pd.to_datetime(timestamps_file['timestamp'].iloc[0], format='%Y-%m-%dT%H:%M:%S.%f%z')
@@ -86,7 +87,7 @@ ax1.legend(loc='best', fontsize=10, frameon=1, framealpha=0.6)
 ax2.legend(loc='best', fontsize=10, frameon=1, framealpha=0.6)
 
 # ticks
-ax1.tick_params(axis='both', colors='w', rotation=0, labelsize=12)
+ax1.tick_params(axis='both', colors='w', rotation=0, labelsize=8)
 ax2.tick_params(axis='both', colors='w', rotation=0, labelsize=12)
 
 # labels
@@ -158,8 +159,7 @@ colors = sns.color_palette('husl', 16)
 
 # Création du camembert avec la palette 'coolwarm'
 plt.figure(figsize=(8, 8), facecolor='#36454F')
-patches, texts, autotexts = plt.pie(summary_label_percentage, labels=summary_label_percentage.index, autopct='%1.1f%%', startangle=140, colors=colors,
-                                   textprops={'color': 'w'})
+patches, texts, autotexts = plt.pie(summary_label_percentage, labels=summary_label_percentage.index, autopct='%1.1f%%', startangle=140, colors=colors, textprops={'color': 'w'})
 
 # Ajuster la couleur du texte à l'intérieur des tranches
 for autotext in autotexts:
@@ -176,8 +176,8 @@ plt.show()
 
 # ----------- User set mdate time xticks-----------------------------
 # One tick per month
-mdate1 = mdates.MonthLocator(interval=1)
-mdate2 = mdates.DateFormatter('%B', tz=tz_data)
+# mdate1 = mdates.MonthLocator(interval=1)
+# mdate2 = mdates.DateFormatter('%B', tz=tz_data)
 # One tick every 2 weeks
 # mdate1 = mdates.DayLocator(interval=15, tz=tz_data)
 # mdate2 = mdates.DateFormatter('%d-%B', tz=tz_data)
@@ -185,8 +185,8 @@ mdate2 = mdates.DateFormatter('%B', tz=tz_data)
 # mdate1 = mdates.DayLocator(interval=1, tz=tz_data)
 # mdate2 = mdates.DateFormatter('%d-%m', tz=tz_data)
 # One tick every hour
-# mdate1 = mdates.HourLocator(interval=1, tz=tz_data)
-# mdate2 = mdates.DateFormatter('%H:%M', tz=tz_data)
+mdate1 = mdates.HourLocator(interval=1, tz=tz_data)
+mdate2 = mdates.DateFormatter('%H:%M', tz=tz_data)
 # -------------------------------------------------------------------
 
 # selection of the user

@@ -1,8 +1,12 @@
 %Get main_PG parameters
 clear;clc
+cd('U:\Documents_U\Git\post_processing_detections\')
+addpath('utilities')
+addpath('utilities\pgmatlab')
+addpath('performances\MATLAB')
 
 % User inputs
-TZ = '+01:00';
+TZ = '+02:00';
 % TZ = 'Europe/Paris'; %TimeZone
 format_datestr = 'yyMMddHHmmss'; %APOCADO filename format
 % format_datestr = 'yyyy-MM-dd_HH-mm-ss'; %CETIROISE filename format
@@ -12,7 +16,7 @@ addpath(genpath(fullfile(fileparts(fileparts(pwd)), 'utilities')))
 %info written on Aplose csv file
 infoAplose.annotator = 'PAMGuard';
 infoAplose.annotation = 'Whistle and moan detector';
-infoAplose.dataset = 'C6D3_ST7178_2';
+infoAplose.dataset = 'C1D1_ST336363566';
 
 
 % Get files - Automatic
