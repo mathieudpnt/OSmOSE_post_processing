@@ -1,92 +1,59 @@
-%Get main_PG parameters
+% get main_PG parameters
 clear;clc
 cd('U:\Documents_U\Git\post_processing_detections\')
 addpath('utilities')
 addpath('utilities\pgmatlab')
 addpath('performances\MATLAB')
-
-% User inputs
-TZ = '+02:00';
-% TZ = 'Europe/Paris'; %TimeZone
-format_datestr = 'yyMMddHHmmss'; %APOCADO filename format
-% format_datestr = 'yyyy-MM-dd_HH-mm-ss'; %CETIROISE filename format
-
 addpath(genpath(fullfile(fileparts(fileparts(pwd)), 'utilities')))
 
-%info written on Aplose csv file
-infoAplose.annotator = 'PAMGuard';
-infoAplose.annotation = 'Whistle and moan detector';
-infoAplose.dataset = 'C1D1_ST336363566';
+% user inputs
+info_deploy.annotator = 'PAMGuard';
+info_deploy.annotation = 'Whistle and moan detector';
+info_deploy.dataset = 'C9D7_ST7191';
+info_deploy.timezone = '+02:00';
+info_deploy.dt_format = 'yyMMddHHmmss'; % APOCADO filename format
+% info_deploy.dt_format = 'yyyy-MM-dd_HH-mm-ss'; % CETIROISE filename format
 
 
-% Get files - Automatic
+% get wav files
 mode = 'file';
 % mode = 'folder';
+base_folder = 'L:\acoustock\Bioacoustique\DATASETS';
 
 if isequal(mode, 'file')
-    [GeneralFolderWav0, GeneralFolderWav] = uigetfile('*.wav', 'select waves', 'Multiselect', 'on', 'L:\acoustock\Bioacoustique\DATASETS');
-    GeneralFolderWav = {fileparts(GeneralFolderWav)};
-    PathWaves=[];
-    for i = 1:numel(GeneralFolderWav0)
-        PathWaves = [PathWaves; strcat(GeneralFolderWav, '\', GeneralFolderWav0{i})];
-    end
-    
-    
-    GeneralFolderWavInfo = [];
-    for i = 1:numel(PathWaves)
-        GeneralFolderWavInfo = [GeneralFolderWavInfo; dir(PathWaves{i})];
-    end
-    
+    msg = sprintf('%s - select waves', info_deploy.dataset);
+    [wav_file, folder_wav] = uigetfile('*.wav', msg, 'Multiselect', 'on', base_folder);
+    wav_path = fullfile(folder_wav,  wav_file);
+    wav_info = cellfun(@dir, wav_path);
+    folder_wav = {fileparts(folder_wav)};
+
 elseif isequal(mode, 'folder')
-    GeneralFolderWav = uigetdir2('L:\acoustock\Bioacoustique\DATASETS', 'Select wav folders');
-    GeneralFolderWavInfo = [];
-    for i = 1:numel(GeneralFolderWav)
-        GeneralFolderWavInfo = [GeneralFolderWavInfo; dir(fullfile(GeneralFolderWav{i}, '/**/*.wav'))];
+    msg = sprintf('%s - select wav folders', info_deploy.dataset);
+    folder_wav = uigetdir2(base_folder, msg);
+    wav_info = [];
+
+    for i = 1:numel(folder_wav)
+        wav_info = [wav_info; dir(fullfile(folder_wav{i}, '**/*.wav'))];
     end
-end
-subFoldersWav = string(unique(extractfield(GeneralFolderWavInfo, 'folder')'));
 
-GeneralFolderBinary = uigetdir2(fileparts(GeneralFolderWav{1}), 'Select binary folders');
-% GeneralFolderBinaryInfo = dir(fullfile(GeneralFolderBinary, '/**/*.pgdf'));
-GeneralFolderBinaryInfo = [];
-for i = 1:numel(GeneralFolderBinary)
-    GeneralFolderBinaryInfo = [GeneralFolderBinaryInfo; dir(fullfile(GeneralFolderBinary{i}, '/**/*.pgdf'))];
-end
-% subFoldersBinary = string(unique(extractfield(GeneralFolderBinaryInfo, 'folder')'));
-
-
-if numel(GeneralFolderBinaryInfo)~= numel(GeneralFolderWavInfo)
-    warning('Number of wav files (%.0f) is different than number of pgdf files (%.0f)', numel(GeneralFolderWavInfo), numel(GeneralFolderBinaryInfo))
 end
 
+binary_folder = uigetdir2(fileparts(folder_wav{1}), sprintf('%s - select binary folder', info_deploy.dataset));
+binary_info = cellfun(@dir, fullfile(binary_folder, '/**/*.pgdf'), 'UniformOutput', false);
+binary_info = vertcat(binary_info{:});
 
-% Execution of main
-%if all the data of a folder is to be analyzed, use the function main_PG
-%if only certains dates are to be analyzed in the data folder, create list
-%of selected data and use main_PG in a loop
+% main
+% if all the data of a folder is to be analyzed, use the function main_PG
+% if only certains dates are to be analyzed in the data folder,
+% create list of selected data and use main_PG in a loop
 % /!\ input parameters 2 and 3 must be char type, not string type
 
-% PG2APLOSE(infoAplose, GeneralFolderWav{1}, GeneralFolderBinary{2}, format_datestr, TZ);
+% PG2APLOSE(infoAplose, folder_wav{1}, binary_folder{2}, format_datestr, TZ);
 
-if numel(GeneralFolderBinaryInfo)== numel(GeneralFolderWavInfo)
-    for i=1:numel(GeneralFolderBinary)
-        PG2APLOSE(infoAplose, GeneralFolderWav{1}, GeneralFolderBinary{i}, format_datestr, TZ);
+if numel(binary_info)== numel(wav_info)
+    for i=1:numel(binary_folder)
+        PG2APLOSE(info_deploy, folder_wav{1}, binary_folder{i});
     end
 else
-    warning('Number of wav files is different than number of pgdf files')
-    msgbox('Number of wav files is different than number of pgdf files')
+    error('Number of wav files (%.0f) is different than number of pgdf files (%.0f)', numel(wav_info), numel(binary_info))
 end
-
-
-% Manual file selection
-% subFoldersWav = subFoldersWav(74:81);
-% subFoldersBinary = subFoldersBinary(74:81);
-% for i = 1:length(subFoldersWav)
-%     main_PG(infoAplose, char(subFoldersWav(i)), char(subFoldersBinary(i)));
-%     main_PG(infoAplose, char(subFoldersWav(i)), GeneralFolderBinary);
-% end
-
-
-
-
-
