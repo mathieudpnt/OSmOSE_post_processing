@@ -11,7 +11,7 @@ from scipy import stats
 import sys
 import os
 
-os.chdir(r'U:/Documents_U/Git/post_processing_detections')
+os.chdir(r'C:\Users\torterma\Documents\Projets_Osmose\Sciences\post_processing_detections')
 from utilities.def_func import sorting_detections, t_rounder, get_timestamps, input_date, suntime_hour, read_param
 
 # %% User inputs
