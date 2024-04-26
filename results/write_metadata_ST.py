@@ -21,9 +21,8 @@ pamguard_csv = [file for sublist in pamguard_csv for file in sublist]
 thalassa_csv = [glob.glob(os.path.join(p, r'**/thalassa_**.csv'), recursive=True) for p in path_csv]
 thalassa_csv = [file for sublist in thalassa_csv for file in sublist]
 
-deploy = pd.read_excel(r'L:\acoustock\Bioacoustique\DATASETS\APOCADO\PECHEURS_2022_PECHDAUPHIR_APOCADO\APOCADO - Suivi déploiements.xlsx', skiprows=[0])
-deploy = deploy.loc[(deploy['campaign'] >= 1) & (deploy['campaign'] <= 7)]  # keeping campaigns 1 to 7 for now
-deploy = deploy.reset_index(drop=True)
+deploy = pd.read_excel(r'L:\acoustock\Bioacoustique\DATASETS\APOCADO\PECHEURS_2022_PECHDAUPHIR_APOCADO\APOCADO - Suivi déploiements.xlsm', skiprows=[0])
+deploy = deploy.loc[(deploy['check heure Raven'] == 1)].reset_index(drop=True)
 
 deploy['duration deployment'] = [pd.Timestamp.combine(deploy['date recovery'][n], deploy['time recovery'][n])
                                  - pd.Timestamp.combine(deploy['date deployment'][n], deploy['time deployment'][n]) for n in range(len(deploy))]
@@ -106,7 +105,7 @@ for p, t in tqdm(zip(pamguard_csv, thalassa_csv), total=len(pamguard_csv), ncols
     with open(out_file, 'w+') as f:
         json.dump(metadata, f, indent=1, ensure_ascii=False)
 
-# %% reorganize folder structures of deployements
+# %% reorganize folder structures of deployments
 '''
 import shutil
 list_json = glob.glob(os.path.join(r'L:/acoustock2/Bioacoustique/APOCADO2/campagne 7', "**/metadata.json"), recursive=True)

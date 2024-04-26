@@ -10,6 +10,8 @@ import numpy as np
 import easygui
 from scipy import stats
 import os
+
+os.chdir(r'U:/Documents_U/Git/post_processing_detections')
 from utilities.def_func import get_csv_file, sorting_detections, input_date, t_rounder, task_status_selection, read_param
 
 # %% Load data - user inputs
@@ -53,8 +55,8 @@ if mode == 'input':
     begin_date = input_date('Enter begin datetime')
     end_date = input_date('Enter end datetime')
 elif mode == 'fixed':
-    begin_date = pd.Timestamp('2023-02-05 11:39:00 +0100')
-    end_date = pd.Timestamp('2023-02-06 08:51:00 +0100')
+    begin_date = pd.Timestamp('2022-05-05 09:40:00 +0200')
+    end_date = pd.Timestamp('2022-05-27 11:15:00 +0200')
 
 # annotators
 annotator1 = easygui.buttonbox('Select annotator 1 (reference)', 'file 1 : {0}'.format(os.path.basename(parameters[0]['file'])), info['annotators'][0]) if len(info['annotators'][0]) > 1 else info['annotators'][0][0]

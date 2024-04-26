@@ -26,6 +26,7 @@ for args in parameters:
     df_detections = pd.concat([df_detections, df_detections_file], ignore_index=True)
     info = pd.concat([info, info_file], ignore_index=True)
 
+'''
 time_bin = list(set(info['max_time'].explode()))
 fmax = list(set(info['max_freq'].explode()))
 annotators = list(set(info['annotators'].explode()))
@@ -35,6 +36,13 @@ if len(tz_data) == 1:
     [tz_data] = tz_data
 else:
     raise Exception('More than one timezone in the detections')
+'''
+time_bin = list(info['max_time'].explode())
+fmax = list(info['max_freq'].explode())
+annotators = list(info['annotators'].explode())
+labels = list(info['labels'].explode())
+tz_data = list(info['tz_data'].explode())
+
 
 '''
 Chose your mode :
@@ -45,8 +53,8 @@ Chose your mode :
 dt_mode = 'fixed'
 
 if dt_mode == 'fixed':
-    begin_date = pd.Timestamp('2023-02-05 11:39:00 +0100')
-    end_date = pd.Timestamp('2023-02-06 08:51:00 +0100')
+    begin_date = pd.Timestamp('2023-02-11 12:10:00 +0100')
+    end_date = pd.Timestamp('2023-02-12 08:50:00 +0100')
 elif dt_mode == 'auto':
     timestamps_file = get_timestamps()
     begin_date = pd.to_datetime(timestamps_file['timestamp'].iloc[0], format='%Y-%m-%dT%H:%M:%S.%f%z')
@@ -55,12 +63,12 @@ elif dt_mode == 'input':
     begin_date = input_date('Enter begin date')
     end_date = input_date('Enter end date')
 
-print("\ntime_bin: ", str(time_bin), "s", end='')
-print("\nfmax: ", str(fmax), "Hz", end='')
-print('\nannotators: ', str(annotators), end='')
-print('\nlabels: ', str(labels), end='')
-print('\nBegin date: {0}'.format(begin_date), end='')
-print('\nEnd date: {0}'.format(end_date), end='')
+print(f"\ntime_bin: {time_bin}", end='')
+print(f"\nfmax: {fmax}", end='')
+print(f"\nannotators: {annotators}", end='')
+print(f"\nlabels: {labels}", end='')
+print(f'\nBegin date: {begin_date}', end='')
+print(f'\nEnd date: {end_date}', end='')
 
 # %% Overview plots
 
@@ -96,6 +104,11 @@ ax1.set_xlabel('Labels', fontsize=15, rotation=0, color='w')
 ax2.set_ylabel('Number of annotated calls', fontsize=15, color='w')
 ax2.set_xlabel('Annotator', fontsize=15, rotation=0, color='w')
 
+# titles
+title_font = {'fontsize': 15, 'color': 'w', 'fontweight': 'bold'}
+ax1.set_title('Number of annotations per label', color='w', fontdict=title_font, pad=5)
+ax2.set_title('Number of annotations per annotator', color='w', fontdict=title_font, pad=5)
+
 # spines
 ax1.spines['right'].set_visible(False)
 ax1.spines['top'].set_visible(False)
@@ -112,11 +125,6 @@ ax1.yaxis.grid(color='gray', linestyle='--')
 ax2.yaxis.grid(color='gray', linestyle='--')
 ax1.set_axisbelow(True)
 ax2.set_axisbelow(True)
-
-# titles
-title_font = {'fontsize': 15, 'color': 'w', 'fontweight': 'bold'}
-ax1.set_title('Number of annotations per label', color='w', fontdict=title_font, pad=5);
-ax2.set_title('Number of annotations per annotator', color='w', fontdict=title_font, pad=5);
 
 
 # %% % labels / species
@@ -185,8 +193,8 @@ plt.show()
 # mdate1 = mdates.DayLocator(interval=1, tz=tz_data)
 # mdate2 = mdates.DateFormatter('%d-%m', tz=tz_data)
 # One tick every hour
-mdate1 = mdates.HourLocator(interval=1, tz=tz_data)
-mdate2 = mdates.DateFormatter('%H:%M', tz=tz_data)
+mdate1 = mdates.HourLocator(interval=1, tz=tz_data[0])
+mdate2 = mdates.DateFormatter('%H:%M', tz=tz_data[0])
 # -------------------------------------------------------------------
 
 # selection of the user
@@ -581,7 +589,7 @@ ax.tick_params(axis='y')
 fig.suptitle('[{0}/{1}] VS [{2}/{3}]'.format(annot_ref1, label_ref1, annot_ref2, label_ref2), color='w', fontsize=24, y=1.02)
 
 ax.xaxis.set_major_locator(mdates.HourLocator(interval=4))
-ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M', tz=tz_data))
+ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M', tz=tz_data[0]))
 plt.xlim(time_vector[0], time_vector[-1])
 # plt.xlim(time_vector[0], dt.datetime.strptime('2022-07-07T22-00-00', '%Y-%m-%dT%H-%M-%S'))
 ax.grid(color='w', linestyle='-', linewidth=0.2, axis='both')

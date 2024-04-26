@@ -8,7 +8,7 @@ addpath(genpath(fullfile(fileparts(fileparts(pwd)), 'utilities')))
 % user inputs
 info_deploy.annotator = 'PAMGuard';
 info_deploy.annotation = 'Whistle and moan detector';
-info_deploy.dataset = 'C9D8_ST7191';
+info_deploy.dataset = 'C7D12_ST7190';
 info_deploy.timezone = '+02:00';
 info_deploy.dt_format = 'yyMMddHHmmss'; % APOCADO filename format
 % info_deploy.dt_format = 'yyyy-MM-dd_HH-mm-ss'; % CETIROISE filename format

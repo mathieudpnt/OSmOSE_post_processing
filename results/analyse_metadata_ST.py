@@ -9,6 +9,8 @@ from collections import Counter
 import glob
 import json
 from scipy.stats import norm
+import seaborn as sns
+import random
 
 os.chdir(r'U:/Documents_U/Git/post_processing_detections')
 from utilities.def_func import stat_box_day, stats_diel_pattern, sorting_detections, get_season
@@ -21,9 +23,8 @@ timebin2 = 1  # en minute
 
 # %% Import csv deployments
 
-deploy = pd.read_excel('L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/APOCADO - Suivi déploiements.xlsx', skiprows=[0])
-deploy = deploy[deploy['check heure Raven'] == 1]
-deploy = deploy.reset_index(drop=True)
+deploy = pd.read_excel('L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/APOCADO - Suivi déploiements.xlsm', skiprows=[0])
+deploy = deploy[deploy['check heure Raven'] == 1].reset_index(drop=True)
 
 deploy['datetime deployment'] = [pd.Timestamp.combine(deploy['date deployment'][i], deploy['time deployment'][i]) for i in range(len(deploy))]
 deploy['datetime recovery'] = [pd.Timestamp.combine(deploy['date recovery'][i], deploy['time recovery'][i]) for i in range(len(deploy))]
@@ -122,8 +123,18 @@ for i in tqdm(range(len(data))):
     f1 = data['pamguard detection file'][i]
     f2 = data['thalassa detection file'][i]
     tz = data['datetime deployment'][i][-5:-2] + ':' + data['datetime deployment'][i][-2:]
-    df_detections_file1, info_file = sorting_detections(file=f1, tz=tz, timebin_new=timebin1)
-    df_detections_file2, info_file = sorting_detections(file=f2, tz=tz, timebin_new=timebin1)
+    df_detections_file1, info_file = sorting_detections(file=f1,
+                                                        tz=tz,
+                                                        timebin_new=timebin1,
+                                                        date_begin=data['datetime deployment'][i],
+                                                        date_end=data['datetime recovery'][i]
+                                                        )
+    df_detections_file2, info_file = sorting_detections(file=f2,
+                                                        tz=tz,
+                                                        timebin_new=timebin1,
+                                                        date_begin=data['datetime deployment'][i],
+                                                        date_end=data['datetime recovery'][i]
+                                                        )
     df_detections_pamguard.append(df_detections_file1)
     df_detections_thalassa.append(df_detections_file2)
 data['df pamguard'] = df_detections_pamguard
@@ -140,6 +151,65 @@ data['duration'] = [pd.Timedelta(d) for d in data['duration']]
 for d in detector:
     data[f'detection rate {d}'] = [(len(data[f'df {d}'][i]) / (pd.to_timedelta(data['duration'][i]).total_seconds() / 86400)) / (86400 / timebin1) for i in range(len(data))]
 
+# %% Save the DataFrame to a file using pickle
+import pickle
+with open(r'L:\acoustock\Bioacoustique\DATASETS\APOCADO\PECHEURS_2022_PECHDAUPHIR_APOCADO\data.pkl', 'wb') as f:
+    pickle.dump(data, f)
+
+# %% load the DataFrame from the file
+with open(r'L:\acoustock\Bioacoustique\DATASETS\APOCADO\PECHEURS_2022_PECHDAUPHIR_APOCADO\data.pkl', 'rb') as f:
+    data2 = pickle.load(f)
+# %% hourly detection rate
+
+for d in detector:
+    hourly_detection_rate, mean_hourly_detection_rate = [], []
+    for i in tqdm(range(len(data))):
+        data['datetime deployment'][i]
+        data['datetime recovery'][i]
+
+        timestamp_range_begin = data['datetime deployment'][i].replace(minute=0, second=0, microsecond=0)
+
+        if (data['datetime recovery'][i].minute != 0) | (data['datetime recovery'][i].second != 0) | (data['datetime recovery'][i].microsecond != 0):
+            timestamp_range_end = data['datetime recovery'][i].replace(hour=data['datetime recovery'][i].hour + 1, minute=0, second=0, microsecond=0)
+        else:
+            timestamp_range_end = data['datetime recovery'][i]
+
+        timestamp_range = pd.date_range(start=timestamp_range_begin, end=timestamp_range_end, freq='1h').tolist()
+        start_series = pd.Series(data[f'df {d}'][i]['start_datetime'])
+        count_per_interval = start_series.groupby(pd.cut(start_series, timestamp_range, include_lowest=True, right=False), observed=True).count()
+        coef_norm_begin = 1 - ((data['datetime deployment'][i] - timestamp_range_begin).seconds // 60) / 60
+        coef_norm_end = 1 - ((timestamp_range_end - data['datetime recovery'][i]).seconds // 60) / 60
+        count_per_interval.iloc[0] = round(count_per_interval.iloc[0] / coef_norm_begin) if count_per_interval.iloc[0] / coef_norm_begin < 60 else 60
+        count_per_interval.iloc[-1] = round(count_per_interval.iloc[-1] / coef_norm_end) if count_per_interval.iloc[-1] / coef_norm_end < 60 else 60
+        count_per_interval = count_per_interval.reindex(timestamp_range[:-1], fill_value=0).to_frame()
+        count_per_interval.rename(columns={'start_datetime': 'detection'}, inplace=True)
+        count_per_interval['ID'] = data['platform'][i] + '_ST' + data['recorder'][i]
+        count_per_interval['coverage'] = [coef_norm_begin] + [1] * (len(count_per_interval) - 2) + [coef_norm_end]
+        count_per_interval['hourly detection rate'] = list(count_per_interval['detection'].values / 60)
+
+        hourly_detection_rate.append(count_per_interval)
+        mean_hourly_detection_rate.append(count_per_interval['hourly detection rate'].mean())
+
+    data[f'{d} hourly detection rate'] = hourly_detection_rate
+    data[f'{d} mean hourly detection rate'] = mean_hourly_detection_rate
+
+df_hourly_p, df_hourly_t = pd.DataFrame(), pd.DataFrame()
+for i in range(len(data)):
+    df_hourly_p = pd.concat([df_hourly_p, data['pamguard hourly detection rate'][i]])
+    df_hourly_t = pd.concat([df_hourly_t, data['thalassa hourly detection rate'][i]])
+
+bins = range(0, 101, 2)
+sns.histplot(100 * df_hourly_p['hourly detection rate'], bins=bins, kde=True, color='teal', label='pamguard')
+sns.histplot(100 * df_hourly_t['hourly detection rate'], bins=bins, kde=True, color='orange', label='thalassa')
+
+plt.xlabel('Percentage')
+plt.ylabel('Density')
+plt.title('Hourly detection rate distribution')
+plt.legend()
+plt.show()
+
+selection = df_hourly_p[(df_hourly_p['hourly detection rate'] == 1) & (df_hourly_p['coverage'] == 1)].sample(n=5)
+selection = df_hourly_t[(df_hourly_t['hourly detection rate'] == 1) & (df_hourly_t['coverage'] == 1)].sample(n=5)
 # %% filtering data
 
 detector = ['pamguard', 'thalassa']
