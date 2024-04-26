@@ -57,6 +57,8 @@ if mode == 'input':
 elif mode == 'fixed':
     begin_date = pd.Timestamp('2022-05-05 09:40:00 +0200')
     end_date = pd.Timestamp('2022-05-27 11:15:00 +0200')
+    begin_date = pd.Timestamp('2023-08-09 00:36:20 +0200')
+    end_date = pd.Timestamp('2023-08-10 00:00:00 +0200')
 
 # annotators
 annotator1 = easygui.buttonbox('Select annotator 1 (reference)', 'file 1 : {0}'.format(os.path.basename(parameters[0]['file'])), info['annotators'][0]) if len(info['annotators'][0]) > 1 else info['annotators'][0][0]

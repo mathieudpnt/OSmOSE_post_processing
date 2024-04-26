@@ -1,11 +1,3 @@
-- file: 'Y:\Bioacoustique\APOCADO2\Campagne 5\IROISE\bouts bleus\7181\analysis\C5D9\aplose\APOCADO_C5D9_ST7181_results.csv'
-  timebin_new: 10
-  tz: '+01:00'
-
-# - file: 'Y:\Bioacoustique\APOCADO2\Campagne 5\IROISE\bouts bleus\7181\analysis\C5D9\pamguard\PG_rawdata_230205_230206.csv'
-#   timebin_new: 10
-#   tz: '+01:00'
-
-- file: 'Y:\Bioacoustique\APOCADO2\Campagne 5\IROISE\bouts bleus\7181\analysis\C5D9\thalassa\thalassa_APOCADO_C5D9_ST7181_V1.csv'
-  timebin_new: 10
-  tz: '+01:00'
+- file: 'C:\Users\torterma\Documents\Projets_OFB\CETIROISE\Analyses\FPOD\PHASE_5\CETIROISE_POINT_F_Phase_5_HF_results.csv'
+  timebin_new: 60
+  tz: '+00:00'
