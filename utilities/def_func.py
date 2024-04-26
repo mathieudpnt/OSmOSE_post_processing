@@ -81,6 +81,7 @@ def sorting_detections(file: List[str], tz: pytz._FixedOffset = None, date_begin
             delimiter = ','
 
     df = pd.read_csv(file, sep=delimiter)
+    df = df.dropna(subset=['annotation']) # Drop the lines with only comments
     list_annotators = list(df['annotator'].drop_duplicates())
     list_labels = list(df['annotation'].drop_duplicates())
     max_freq = int(max(df['end_frequency']))
