@@ -25,25 +25,23 @@ if isequal(mode, 'file')
     msg = sprintf('%s - select waves', info_deploy.dataset);
     [wav_file, folder_wav] = uigetfile('*.wav', msg, 'Multiselect', 'on', base_folder);
     wav_path = fullfile(folder_wav,  wav_file);
-    wav_info = cellfun(@dir, wav_path);
+    wav_dir = cellfun(@dir, wav_path);
     folder_wav = {fileparts(folder_wav)};
-
 elseif isequal(mode, 'folder')
     msg = sprintf('%s - select wav folders', info_deploy.dataset);
     folder_wav = uigetdir2(base_folder, msg);
-    wav_info = cellfun(@dir, fullfile(folder_wav, '**/*.wav'));
+    wav_dir = cellfun(@dir, fullfile(folder_wav, '**/*.wav'));
 end
 
 binary_folder = uigetdir2(fileparts(folder_wav{1}), sprintf('%s - select binary folder', info_deploy.dataset));
-binary_info = cellfun(@dir, fullfile(binary_folder, '/**/*.pgdf'), 'UniformOutput', false);
-binary_info = vertcat(binary_info{:});
+binary_dir = cellfun(@dir, fullfile(binary_folder, '/**/*.pgdf'), 'UniformOutput', false);
+binary_dir = vertcat(binary_dir{:})';
 
 % read and export data from binary files to APLOSE csv / Raven txt files
-% PG2APLOSE(info_deploy, folder_wav{1}, binary_folder{2});
-if numel(binary_info)== numel(wav_info)
+if numel(binary_dir) == numel(wav_dir)
     for i=1:numel(binary_folder)
-        PG2APLOSE(info_deploy, folder_wav{1}, binary_folder{i});
+        PG2APLOSE(info_deploy, wav_dir, binary_dir, binary_folder{i});
     end
 else
-    error('Number of wav files (%.0f) is different than number of pgdf files (%.0f)', numel(wav_info), numel(binary_info))
+    error('Number of wav files (%.0f) is different than number of pgdf files (%.0f)', numel(wav_dir), numel(binary_dir))
 end
