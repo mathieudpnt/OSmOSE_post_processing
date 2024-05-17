@@ -1,8 +1,81 @@
-- file: 'C:\Users\torterma\Documents\Projets_OFB\CETIROISE\Analyses\FPOD\PHASE_5\CETIROISE_POINT_F_Phase_5_HF_results.csv'
-  timebin_new: 60
-  tz: '+00:00'
+# - file: 'L:\acoustock\Bioacoustique\DATASETS\APOCADO\PECHEURS_2022_PECHDAUPHIR_APOCADO\Campagne 2\IROISE\335556632\analysis\C2D1\aplose\APOCADO_C2D1_07072022_results.csv'
+#   timestamp_file: 'L:\acoustock\Bioacoustique\DATASETS\APOCADO\PECHEURS_2022_PECHDAUPHIR_APOCADO\Campagne 2\IROISE\335556632\analysis\C2D1\10_144000\timestamp.csv'
+#   timebin_new: 60
+# - file: 'L:\acoustock\Bioacoustique\DATASETS\APOCADO\PECHEURS_2022_PECHDAUPHIR_APOCADO\Campagne 2\IROISE\335556632\analysis\C2D1\pamguard\PG_rawdata_220706_220708.csv'
+#   timestamp_file: 'L:\acoustock\Bioacoustique\DATASETS\APOCADO\PECHEURS_2022_PECHDAUPHIR_APOCADO\Campagne 2\IROISE\335556632\analysis\C2D1\10_144000\timestamp.csv'
+#   timebin_new: 60
+#   date_begin: '2022-07-06 23:59:47 +0200'
+#   date_end: '2022-07-08 01:59:28 +0200'
+#   # date_begin: '2022-07-07 09:00:00 +0200'
+#   # date_end: '2022-07-08 00:00:00 +0200'
+ 
+  # - file: 'Y:\Bioacoustique\APOCADO2\Campagne 5\IROISE\bouts bleus\7181\analysis\C5D18\aplose\APOCADO_C5D18_ST7181_results.csv'
+  #   timestamp_file: 'Y:\Bioacoustique\APOCADO2\Campagne 5\IROISE\bouts bleus\7181\analysis\C5D18\10_128000\timestamp.csv'
+  #   timebin_new: 60
+  # - file: 'Y:\Bioacoustique\APOCADO2\Campagne 5\IROISE\bouts bleus\7181\analysis\C5D18\pamguard\PG_rawdata_230205_230206.csv'
+  #   timestamp_file: 'Y:\Bioacoustique\APOCADO2\Campagne 5\IROISE\bouts bleus\7181\analysis\C5D18\10_128000\timestamp.csv'
+  #   timebin_new: 60
+     
+  # - file: 'Y:\Bioacoustique\APOCADO2\Campagne 6\PASSE PARTOUT\bouts rouges\7178\analysis\C6D3\aplose\APOCADO_C6D3 ST7178_results.csv'
+  #   timestamp_file: 'Y:\Bioacoustique\APOCADO2\Campagne 6\PASSE PARTOUT\bouts rouges\7178\analysis\C6D3\10_128000\timestamp.csv'
+  #   timebin_new: 60
+  # - file: 'Y:\Bioacoustique\APOCADO2\Campagne 6\PASSE PARTOUT\bouts rouges\7178\analysis\C6D3\pamguard\PG_rawdata_230211_230212.csv'
+  #   timestamp_file: 'Y:\Bioacoustique\APOCADO2\Campagne 6\PASSE PARTOUT\bouts rouges\7178\analysis\C6D3\10_128000\timestamp.csv'
+  #   fmin_filter: 11000
+  #   timebin_new: 60
+ 
+   # - file: 'Y:\Bioacoustique\APOCADO2\Campagne 6\PASSE PARTOUT\bouts rouges\7180\analysis\C6D3\aplose\APOCADO_C6D3 ST7180_results_16-01-2024.csv'
+   #   timestamp_file: 'Y:\Bioacoustique\APOCADO2\Campagne 6\PASSE PARTOUT\bouts rouges\7180\analysis\C6D3\10_128000\timestamp.csv'
+   #   timebin_new: 60
+   #   tz: '+01:00'
+   # - file: 'Y:\Bioacoustique\APOCADO2\Campagne 6\PASSE PARTOUT\bouts rouges\7180\analysis\C6D3\pamguard\PG_rawdata_230211_230212.csv'
+   #   timestamp_file: 'Y:\Bioacoustique\APOCADO2\Campagne 6\PASSE PARTOUT\bouts rouges\7180\analysis\C6D3\10_128000\timestamp.csv'
+   #   fmin_filter: 11000
+   #   timebin_new: 60
+   #   tz: '+01:00'
 
-
-- file: 'C:\Users\torterma\Documents\Projets_OFB\CETIROISE\Analyses\FPOD\PHASE_5\POINT_F_Marsouins_minute_positive_PHASE_5.csv_APLOSE.csv'
+   # - file: 'Y:\Bioacoustique\APOCADO2\Campagne 7\Gwalarn II\7189\analysis\C7D6\aplose\APOCADO_C7D6_ST7189_results.csv'
+   #   timestamp_file: 'Y:\Bioacoustique\APOCADO2\Campagne 7\Gwalarn II\7189\analysis\C7D6\10_128000\timestamp.csv'
+   #   timebin_new: 60
+   # - file: 'Y:\Bioacoustique\APOCADO2\Campagne 7\Gwalarn II\7189\analysis\C7D6\pamguard\PG_rawdata_230410_230411.csv'
+   #   timestamp_file: 'Y:\Bioacoustique\APOCADO2\Campagne 7\Gwalarn II\7189\analysis\C7D6\10_128000\timestamp.csv'
+   #   fmin_filter: 11000
+   #   timebin_new: 60
+#########################
+#thalassa###############
+- file: 'L:\acoustock\Bioacoustique\DATASETS\APOCADO\PECHEURS_2022_PECHDAUPHIR_APOCADO\Campagne 2\IROISE\335556632\analysis\C2D1\aplose\APOCADO_C2D1_07072022_results.csv'
+  timestamp_file: 'L:\acoustock\Bioacoustique\DATASETS\APOCADO\PECHEURS_2022_PECHDAUPHIR_APOCADO\Campagne 2\IROISE\335556632\analysis\C2D1\10_144000\timestamp.csv'
   timebin_new: 60
-  tz: '+00:00'
+- file: 'L:\acoustock\Bioacoustique\DATASETS\APOCADO\PECHEURS_2022_PECHDAUPHIR_APOCADO\Campagne 2\IROISE\335556632\analysis\C2D1\thalassa\thalassa_C2D1_ST335556632.csv'
+  timestamp_file: 'L:\acoustock\Bioacoustique\DATASETS\APOCADO\PECHEURS_2022_PECHDAUPHIR_APOCADO\Campagne 2\IROISE\335556632\analysis\C2D1\10_144000\timestamp.csv'
+  timebin_new: 60
+  date_begin: '2022-07-06 23:59:47 +0200'
+  date_end: '2022-07-08 01:59:28 +0200'
+
+# - file: 'Y:\Bioacoustique\APOCADO2\Campagne 5\IROISE\bouts bleus\7181\analysis\C5D18\aplose\APOCADO_C5D18_ST7181_results.csv'
+#   timestamp_file: 'Y:\Bioacoustique\APOCADO2\Campagne 5\IROISE\bouts bleus\7181\analysis\C5D18\10_128000\timestamp.csv'
+#   timebin_new: 60
+# - file: 'Y:\Bioacoustique\APOCADO2\Campagne 5\IROISE\bouts bleus\7181\analysis\C5D18\thalassa\thalassa_C5D18_ST7181.csv'
+#   timestamp_file: 'Y:\Bioacoustique\APOCADO2\Campagne 5\IROISE\bouts bleus\7181\analysis\C5D18\10_128000\timestamp.csv'
+#   timebin_new: 60
+
+# - file: 'Y:\Bioacoustique\APOCADO2\Campagne 6\PASSE PARTOUT\bouts rouges\7178\analysis\C6D3\aplose\APOCADO_C6D3 ST7178_results.csv'
+#   timestamp_file: 'Y:\Bioacoustique\APOCADO2\Campagne 6\PASSE PARTOUT\bouts rouges\7178\analysis\C6D3\10_128000\timestamp.csv'
+#   timebin_new: 60
+# - file: 'Y:\Bioacoustique\APOCADO2\Campagne 6\PASSE PARTOUT\bouts rouges\7178\analysis\C6D3\thalassa\thalassa_C6D3_ST7178.csv'
+#   timestamp_file: 'Y:\Bioacoustique\APOCADO2\Campagne 6\PASSE PARTOUT\bouts rouges\7178\analysis\C6D3\10_128000\timestamp.csv'
+#   timebin_new: 60
+ 
+# - file: 'Y:\Bioacoustique\APOCADO2\Campagne 6\PASSE PARTOUT\bouts rouges\7180\analysis\C6D3\aplose\APOCADO_C6D3 ST7180_results_16-01-2024.csv'
+#   timestamp_file: 'Y:\Bioacoustique\APOCADO2\Campagne 6\PASSE PARTOUT\bouts rouges\7180\analysis\C6D3\10_128000\timestamp.csv'
+#   timebin_new: 60
+# - file: 'Y:\Bioacoustique\APOCADO2\Campagne 6\PASSE PARTOUT\bouts rouges\7180\analysis\C6D3\thalassa\thalassa_C6D3_ST7180.csv'
+#   timestamp_file: 'Y:\Bioacoustique\APOCADO2\Campagne 6\PASSE PARTOUT\bouts rouges\7180\analysis\C6D3\10_128000\timestamp.csv'
+#   timebin_new: 60
+
+# - file: 'Y:\Bioacoustique\APOCADO2\Campagne 7\Gwalarn II\7189\analysis\C7D6\aplose\APOCADO_C7D6_ST7189_results.csv'
+#   timestamp_file: 'Y:\Bioacoustique\APOCADO2\Campagne 7\Gwalarn II\7189\analysis\C7D6\10_128000\timestamp.csv'
+#   timebin_new: 60
+# - file: 'Y:\Bioacoustique\APOCADO2\Campagne 7\Gwalarn II\7189\analysis\C7D6\thalassa\thalassa_C7D6_ST7189.csv'
+#   timestamp_file: 'Y:\Bioacoustique\APOCADO2\Campagne 7\Gwalarn II\7189\analysis\C7D6\10_128000\timestamp.csv'
+#   timebin_new: 60

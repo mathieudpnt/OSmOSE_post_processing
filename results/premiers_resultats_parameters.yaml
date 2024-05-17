@@ -1,3 +1,18 @@
-- file: 'C:\Users\torterma\Documents\Projets_OFB\CETIROISE\Analyses\FPOD\PHASE_5\CETIROISE_POINT_F_Phase_5_HF_results.csv'
-  timebin_new: 60
-  tz: '+00:00'
+- file: 'L:\acoustock\Bioacoustique\DATASETS\APOCADO\PECHEURS_2022_PECHDAUPHIR_APOCADO\Campagne 2\IROISE\335556632\analysis\C2D1_070722\aplose\APOCADO_C2D1_07072022_results.csv'
+  tz: '+02:00'
+
+- file: 'L:\acoustock\Bioacoustique\DATASETS\APOCADO\PECHEURS_2022_PECHDAUPHIR_APOCADO\Campagne 2\IROISE\335556632\analysis\C2D1_070722\pamguard\PAMGuard_rawdata_220706_220707.csv'
+  timebin_new: 10
+  tz: '+02:00'
+
+# - file: 'L:\acoustock2\Bioacoustique\APOCADO2\Campagne 5\IROISE\bouts bleus\7181\analysis\C5D18\aplose\APOCADO_C5D18_ST7181_results.csv'
+#   tz: '+01:00'
+
+# - file: 'Y:\Bioacoustique\APOCADO2\Campagne 6\PASSE PARTOUT\bouts rouges\7178\analysis\C6D3\aplose\APOCADO_C6D3 ST7178_results.csv'
+#   tz: '+01:00'
+
+# - file: 'Y:\Bioacoustique\APOCADO2\Campagne 6\PASSE PARTOUT\bouts rouges\7180\analysis\C6D3\aplose\APOCADO_C6D3 ST7180_results_16-01-2024.csv'
+#   tz: '+01:00'
+
+# - file: 'Y:\Bioacoustique\APOCADO2\Campagne 7\Gwalarn II\7189\analysis\C7D6\aplose\APOCADO_C7D6_ST7189_results.csv'
+#   tz: '+02:00'

@@ -5,9 +5,8 @@ import matplotlib as mpl
 import datetime as dt
 
 # Load and format data
-data = pd.read_excel('L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/APOCADO - Suivi déploiements.xlsx', skiprows=[0])
-data = data[data['check heure Raven'] == 1]
-data = data.reset_index(drop=True)
+data = pd.read_excel('L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/APOCADO - Suivi déploiements.xlsm', skiprows=[0])
+data = data[data['check heure Raven'] == 1].reset_index(drop=True)
 
 data['datetime deployment'] = [pd.Timestamp.combine(data['date deployment'][i].date(), data['time deployment'][i]) for i in range(len(data))]
 data['datetime recovery'] = [pd.Timestamp.combine(data['date recovery'][i].date(), data['time recovery'][i]) for i in range(len(data))]
@@ -32,9 +31,11 @@ arg2 = 'recorder'
 data_gant = data_gant.sort_values(arg2, ascending=False).reset_index(drop=True)
 
 # %% Plot
-fig, (ax, ax1) = plt.subplots(2, figsize=(32, 12), gridspec_kw={'height_ratios': [6, 1]}, facecolor='#36454F')
-ax.set_facecolor('#36454F')
-ax1.set_facecolor('#36454F')
+plt.rcParams['font.size'] = 16
+# fig, (ax, ax1) = plt.subplots(2, figsize=(32, 12), gridspec_kw={'height_ratios': [6, 1]}, facecolor='#36454F')
+fig, (ax, ax1) = plt.subplots(2, figsize=(20, 8), gridspec_kw={'height_ratios': [6, 1]})
+# ax.set_facecolor('#36454F')
+# ax1.set_facecolor('#36454F')
 
 # data to plot
 for i in range(len(data_gant)):
@@ -55,20 +56,25 @@ ax.xaxis.grid(color='k', linestyle='dashed', alpha=0.4, which='both')
 xticks = pd.date_range(start=data_gant['dt_deployment'].min(), end=data_gant['dt_recovery'].max(), freq='MS')
 xticks_labels = [date.strftime("%m/%y") for date in xticks]
 ax.set_xticks(xticks)
-ax.set_xticklabels(xticks_labels, color='w')
-ax.tick_params(axis='both', colors='w', rotation=0)
+# ax.set_xticklabels(xticks_labels, color='w')
+ax.set_xticklabels(xticks_labels)
+ax.tick_params(axis='x', rotation=0)
+# ax.tick_params(axis='both', colors='w', rotation=0)
 
 # spines
 ax.spines['right'].set_visible(False)
 ax.spines['top'].set_visible(False)
-ax.spines['bottom'].set_color('w')
-ax.spines['left'].set_color('w')
+# ax.spines['bottom'].set_color('w')
+# ax.spines['left'].set_color('w')
 
-plt.suptitle('APOCADO', color='w')
+plt.suptitle('APOCADO')
+# plt.suptitle('APOCADO', color='w')
 
 acqui_ST = pd.Timestamp('2022-09-01')
-ax.axvline(x=acqui_ST, ymin=0, ymax=0.15, color='w')
-ax.text(acqui_ST - dt.timedelta(days=5), ax.get_ylim()[1] * 0, 'Acquisition\n ST400HF', color='w', ha='right', va='bottom')
+# ax.axvline(x=acqui_ST, ymin=0, ymax=0.15, color='w')
+ax.axvline(x=acqui_ST, ymin=0, ymax=0.15, color='black')
+# ax.text(acqui_ST - dt.timedelta(days=5), ax.get_ylim()[1] * 0, 'Acquisition\n ST400HF', color='w', ha='right', va='bottom')
+ax.text(acqui_ST - dt.timedelta(days=5), ax.get_ylim()[1] * 0, 'Acquisition\n ST400HF', color='black', ha='right', va='bottom')
 
 # seasons
 # printemps : 21/03 -> jour 79
@@ -83,21 +89,24 @@ for date in season_dates:
     year = date.timetuple().tm_year
     season_yday = [79, 171, 266, 355]
     if yday in season_yday:
-        ax.axvline(date, color='white', linestyle='--', linewidth=1, alpha=0.5)
+        # ax.axvline(date, color='white', linestyle='--', linewidth=1, alpha=0.5)
+        ax.axvline(date, color='black', linestyle='--', linewidth=1, alpha=0.5)
         if yday == season_yday[0]:
-            ax.text(date, ax.get_ylim()[1] * 1.02, f'Printemps {year}', color='white', ha='left', va='bottom')
+            ax.text(date, ax.get_ylim()[1] * 1.02, f'Printemps {year}', color='black', ha='left', va='bottom')
         if yday == season_yday[1]:
-            ax.text(date, ax.get_ylim()[1] * 1.02, f'Été {year}', color='white', ha='left', va='bottom')
+            ax.text(date, ax.get_ylim()[1] * 1.02, f'Été {year}', color='black', ha='left', va='bottom')
         if yday == season_yday[2]:
-            ax.text(date, ax.get_ylim()[1] * 1.02, f'Automne {year}', color='white', ha='left', va='bottom')
+            ax.text(date, ax.get_ylim()[1] * 1.02, f'Automne {year}', color='black', ha='left', va='bottom')
         if yday == season_yday[3]:
-            ax.text(date, ax.get_ylim()[1] * 1.02, f'Hiver {year}', color='white', ha='left', va='bottom')
+            ax.text(date, ax.get_ylim()[1] * 1.02, f'Hiver {year}', color='black', ha='left', va='bottom')
 
 # legend
 legend_elements = [Patch(facecolor=c_dict[dep], label=dep) for dep in sorted(list(data_gant[arg].unique()))]
-legend = ax1.legend(handles=legend_elements, loc='upper center', ncol=len(legend_elements), frameon=False, title=arg)
-plt.setp(legend.get_texts(), color='w')
-legend.get_title().set_color('w')
+legend = ax1.legend(handles=legend_elements, loc='upper center', ncols=len(legend_elements)//2, frameon=False, title=arg)
+# plt.setp(legend.get_texts(), color='w')
+plt.setp(legend.get_texts(), color='black')
+# legend.get_title().set_color('w')
+legend.get_title().set_color('black')
 
 # clean second axis
 ax1.spines['right'].set_visible(False)
@@ -108,4 +117,4 @@ ax1.set_xticks([])
 ax1.set_yticks([])
 
 # font size
-plt.rcParams['font.size'] = 30
+plt.rcParams['font.size'] = 18

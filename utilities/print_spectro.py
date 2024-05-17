@@ -163,8 +163,44 @@ viridis_image.save(r'L:\acoustock\Bioacoustique\DATASETS\APOCADO\Documents\spect
 
 
 
+#%% print spectro like APLOSE
+import numpy as np
+import matplotlib.pyplot as plt
+
+file = r'C:\Users\dupontma2\Downloads\2023_02_05T10_51_29_1_0.npz'
+output_file = r'C:\Users\dupontma2\Downloads\2023_02_05T10_51_29_1_0.png'
+output_matrix = r'C:\Users\dupontma2\Downloads\2023_02_05T10_51_29_1_0_test.npz'
+
+with np.load(file) as data:
+    Sxx = data['Sxx']
+    freq = data['Freq']
+    time = data['Time']
+    log_spectro = data['log_spectro'].astype('float16')
 
 
+
+# Plot the spectrogram
+my_dpi = 100
+fact_x = 1.3
+fact_y = 1.3
+fig, ax = plt.subplots(
+    nrows=1,
+    ncols=1,
+    figsize=(fact_x * 1800 / my_dpi, fact_y * 512 / my_dpi),
+    dpi=my_dpi,
+)
+plt.xticks([], [])
+plt.yticks([], [])
+plt.axis('off')
+plt.pcolormesh(time, freq, log_spectro, cmap='Greys')
+plt.savefig(output_file, bbox_inches="tight", pad_inches=0, dpi=my_dpi)
+
+np.savez(
+    output_matrix,
+    log_spectro=log_spectro,
+    Freq=freq,
+    Time=time,
+    )
 
 
 

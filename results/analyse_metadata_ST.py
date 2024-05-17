@@ -10,17 +10,21 @@ import glob
 import json
 from scipy.stats import norm
 import seaborn as sns
-import random
+import pickle
+import matplotlib as mpl
+from cycler import cycler
 
 os.chdir(r'U:/Documents_U/Git/post_processing_detections')
 from utilities.def_func import stat_box_day, stats_diel_pattern, sorting_detections, get_season
 
+mpl.style.use('seaborn-v0_8-paper')
+mpl.rcParams['figure.dpi'] = 200
+mpl.rcParams["axes.prop_cycle"] = cycler('color', ['#4590d3', 'darkorange', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf'])
 # %%
+data_load = 'pickle'  # manual or pickle
 detector = ['pamguard', 'thalassa']
 arg = ['season', 'net', 'all']
-timebin1 = 60  # en seconde
-timebin2 = 1  # en minute
-
+timebin = 60  # seconds
 # %% Import csv deployments
 
 deploy = pd.read_excel('L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/APOCADO - Suivi déploiements.xlsm', skiprows=[0])
@@ -54,11 +58,30 @@ for y in list_year:
         t = (deploy[deploy['season_y'] == sy]['duration'] / deploy[deploy['season_y'] == sy]['recorder number']).sum().total_seconds() / 3600
         print(f'-{sy}: {100 * (t / t_tot):2.0f}% - {t:4.0f} h')
 
-print('\n# Duration per net #')
+print('\n# Observation effort per net type #')
 net_type = sorted(list(set(deploy['net'])))
 for net in net_type:
     duration_net = (deploy[deploy['net'] == net]['duration'] / deploy[deploy['net'] == net]['recorder number']).sum().total_seconds() / 3600
     print(f'-{net}: {duration_net:2.0f}h')
+
+print('\n# Observation effort per net type & per season #')
+net_type = sorted(list(set(deploy['net'])))
+for net in net_type:
+    list_season = list(dict.fromkeys(deploy[(deploy['net'] == net)]['season']))
+    for s in list_season:
+        duration_net = (deploy[(deploy['net'] == net) & (deploy['season'] == s)]['duration'] / deploy[(deploy['net'] == net) & (deploy['season'] == s)]['recorder number']).sum().total_seconds() / 3600
+        print(f'-{s}/{net}: {duration_net:2.0f}h')
+
+print('\n# Observation effort per net type & per season #')
+# list_season = sorted(list(set(deploy['season'])))
+list_season = ['spring', 'summer', 'autumn', 'winter']
+net_type = ['Droit', 'Trémail']
+for season in list_season:
+    # net_type = list(dict.fromkeys(deploy[(deploy['season'] == s)]['net']))
+    for net in net_type:
+        duration_net = (deploy[(deploy['net'] == net) & (deploy['season'] == season)]['duration'] / deploy[(deploy['net'] == net) & (deploy['season'] == season)]['recorder number']).sum().total_seconds() / 3600
+        print(f'-{season}/{net}: {duration_net:2.0f}h')
+
 
 print('\n# Mean duration of a deployment per net type #')
 for net in net_type:
@@ -66,115 +89,114 @@ for net in net_type:
     duration_net_std = (deploy[deploy['net'] == net]['duration'] / deploy[deploy['net'] == net]['recorder number']).std().total_seconds() / 3600
     print(f"{net}: {duration_net_mean:.0f}h +/- {duration_net_std:.0f}h")
 
-print('\n# Duration per net length #')
-[print('-{:.0f}'.format(L), 'm :', int(sum(deploy[deploy['net length'] == L]['duration'], dt.timedelta()).total_seconds() / 3600), 'h') for L in sorted(list(set(deploy['net length'])))]
-
-# distribution of deployment durations
-test = [t.total_seconds() / 3600 for t in deploy['duration']]
-fig, ax = plt.subplots(figsize=(18, 9), facecolor='#36454F')
-ax.set_facecolor('#36454F')
-ax.spines['bottom'].set_color('w')
-ax.spines['left'].set_color('w')
-ax.spines['right'].set_visible(False)
-ax.spines['top'].set_visible(False)
-ax.tick_params(axis='both', colors='w', labelsize=14)
-ax.hist(test, bins=range(0, int(1.05 * max(test)), 2))
-plt.xlabel('Hours', fontsize=16, color='w')
-plt.ylabel('Deployment number', fontsize=16, color='w')
-plt.title('Distribution of deployment durations', color='w', fontsize=18)
-ax.grid(axis='y', linestyle='--', color='w', alpha=0.5)
-
 # distribution of net lengths
 # if 2 ST are present on the net, the duration is divided by 2
 net_length = sorted(list(set(deploy['net length'])))
-x = [str(elem) for elem in net_length]
-y = [(deploy[deploy['net length'] == L]['duration'] / deploy[deploy['net length'] == L]['recorder number']).sum().total_seconds() / 3600 for L in net_length]
-fig, ax = plt.subplots(figsize=(18, 9), facecolor='#36454F')
-plt.title('Distribution of net lengths', color='w', fontsize=18)
-ax.bar(x, y)
-ax.set_facecolor('#36454F')
-ax.tick_params(axis='both', colors='w', labelsize=14)
-ax.spines['bottom'].set_color('w')
-ax.spines['left'].set_color('w')
-ax.spines['right'].set_visible(False)
-ax.spines['top'].set_visible(False)
-ax.set_ylabel('Data collected [hours]', fontsize=16, color='w')
-ax.set_xlabel('Net length [m]', fontsize=16, color='w')
-ax.grid(axis='y', linestyle='--', color='w', alpha=0.5)
+net_length_str = [str(elem) for elem in net_length]
+net_length_distrib = [(deploy[deploy['net length'] == L]['duration'] / deploy[deploy['net length'] == L]['recorder number']).sum().total_seconds() / 3600 for L in net_length]
+print('\n# Duration per net length #')
+for length, yi in zip(net_length, net_length_distrib):
+    print(f'{length}m: {round(yi)}h')
 
-# %% Load all metadata files
+# distribution of deployment durations
+duration_distrib = [t.total_seconds() / 3600 for t in deploy['duration']]
 
-path_json = [r'L:\acoustock\Bioacoustique\DATASETS\APOCADO\PECHEURS_2022_PECHDAUPHIR_APOCADO',
-             r'Y:\Bioacoustique\APOCADO2',
-             r'Z:\Bioacoustique\DATASETS\APOCADO3'
-             ]
+fig, axs = plt.subplots(1, 2, dpi=200, figsize=(10, 4), gridspec_kw={'width_ratios': [4, 3]})
+axs[0].hist(duration_distrib, bins=range(0, int(1.05 * max(duration_distrib)), 2), edgecolor='black', linewidth=0.5, zorder=2)
+axs[0].set_xlabel('Hours')
+axs[0].set_ylabel('Deployment number')
+axs[0].set_title('Distribution of deployment durations')
+axs[0].grid(axis='y', linestyle='--', alpha=0.5, zorder=1)
+axs[1].set_title('Distribution of net lengths')
+axs[1].bar(net_length_str, net_length_distrib, edgecolor='black', linewidth=1, zorder=2)
+axs[1].set_ylabel('Data collected [hours]')
+axs[1].set_xlabel('Net length [m]')
+axs[1].grid(axis='y', linestyle='--', alpha=0.5, zorder=1)
+plt.tight_layout()
+plt.show()
 
-list_json = [file_path for path in path_json for file_path in glob.glob(os.path.join(path, "**/metadata.json"), recursive=True)]
+# %% Load all metadata
 
-data = []
-for i in tqdm(range(len(list_json)), desc="Scanning metadata files"):
-    r_file = open(list_json[i], 'r')
-    data.append(json.load(r_file))
-    r_file.close()
-data = pd.DataFrame.from_dict(data)
+match data_load:
+    case 'pickle':
+        with open(r'L:\acoustock\Bioacoustique\DATASETS\APOCADO\PECHEURS_2022_PECHDAUPHIR_APOCADO\data.pkl', 'rb') as f:
+            data = pickle.load(f)
 
-df_detections_pamguard, df_detections_thalassa = [], []
+    case 'manual':
+        data = []
+        path_json = [r'L:\acoustock\Bioacoustique\DATASETS\APOCADO\PECHEURS_2022_PECHDAUPHIR_APOCADO',
+                     r'Y:\Bioacoustique\APOCADO2',
+                     r'Z:\Bioacoustique\DATASETS\APOCADO3']
+
+        list_json = [file_path for path in path_json for file_path in glob.glob(os.path.join(path, "**/metadata.json"), recursive=True)]
+
+        for i in tqdm(range(len(list_json)), desc="Scanning metadata files"):
+            r_file = open(list_json[i], 'r')
+            data.append(json.load(r_file))
+            r_file.close()
+        data = pd.DataFrame.from_dict(data)
+
+        df_detections_pamguard, df_detections_thalassa = [], []
+        for i in tqdm(range(len(data)), desc="DataFrame creation"):
+            f1 = data['pamguard detection file'][i]
+            f2 = data['thalassa detection file'][i]
+            tz = data['datetime deployment'][i][-5:-2] + ':' + data['datetime deployment'][i][-2:]
+            ts = data['segment timestamp file'][i]
+            df_detections_file1, _ = sorting_detections(file=f1,
+                                                        tz=tz,
+                                                        timebin_new=timebin,
+                                                        timestamp_file=ts,
+                                                        date_begin=data['datetime deployment'][i],
+                                                        date_end=data['datetime recovery'][i]
+                                                        )
+            df_detections_file2, _ = sorting_detections(file=f2,
+                                                        tz=tz,
+                                                        timebin_new=timebin,
+                                                        timestamp_file=ts,
+                                                        date_begin=data['datetime deployment'][i],
+                                                        date_end=data['datetime recovery'][i]
+                                                        )
+            df_detections_pamguard.append(df_detections_file1)
+            df_detections_thalassa.append(df_detections_file2)
+
+        data['df pamguard'] = df_detections_pamguard
+        data['df thalassa'] = df_detections_thalassa
+
+        data['platform'] = ['C' + str(c) + 'D' + str(d) for c, d in zip(data['campaign'], data['deployment'])]
+        data['datetime deployment'] = [pd.to_datetime(d) for d in data['datetime deployment']]
+        data['datetime recovery'] = [pd.to_datetime(d) for d in data['datetime recovery']]
+        data['season_y'] = [get_season(i) for i in data['datetime deployment']]
+        data['season'] = [i.split(' ')[0] for i in data['season_y']]
+        data['year'] = [int(s[-4:]) for s in data['season_y']]
+        data['duration'] = [pd.Timedelta(d) for d in data['duration']]
+
+        for d in detector:
+            data[f'detection rate {d}'] = [(len(data[f'df {d}'][i]) / (pd.to_timedelta(data['duration'][i]).total_seconds() / 86400)) / (86400 / timebin) for i in range(len(data))]
+
+    # save the DataFrame to a pickle file
+    with open(os.path.join(r'C:\Users\dupontma2\Desktop\data_local', f'data_timebin{timebin}s.pkl'), 'wb') as f:
+        pickle.dump(data, f)
+
+
+# %% hourly detection rate and double check selection
+
+hourly_detection_rate = []
 for i in tqdm(range(len(data))):
-    f1 = data['pamguard detection file'][i]
-    f2 = data['thalassa detection file'][i]
-    tz = data['datetime deployment'][i][-5:-2] + ':' + data['datetime deployment'][i][-2:]
-    df_detections_file1, info_file = sorting_detections(file=f1,
-                                                        tz=tz,
-                                                        timebin_new=timebin1,
-                                                        date_begin=data['datetime deployment'][i],
-                                                        date_end=data['datetime recovery'][i]
-                                                        )
-    df_detections_file2, info_file = sorting_detections(file=f2,
-                                                        tz=tz,
-                                                        timebin_new=timebin1,
-                                                        date_begin=data['datetime deployment'][i],
-                                                        date_end=data['datetime recovery'][i]
-                                                        )
-    df_detections_pamguard.append(df_detections_file1)
-    df_detections_thalassa.append(df_detections_file2)
-data['df pamguard'] = df_detections_pamguard
-data['df thalassa'] = df_detections_thalassa
 
-data['platform'] = ['C' + str(c) + 'D' + str(d) for c, d in zip(data['campaign'], data['deployment'])]
-data['datetime deployment'] = [pd.to_datetime(d) for d in data['datetime deployment']]
-data['datetime recovery'] = [pd.to_datetime(d) for d in data['datetime recovery']]
-data['season_y'] = [get_season(i) for i in data['datetime deployment']]
-data['season'] = [i.split(' ')[0] for i in data['season_y']]
-data['year'] = [int(s[-4:]) for s in data['season_y']]
-data['duration'] = [pd.Timedelta(d) for d in data['duration']]
+    timestamp_range_begin = data['datetime deployment'][i].replace(minute=0, second=0, microsecond=0)
+    if (data['datetime recovery'][i].minute != 0) | (data['datetime recovery'][i].second != 0) | (data['datetime recovery'][i].microsecond != 0):
+        timestamp_range_end = data['datetime recovery'][i].replace(hour=data['datetime recovery'][i].hour + 1, minute=0, second=0, microsecond=0)
+    else:
+        timestamp_range_end = data['datetime recovery'][i]
 
-for d in detector:
-    data[f'detection rate {d}'] = [(len(data[f'df {d}'][i]) / (pd.to_timedelta(data['duration'][i]).total_seconds() / 86400)) / (86400 / timebin1) for i in range(len(data))]
+    test = pd.read_csv(data['segment timestamp file'][i])
+    timestamp_range2 = [pd.Timestamp(ts) for ts in test['timestamp']]
+    timestamp_range2[0::360]
 
-# %% Save the DataFrame to a file using pickle
-import pickle
-with open(r'L:\acoustock\Bioacoustique\DATASETS\APOCADO\PECHEURS_2022_PECHDAUPHIR_APOCADO\data.pkl', 'wb') as f:
-    pickle.dump(data, f)
+    timestamp_range = pd.date_range(start=timestamp_range_begin, end=timestamp_range_end, freq='1h').tolist()
 
-# %% load the DataFrame from the file
-with open(r'L:\acoustock\Bioacoustique\DATASETS\APOCADO\PECHEURS_2022_PECHDAUPHIR_APOCADO\data.pkl', 'rb') as f:
-    data2 = pickle.load(f)
-# %% hourly detection rate
-
-for d in detector:
-    hourly_detection_rate, mean_hourly_detection_rate = [], []
-    for i in tqdm(range(len(data))):
-        data['datetime deployment'][i]
-        data['datetime recovery'][i]
-
-        timestamp_range_begin = data['datetime deployment'][i].replace(minute=0, second=0, microsecond=0)
-
-        if (data['datetime recovery'][i].minute != 0) | (data['datetime recovery'][i].second != 0) | (data['datetime recovery'][i].microsecond != 0):
-            timestamp_range_end = data['datetime recovery'][i].replace(hour=data['datetime recovery'][i].hour + 1, minute=0, second=0, microsecond=0)
-        else:
-            timestamp_range_end = data['datetime recovery'][i]
-
-        timestamp_range = pd.date_range(start=timestamp_range_begin, end=timestamp_range_end, freq='1h').tolist()
+    df_hourly = pd.DataFrame()
+    for d in detector:
         start_series = pd.Series(data[f'df {d}'][i]['start_datetime'])
         count_per_interval = start_series.groupby(pd.cut(start_series, timestamp_range, include_lowest=True, right=False), observed=True).count()
         coef_norm_begin = 1 - ((data['datetime deployment'][i] - timestamp_range_begin).seconds // 60) / 60
@@ -182,34 +204,41 @@ for d in detector:
         count_per_interval.iloc[0] = round(count_per_interval.iloc[0] / coef_norm_begin) if count_per_interval.iloc[0] / coef_norm_begin < 60 else 60
         count_per_interval.iloc[-1] = round(count_per_interval.iloc[-1] / coef_norm_end) if count_per_interval.iloc[-1] / coef_norm_end < 60 else 60
         count_per_interval = count_per_interval.reindex(timestamp_range[:-1], fill_value=0).to_frame()
-        count_per_interval.rename(columns={'start_datetime': 'detection'}, inplace=True)
-        count_per_interval['ID'] = data['platform'][i] + '_ST' + data['recorder'][i]
-        count_per_interval['coverage'] = [coef_norm_begin] + [1] * (len(count_per_interval) - 2) + [coef_norm_end]
-        count_per_interval['hourly detection rate'] = list(count_per_interval['detection'].values / 60)
+        count_per_interval.rename(columns={'start_datetime': f'{d} positive minute'}, inplace=True)
+        count_per_interval[f'{d} coverage'] = [coef_norm_begin] + [1] * (len(count_per_interval) - 2) + [coef_norm_end]
+        count_per_interval[f'{d} hourly detection rate'] = list(count_per_interval[f'{d} positive minute'].values / 60)
+        df_hourly = pd.concat([df_hourly, count_per_interval], axis=1)
 
-        hourly_detection_rate.append(count_per_interval)
-        mean_hourly_detection_rate.append(count_per_interval['hourly detection rate'].mean())
+    df_hourly['ID'] = data['platform'][i] + '_ST' + data['recorder'][i]
+    hourly_detection_rate.append(df_hourly)
+data['hourly detection rate'] = hourly_detection_rate
 
-    data[f'{d} hourly detection rate'] = hourly_detection_rate
-    data[f'{d} mean hourly detection rate'] = mean_hourly_detection_rate
-
-df_hourly_p, df_hourly_t = pd.DataFrame(), pd.DataFrame()
+df_hourly_all = pd.DataFrame()
 for i in range(len(data)):
-    df_hourly_p = pd.concat([df_hourly_p, data['pamguard hourly detection rate'][i]])
-    df_hourly_t = pd.concat([df_hourly_t, data['thalassa hourly detection rate'][i]])
+    df_hourly_all = pd.concat([df_hourly_all, data['hourly detection rate'][i]])
 
-bins = range(0, 101, 2)
-sns.histplot(100 * df_hourly_p['hourly detection rate'], bins=bins, kde=True, color='teal', label='pamguard')
-sns.histplot(100 * df_hourly_t['hourly detection rate'], bins=bins, kde=True, color='orange', label='thalassa')
-
+# bins = range(10, 91, 5)
+bins = range(0, 101, 5)
+for d in detector:
+    sns.histplot(100 * df_hourly_all[f'{d} hourly detection rate'], bins=bins, kde=False, label=f'{d}')
 plt.xlabel('Percentage')
 plt.ylabel('Density')
 plt.title('Hourly detection rate distribution')
 plt.legend()
 plt.show()
 
-selection = df_hourly_p[(df_hourly_p['hourly detection rate'] == 1) & (df_hourly_p['coverage'] == 1)].sample(n=5)
-selection = df_hourly_t[(df_hourly_t['hourly detection rate'] == 1) & (df_hourly_t['coverage'] == 1)].sample(n=5)
+double_check_selection = df_hourly_all[(df_hourly_all['pamguard hourly detection rate'] == 1) & (df_hourly_all['pamguard coverage'] == 1) & (df_hourly_all['thalassa hourly detection rate'] == 1) & (df_hourly_all['thalassa coverage'] == 1)].sample(n=10).sort_values(by='start_datetime')
+
+lim_low = 0.2
+lim_high = 0.8
+double_check_selection = df_hourly_all[(df_hourly_all['pamguard hourly detection rate'] <= lim_high) &
+                                       (df_hourly_all['pamguard hourly detection rate'] >= lim_low ) &
+                                       (df_hourly_all['pamguard coverage'] == 1) & 
+                                       (df_hourly_all['thalassa hourly detection rate'] <= lim_high) &
+                                       (df_hourly_all['thalassa hourly detection rate'] >= lim_low ) &
+                                       (df_hourly_all['thalassa coverage'] == 1)].sample(n=10).sort_values(by='start_datetime')
+print(f"\nSelection for double check : \n\n{double_check_selection['ID']}")
+
 # %% filtering data
 
 detector = ['pamguard', 'thalassa']
@@ -563,7 +592,7 @@ for d in detector:
 
 # %% analyze metadata - cumulated histogram of detections for a single detection file
 
-i = 50
+i = 40
 detector = ['pamguard', 'thalassa']
 
 for d in detector:
@@ -573,10 +602,10 @@ for d in detector:
     ID_test = data2['platform'][i] + ' ST' + data2['recorder'][i]
 
     data_histo = df_detections['start_datetime']
-    tb = timebin1
+    tb = timebin
     deploy_dt = [data2['datetime deployment'][i], data2['datetime recovery'][i]]  # beginning and end of deployment
 
-    res_min = timebin2
+    res_min = 10  # minute
     delta, start_vec, end_vec = dt.timedelta(seconds=60 * res_min), deploy_dt[0], deploy_dt[1]
     bins = pd.date_range(start=deploy_dt[0], end=deploy_dt[1], freq='1min')
     n_annot_max = (res_min * 60) / tb  # max nb of annoted time_bin max per res_min slice

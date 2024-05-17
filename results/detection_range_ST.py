@@ -10,48 +10,84 @@ from scipy import stats
 import json
 from tqdm import tqdm
 from scipy.stats import linregress
+import pickle
+import matplotlib as mpl
+from cycler import cycler
 
 os.chdir(r'U:/Documents_U/Git/post_processing_detections')
-from utilities.def_func import extract_datetime, sorting_detections, t_rounder
+from utilities.def_func import extract_datetime, sorting_detections, t_rounder, get_season
 
 # %%
 detector = ['pamguard', 'thalassa']
 arg = ['season', 'net']
-timebin1 = 10 #  en seconde
-timebin2 = 1 #  en minute
+timebin1 = 10  # en seconde
+timebin2 = 1  # en minute
 
+mpl.style.use('seaborn-v0_8-paper')
+mpl.rcParams['figure.dpi'] = 200
+mpl.rcParams["axes.prop_cycle"] = cycler('color', ['#4590d3', 'darkorange', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf'])
 # %% Load data
 
-path_json = [r'L:\acoustock\Bioacoustique\DATASETS\APOCADO\PECHEURS_2022_PECHDAUPHIR_APOCADO',
-             r'Y:\Bioacoustique\APOCADO2',
-             r'Z:\Bioacoustique\DATASETS\APOCADO3'
-             ]
+data_load = 'manual'
+match data_load:
+    case 'pickle':
+        with open(r'L:\acoustock\Bioacoustique\DATASETS\APOCADO\PECHEURS_2022_PECHDAUPHIR_APOCADO\data.pkl', 'rb') as f:
+            data = pickle.load(f)
 
-list_json = [file_path for path in path_json for file_path in glob.glob(os.path.join(path, "**/metadata.json"), recursive=True)]
+    case 'manual':
+        data = []
+        path_json = [r'L:\acoustock\Bioacoustique\DATASETS\APOCADO\PECHEURS_2022_PECHDAUPHIR_APOCADO',
+                     r'Y:\Bioacoustique\APOCADO2',
+                     r'Z:\Bioacoustique\DATASETS\APOCADO3']
 
-data = []
-for i in tqdm(range(len(list_json)), desc="Scanning metadata files"):
-    r_file = open(list_json[i], 'r')
-    data.append(json.load(r_file))
-    r_file.close()
-data = pd.DataFrame.from_dict(data)
+        list_json = [file_path for path in path_json for file_path in glob.glob(os.path.join(path, "**/metadata.json"), recursive=True)]
 
-df_detections_pamguard, df_detections_thalassa = [], []
-for i in tqdm(range(len(data))):
-    f1 = data['pamguard detection file'][i]
-    f2 = data['thalassa detection file'][i]
-    tz = data['datetime deployment'][i][-5:-2] + ':' + data['datetime deployment'][i][-2:]
-    df_detections_file1, info_file = sorting_detections(file=f1, tz=tz, timebin_new=timebin1)
-    df_detections_file2, info_file = sorting_detections(file=f2, tz=tz, timebin_new=timebin1)
-    df_detections_pamguard.append(df_detections_file1)
-    df_detections_thalassa.append(df_detections_file2)
+        for i in tqdm(range(len(list_json)), desc="Scanning metadata files"):
+            r_file = open(list_json[i], 'r')
+            data.append(json.load(r_file))
+            r_file.close()
+        data = pd.DataFrame.from_dict(data).sort_values(['campaign', 'deployment']).reset_index(drop=True)
 
-data['df pamguard'] = df_detections_pamguard
-data['df thalassa'] = df_detections_thalassa
+        df_detections_pamguard, df_detections_thalassa = [], []
+        for i in tqdm(range(len(data)), desc="DataFrame creation"):
+            data['campaign'][i]
+            
+            f1 = data['pamguard detection file'][i]
+            f2 = data['thalassa detection file'][i]
+            tz = data['datetime deployment'][i][-5:-2] + ':' + data['datetime deployment'][i][-2:]
+            ts = data['segment timestamp file'][i]
+            df_detections_file1, _ = sorting_detections(file=f1,
+                                                        tz=tz,
+                                                        timebin_new=timebin1,
+                                                        timestamp_file=ts,
+                                                        date_begin=data['datetime deployment'][i],
+                                                        date_end=data['datetime recovery'][i]
+                                                        )
+            df_detections_file2, _ = sorting_detections(file=f2,
+                                                        tz=tz,
+                                                        timebin_new=timebin1,
+                                                        timestamp_file=ts,
+                                                        date_begin=data['datetime deployment'][i],
+                                                        date_end=data['datetime recovery'][i]
+                                                        )
+            df_detections_pamguard.append(df_detections_file1)
+            df_detections_thalassa.append(df_detections_file2)
 
-for d in detector:
-    data[f'detection rate {d}'] = [len(data[f'df {d}'][i]) * data[f'{d} timebin'][i] / pd.to_timedelta(data['duration'][i]).total_seconds() for i in range(len(data))]
+        data['df pamguard'] = df_detections_pamguard
+        data['df thalassa'] = df_detections_thalassa
 
+        data['platform'] = ['C' + str(c) + 'D' + str(d) for c, d in zip(data['campaign'], data['deployment'])]
+        data['datetime deployment'] = [pd.to_datetime(d) for d in data['datetime deployment']]
+        data['datetime recovery'] = [pd.to_datetime(d) for d in data['datetime recovery']]
+        data['season_y'] = [get_season(i) for i in data['datetime deployment']]
+        data['season'] = [i.split(' ')[0] for i in data['season_y']]
+        data['year'] = [int(s[-4:]) for s in data['season_y']]
+        data['duration'] = [pd.Timedelta(d) for d in data['duration']]
+
+        for d in detector:
+            data[f'detection rate {d}'] = [(len(data[f'df {d}'][i]) / (pd.to_timedelta(data['duration'][i]).total_seconds() / 86400)) / (86400 / timebin1) for i in range(len(data))]
+
+data['deployment ID'] = data['platform'] + ' ST' + data['recorder']
 # %% Plot regressions
 
 data1 = data[(data['recorder number'] == 2)].reset_index(drop=True)
@@ -100,7 +136,8 @@ for d in detector:
 
                 tz_data = df1_detections['start_datetime'][0].tz
 
-                time_bin = list(set(sub_data2[f'{d} timebin']))[0]
+                # time_bin = list(set(sub_data2[f'{d} timebin']))[0]
+                time_bin = timebin1
 
                 label_legend = [sub_data2['deployment ID'][0], sub_data2['deployment ID'][1]]
 
@@ -130,23 +167,9 @@ for d in detector:
 
     print('Done')
 
+    sns.set(font_scale=1.6)
+
     # ST correlation
-    sns.set(font_scale=1.8)
-
-    sns.set_style({
-        'figure.facecolor': '#36454F',
-        'axes.facecolor': '#36454F',
-        'axes.edgecolor': 'w',
-        'grid.color': 'grey',
-        'xtick.color': 'w',
-        'ytick.color': 'w',
-        'axes.labelcolor': 'w',
-        'axes.spines.left': True,
-        'axes.spines.bottom': True,
-        'axes.spines.right': True,
-        'axes.spines.top': True,
-    })
-
     g = sns.lmplot(
         data=data_corr,
         x='ST1',
@@ -174,8 +197,7 @@ for d in detector:
             f'{n} - R²={r*r:.2f} - N={n_samples[i]}',
             transform=ax.transAxes,
             color=color_leg[i],
-            size=16,
-            bbox=dict(facecolor='white', alpha=0.8)
+            # bbox=dict(facecolor='grey', alpha=0.8)
         )
 
     g.ax.set(
@@ -183,8 +205,8 @@ for d in detector:
         ylabel='ST2 - 1min positive detection rate'
     )
 
-    plt.xlim(0, 101)
-    plt.ylim(0, 101)
-    plt.title(f"Appaired SoundTraps correlation\n detector: {d} - {timebin1}s positive detection per {res_min}min", y=1, size=20, color='w')
+    plt.xlim(0, 100)
+    plt.ylim(0, 100)
+    plt.title(f"Appaired SoundTraps correlation\n detector: {d} - {timebin1}s positive detection per {res_min}min bin", y=1,)
 
     plt.show()

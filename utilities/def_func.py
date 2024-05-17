@@ -19,6 +19,7 @@ from astral.sun import sun
 import astral
 import csv
 import yaml
+import json
 
 
 def get_csv_file(num_files: int, message='Select csv') -> List[str]:
@@ -46,7 +47,18 @@ def get_csv_file(num_files: int, message='Select csv') -> List[str]:
     return file_paths
 
 
-def sorting_detections(file: List[str], tz: pytz._FixedOffset = None, date_begin: dt.datetime = None, date_end: dt.datetime = None, annotator: str = None, annotation: str = None, box: bool = False, timebin_new: int = None, user_sel: str = 'all', fmin_filter: int = None, fmax_filter: int = None) -> (pd.DataFrame, pd.DataFrame):
+def sorting_detections(file: List[str],
+                       tz: pytz._FixedOffset = None,
+                       date_begin: dt.datetime = None,
+                       date_end: dt.datetime = None,
+                       annotator: str = None,
+                       annotation: str = None,
+                       box: bool = False,
+                       timebin_new: int = None,
+                       timestamp_file: str = None,
+                       user_sel: str = 'all', 
+                       fmin_filter: int = None,
+                       fmax_filter: int = None) -> (pd.DataFrame, pd.DataFrame):
     ''' Filters an Aplose formatted detection file according to user specified filters
         Parameters :
             file : list of path(s) to the detection file(s), can be a str too
@@ -57,6 +69,8 @@ def sorting_detections(file: List[str], tz: pytz._FixedOffset = None, date_begin
             annotation : string to be specified if the user wants to select the detection of a particular label
             box : if set to True, keeps all the annotations, if False keeps only the absence/presence box (weak detection)
             timebin_new : integer to be specified if the user already know the new time resolution to set the detection file to
+            timestamp_file : path to the an APLOSE formatted timestamp file.
+                            It is used to create a reshaped detection file with timestamps that matches the APLOSE annotations.
             user_sel: string to specify to filter detections of a file based on annotators
                 'union' : the common detections of all annotators and the unique detections of each annotators are selected
                 'intersection' : only the common detections of all annotators are selected
@@ -80,32 +94,32 @@ def sorting_detections(file: List[str], tz: pytz._FixedOffset = None, date_begin
         except csv.Error:
             delimiter = ','
 
-    df = pd.read_csv(file, sep=delimiter)
-    df = df.dropna(subset=['annotation']) # Drop the lines with only comments
+    df = pd.read_csv(file, sep=delimiter, parse_dates=['start_datetime', 'end_datetime']).sort_values('start_datetime')
+    df = df.dropna(subset=['annotation'])  # Drop the lines with only comments
     list_annotators = list(df['annotator'].drop_duplicates())
     list_labels = list(df['annotation'].drop_duplicates())
     max_freq = int(max(df['end_frequency']))
     max_time = int(max(df['end_time']))
 
-    df['start_datetime'] = pd.to_datetime(df['start_datetime'], format='%Y-%m-%dT%H:%M:%S.%f%z')
-    df['end_datetime'] = pd.to_datetime(df['end_datetime'], format='%Y-%m-%dT%H:%M:%S.%f%z')
-    df = df.sort_values('start_datetime')
+    # df['start_datetime'] = pd.to_datetime(df['start_datetime'], format='%Y-%m-%dT%H:%M:%S.%f%z')
+    # df['end_datetime'] = pd.to_datetime(df['end_datetime'], format='%Y-%m-%dT%H:%M:%S.%f%z')
+    # df = df.sort_values('start_datetime')
 
     if tz is not None:
         df['start_datetime'] = [x.tz_convert(tz) for x in df['start_datetime']]
         df['end_datetime'] = [x.tz_convert(tz) for x in df['end_datetime']]
 
-    tz_data = df['start_datetime'][0].tz
+    tz_data = pytz.FixedOffset(df['start_datetime'][0].utcoffset().total_seconds() // 60)
+
+    if date_begin is not None and date_end is not None:
+        if date_begin >= date_end:
+            raise ValueError("Error: date_begin > date_end")
 
     if date_begin is not None:
         df = df[df['start_datetime'] >= date_begin]
 
     if date_end is not None:
         df = df[df['end_datetime'] <= date_end]
-
-    if date_begin is not None and date_end is not None:
-        if date_begin >= date_end:
-            raise ValueError("Error: date_begin > date_end")
 
     if annotator is not None:
         df = df.loc[(df['annotator'] == annotator)]
@@ -127,15 +141,15 @@ def sorting_detections(file: List[str], tz: pytz._FixedOffset = None, date_begin
 
     df_nobox = df.loc[(df['start_time'] == 0) & (df['end_time'] == max_time) & (df['end_frequency'] == max_freq)]
     if len(df_nobox) == 0:
-        max_time = 0
+        max_time = 1
 
     if box is False:
         if len(df_nobox) == 0:
-            df = reshape_timebin(df=df.reset_index(drop=True), timebin_new=timebin_new)
+            df = reshape_timebin(df=df.reset_index(drop=True), timebin_new=timebin_new, timestamp_file=timestamp_file)
             max_time = int(max(df['end_time']))
         else:
             if timebin_new is not None:
-                df = reshape_timebin(df=df.reset_index(drop=True), timebin_new=timebin_new)
+                df = reshape_timebin(df=df.reset_index(drop=True), timebin_new=timebin_new, timestamp_file=timestamp_file)
                 max_time = int(max(df['end_time']))
             else:
                 df = df_nobox
@@ -175,19 +189,21 @@ def sorting_detections(file: List[str], tz: pytz._FixedOffset = None, date_begin
 
             df['annotator'] = list_annotators[0]
 
-    columns = ['file', 'max_time', 'max_freq', 'annotators', 'labels', 'tz_data']
-    info = pd.DataFrame([[file, int(max_time), max_freq, list_annotators, list_labels, tz_data]], columns=columns)
+    columns = ['file', 'max_time', 'max_freq', 'annotators', 'labels', 'tz_data', 'timestamp_file']
+    info = pd.DataFrame([[file, int(max_time), max_freq, list_annotators, list_labels, tz_data, timestamp_file]], columns=columns)
 
     return df.reset_index(drop=True), info
 
 
-def reshape_timebin(df: pd.DataFrame, timebin_new: int = None) -> pd.DataFrame:
+def reshape_timebin(df: pd.DataFrame, timebin_new: int = None, timestamp_file: str = None) -> pd.DataFrame:
     ''' Changes the timebin (time resolution) of a detection dataframe
     ex :    -from a raw PAMGuard detection file to a detection file with 10s timebin
             -from an 10s detection file to a 1min / 1h / 24h detection file
     Parameter:
         df : detection dataframe
-        timebin_new : Time resolution to base the detections on, if not provided it is asked to the user
+        timebin_new : time resolution to base the detections on, if not provided it is asked to the user
+        timestamp_file : path to the an APLOSE formatted timestamp file.
+                        It is used to create a reshaped detection file with timestamps that matches the APLOSE annotations.
     Returns:
         df_new : detection dataframe with the new timebin
     '''
@@ -198,10 +214,10 @@ def reshape_timebin(df: pd.DataFrame, timebin_new: int = None) -> pd.DataFrame:
     labels = list(df['annotation'].drop_duplicates())
 
     df_nobox = df.loc[(df['start_time'] == 0) & (df['end_time'] == max(df['end_time'])) & (df['end_frequency'] == max(df['end_frequency']))]
-    max_time = 0 if len(df_nobox) == 0 else int(max(df['end_time']))
+    max_time = 1 if len(df_nobox) == 0 else int(max(df['end_time']))
     max_freq = int(max(df['end_frequency']))
 
-    tz_data = df['start_datetime'][0].tz
+    tz_data = pytz.FixedOffset(df['start_datetime'][0].utcoffset().total_seconds() // 60)
 
     if timebin_new is None:
         while True:
@@ -237,12 +253,29 @@ def reshape_timebin(df: pd.DataFrame, timebin_new: int = None) -> pd.DataFrame:
             if len(df_detect_prov) == 0:
                 continue
 
-            t = t_rounder(t=df_detect_prov['start_datetime'].iloc[0], res=timebin_new)
-            t2 = t_rounder(df_detect_prov['start_datetime'].iloc[-1], timebin_new) + dt.timedelta(seconds=timebin_new)
+            if not timestamp_file:
+                t = t_rounder(t=df_detect_prov['start_datetime'].iloc[0], res=timebin_new)
+                t2 = t_rounder(df_detect_prov['start_datetime'].iloc[-1], timebin_new) + dt.timedelta(seconds=timebin_new)
+                time_vector = [ts.timestamp() for ts in pd.date_range(start=t, end=t2, freq=f)]
+            else:
+                timestamp_csv = pd.read_csv(timestamp_file, parse_dates=['timestamp'])
+                timestamp_range = timestamp_csv['timestamp'].to_list()
+                '''
+                original_timebin = int(timebin_new / max_time)
+                timestamp_csv2 = timestamp_csv[0::original_timebin] # a verif
+                # timestamp_range = timestamp_csv['timestamp'].to_list()
+                timestamp_range = timestamp_csv2['timestamp'].to_list()
+                timestamp_range.append(timestamp_range[-1] + pd.Timedelta(timebin_new, unit='second'))
 
-            time_vector = [ts.timestamp() for ts in pd.date_range(start=t, end=t2, freq=f)]
-
-            # #here test to find for each time vector value which filename corresponds
+                # time_vector_raw = [ts.timestamp() for ts in timestamp_range]
+                # time_vector = time_vector_raw[0::int(timebin_new / (time_vector_raw[1] - time_vector_raw[0]))]
+                time_vector = [ts.timestamp() for ts in timestamp_range]
+                '''
+                t = t_rounder(t=timestamp_range[0], res=timebin_new)
+                t2 = t_rounder(timestamp_range[-1], timebin_new) + pd.Timedelta(seconds=timebin_new)
+                time_vector = [ts.timestamp() for ts in pd.date_range(start=t, end=t2, freq=f)]
+                
+            # here test to find for each time vector value which filename corresponds
             filenames = sorted(list(set(df_detect_prov['filename'])))
             if not all(isinstance(filename, str) for filename in filenames):
                 if all(math.isnan(filename) for filename in filenames):
@@ -259,7 +292,8 @@ def reshape_timebin(df: pd.DataFrame, timebin_new: int = None) -> pd.DataFrame:
                 elif index == len(ts_filenames):
                     filename_vector.append(filenames[index - 1])
                 else:
-                    filename_vector.append(filenames[index - 1])
+                    # filename_vector.append(filenames[index - 1]) # pb sur cette ligne, à creuser
+                    filename_vector.append(filenames[index])
 
             times_detect_beg = [detect.timestamp() for detect in df_detect_prov['start_datetime']]
             times_detect_end = [detect.timestamp() for detect in df_detect_prov['end_datetime']]
@@ -303,9 +337,7 @@ def reshape_timebin(df: pd.DataFrame, timebin_new: int = None) -> pd.DataFrame:
             df_new = pd.concat([df_new, df_new_prov])
 
         df_new['start_datetime'] = [pd.to_datetime(d, format='%Y-%m-%dT%H:%M:%S.%f%z') for d in df_new['start_datetime']]
-        # df_new['start_datetime'] = pd.to_datetime(df_new['start_datetime'], format='%Y-%m-%dT%H:%M:%S.%f%z')
         df_new['end_datetime'] = [pd.to_datetime(d, format='%Y-%m-%dT%H:%M:%S.%f%z') for d in df_new['end_datetime']]
-        # df_new['end_datetime'] = pd.to_datetime(df_new['end_datetime'], format='%Y-%m-%dT%H:%M:%S.%f%z')
         df_new = df_new.sort_values(by=['start_datetime'])
 
     return df_new
@@ -326,8 +358,10 @@ def read_param(file: str):
     arguments_list = []
 
     for param in parameters:
-        argument = {'file': param['file']}
+        argument = {}
 
+        if 'file' in param:
+            argument['file'] = param['file']
         if 'timebin_new' in param:
             argument['timebin_new'] = param['timebin_new']
         if 'tz' in param:
@@ -352,6 +386,8 @@ def read_param(file: str):
             argument['box'] = box_string.lower() != 'false'
         if 'user_sel' in param:
             argument['user_sel'] = param['user_sel']
+        if 'timestamp_file' in param:
+            argument['timestamp_file'] = param['timestamp_file']
 
         arguments_list.append(argument)
 

@@ -2,6 +2,7 @@ import datetime as dt
 import pandas as pd
 import numpy as np
 import easygui
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from matplotlib.ticker import FuncFormatter
@@ -10,9 +11,14 @@ import seaborn as sns
 from scipy import stats
 import sys
 import os
+from cycler import cycler
 
-os.chdir(r'C:\Users\torterma\Documents\Projets_Osmose\Sciences\post_processing_detections')
+os.chdir(r'U:/Documents_U/Git/post_processing_detections')
 from utilities.def_func import sorting_detections, t_rounder, get_timestamps, input_date, suntime_hour, read_param
+
+mpl.style.use('seaborn-v0_8-paper')
+mpl.rcParams['figure.dpi'] = 200
+mpl.rcParams["axes.prop_cycle"] = cycler('color', ['#4590d3', 'darkorange', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf'])
 
 # %% User inputs
 
@@ -53,15 +59,27 @@ Chose your mode :
 dt_mode = 'fixed'
 
 if dt_mode == 'fixed':
-    begin_date = pd.Timestamp('2023-02-11 12:10:00 +0100')
-    end_date = pd.Timestamp('2023-02-12 08:50:00 +0100')
+    # begin_date = pd.Timestamp('2022-07-06 23:59:47 +0200')
+    # end_date = pd.Timestamp('2022-07-08 01:59:28 +0200')    
+    begin_date = pd.Timestamp('2022-07-07 09:00:00 +0200')
+    end_date = pd.Timestamp('2022-07-08 00:00:00 +0200')
+
+    # begin_date = pd.Timestamp('2023-02-05 11:39:00 +0100')
+    # end_date = pd.Timestamp('2023-02-06 08:51:00 +0100')
+
+    # begin_date = pd.Timestamp('2023-02-11 12:10:47 +0100')
+    # end_date = pd.Timestamp('2023-02-12 08:50:00 +0100')
+
+    # begin_date = pd.Timestamp('2023-02-11 12:15:47 +0100')
+    # end_date = pd.Timestamp('2023-02-12 09:00:00 +0100')
+
+    # begin_date = pd.Timestamp('2023-04-10 01:50:00 +0200')
+    # end_date = pd.Timestamp('2023-04-11 01:40:00 +0200')
+    
 elif dt_mode == 'auto':
     timestamps_file = get_timestamps()
     begin_date = pd.to_datetime(timestamps_file['timestamp'].iloc[0], format='%Y-%m-%dT%H:%M:%S.%f%z')
     end_date = pd.to_datetime(timestamps_file['timestamp'].iloc[-1], format='%Y-%m-%dT%H:%M:%S.%f%z') + dt.timedelta(seconds=time_bin[0])
-elif dt_mode == 'input':
-    begin_date = input_date('Enter begin date')
-    end_date = input_date('Enter end date')
 
 print(f"\ntime_bin: {time_bin}", end='')
 print(f"\nfmax: {fmax}", end='')
@@ -75,57 +93,31 @@ print(f'\nEnd date: {end_date}', end='')
 summary_label = df_detections.groupby('annotation')['annotator'].apply(Counter).unstack(fill_value=0)
 summary_annotator = df_detections.groupby('annotator')['annotation'].apply(Counter).unstack(fill_value=0)
 
-print('\n\t%%% Overview of the detections : %%%\n\n {0}'.format(summary_label))
-print('\n\t-----------------------------------\n\n {0}'.format(summary_annotator.to_string()))
+print(f'\n- Overview of the detections -\n\n {summary_label}')
 
-fig, (ax1, ax2) = plt.subplots(2, figsize=(10, 10), gridspec_kw={'height_ratios': [1, 1]}, facecolor='#36454F')
-# ax1 = summary_label.plot(kind='bar', ax=ax1, color=['tab:blue', 'tab:orange'], edgecolor='black', linewidth=1)
-ax1 = summary_label.plot(kind='bar', ax=ax1, edgecolor='black', linewidth=1)
-ax2 = summary_annotator.plot(kind='bar', ax=ax2, edgecolor='black', linewidth=1)
+fig, axs = plt.subplots(2, 1, gridspec_kw={'height_ratios': [1, 1]})
+axs[0] = summary_label.plot(kind='bar', ax=axs[0], edgecolor='black', linewidth=1)
+axs[1] = summary_annotator.plot(kind='bar', ax=axs[1], edgecolor='black', linewidth=1)
 
-# facecolor
-ax1.set_facecolor('#36454F')
-ax2.set_facecolor('#36454F')
-
-# spacing between plots
-plt.subplots_adjust(hspace=0.4)
-
-# legend
-ax1.legend(loc='best', fontsize=10, frameon=1, framealpha=0.6)
-ax2.legend(loc='best', fontsize=10, frameon=1, framealpha=0.6)
-
-# ticks
-ax1.tick_params(axis='both', colors='w', rotation=0, labelsize=8)
-ax2.tick_params(axis='both', colors='w', rotation=0, labelsize=12)
+for ax in axs:
+    # legend
+    ax.legend(loc='best', frameon=1, framealpha=0.6)
+    # ticks
+    ax.tick_params(axis='both', rotation=0)
+    ax.set_ylabel('Number of annotated calls')
+    # y-grids
+    ax.yaxis.grid(color='gray', linestyle='--')
+    ax.set_axisbelow(True)
 
 # labels
-ax1.set_ylabel('Number of annotated calls', fontsize=15, color='w')
-ax1.set_xlabel('Labels', fontsize=15, rotation=0, color='w')
-ax2.set_ylabel('Number of annotated calls', fontsize=15, color='w')
-ax2.set_xlabel('Annotator', fontsize=15, rotation=0, color='w')
+axs[0].set_xlabel('Labels')
+axs[1].set_xlabel('Annotator')
 
 # titles
-title_font = {'fontsize': 15, 'color': 'w', 'fontweight': 'bold'}
-ax1.set_title('Number of annotations per label', color='w', fontdict=title_font, pad=5)
-ax2.set_title('Number of annotations per annotator', color='w', fontdict=title_font, pad=5)
+axs[0].set_title('Number of annotations per label')
+axs[1].set_title('Number of annotations per annotator')
 
-# spines
-ax1.spines['right'].set_visible(False)
-ax1.spines['top'].set_visible(False)
-ax1.spines['bottom'].set_color('w')
-ax1.spines['left'].set_color('w')
-
-ax2.spines['right'].set_visible(False)
-ax2.spines['top'].set_visible(False)
-ax2.spines['bottom'].set_color('w')
-ax2.spines['left'].set_color('w')
-
-# y-grids
-ax1.yaxis.grid(color='gray', linestyle='--')
-ax2.yaxis.grid(color='gray', linestyle='--')
-ax1.set_axisbelow(True)
-ax2.set_axisbelow(True)
-
+plt.tight_layout()
 
 # %% % labels / species
 
@@ -574,32 +566,25 @@ n_annot_max = (res_min * 60) / time_bin_ref  # max nb of annoted time_bin max pe
 df1_1annot_1label = df_detections[(df_detections['annotator'] == annot_ref1) & (df_detections['annotation'] == label_ref1)]
 df2_1annot_1label = df_detections[(df_detections['annotator'] == annot_ref2) & (df_detections['annotation'] == label_ref2)]
 
-fig, ax = plt.subplots(figsize=(16, 6), facecolor='#36454F')
-ax.set_facecolor('#36454F')
-hist_plot = ax.hist([df1_1annot_1label['start_datetime'], df2_1annot_1label['start_datetime']], bins=time_vector, label=[annot_ref1, annot_ref2], color=['coral', 'limegreen'], lw=10)
-plt.legend(loc='upper right', fontsize=14)
+fig, axs = plt.subplots(1, 2, dpi=200, figsize=(10, 4), gridspec_kw={'width_ratios': [8, 2]})
+
+# axs[0].set_facecolor('#36454F')
+hist_plot = axs[0].hist([df1_1annot_1label['start_datetime'], df2_1annot_1label['start_datetime']], bins=time_vector, label=[annot_ref1, annot_ref2], lw=10)
+axs[0].legend(loc='upper right')
 
 bars = range(0, 110, 10)  # from 0 to 100 step 10
 y_pos = np.linspace(0, n_annot_max, num=len(bars))
-ax.set_yticks(y_pos, bars)
-ax.tick_params(axis='x', rotation=60)
-ax.tick_params(labelsize=20)
-ax.set_ylabel('positive detection rate\n({0} min)'.format(res_min), fontsize=20, c='w')
-ax.tick_params(axis='y')
-fig.suptitle('[{0}/{1}] VS [{2}/{3}]'.format(annot_ref1, label_ref1, annot_ref2, label_ref2), color='w', fontsize=24, y=1.02)
+axs[0].set_yticks(y_pos, bars)
+axs[0].tick_params(axis='x', rotation=60)
+axs[0].set_ylabel('positive detection rate\n({0} min)'.format(res_min))
+axs[0].tick_params(axis='y')
+fig.suptitle('[{0}/{1}] VS [{2}/{3}]'.format(annot_ref1, label_ref1, annot_ref2, label_ref2), y=1.02)
 
-ax.xaxis.set_major_locator(mdates.HourLocator(interval=4))
-ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M', tz=tz_data[0]))
-plt.xlim(time_vector[0], time_vector[-1])
-# plt.xlim(time_vector[0], dt.datetime.strptime('2022-07-07T22-00-00', '%Y-%m-%dT%H-%M-%S'))
-ax.grid(color='w', linestyle='-', linewidth=0.2, axis='both')
-ax.tick_params(axis='both', colors='w')
+axs[0].xaxis.set_major_locator(mdates.HourLocator(interval=4))
+axs[0].xaxis.set_major_formatter(mdates.DateFormatter('%H:%M', tz=tz_data[0]))
+axs[0].set_xlim(time_vector[0], time_vector[-1])
+axs[0].grid(linestyle='-', linewidth=0.2, axis='both')
 
-# spines
-ax.spines['right'].set_color('w')
-ax.spines['top'].set_color('w')
-ax.spines['bottom'].set_color('w')
-ax.spines['left'].set_color('w')
 
 # accord inter-annot
 list1 = list(df1_1annot_1label['start_datetime'])
@@ -607,35 +592,28 @@ list2 = list(df2_1annot_1label['start_datetime'])
 
 unique_annotations = len([elem for elem in list1 if elem not in list2]) + len([elem for elem in list2 if elem not in list1])
 common_annotations = len([elem for elem in list1 if elem in list2])
-
-print('Pourcentage d\'accord entre [{0}/{1}] & [{2}/{3}] : {4:.0f}%'.format(annot_ref1, label_ref1, annot_ref2, label_ref2, 100 * ((common_annotations) / (unique_annotations + common_annotations))))
-
+agreement = (common_annotations) / (unique_annotations + common_annotations)
+axs[0].text(.05, .9, f'agreement={100 * agreement:.0f}%', transform=axs[0].transAxes)
 
 # scatter
 df_corr = pd.DataFrame(hist_plot[0] / n_annot_max, index=[annot_ref1, annot_ref2]).transpose()
-plot = sns.lmplot(x=annot_ref1, y=annot_ref2, data=df_corr, scatter_kws={'s': 10, 'color': 'teal'}, fit_reg=True, markers='.', line_kws={'lw': 1, 'color': 'teal'})
-plt.xlabel('{0}\n{1}'.format(annot_ref1, label_ref1))
-plt.ylabel('{0}\n{1}'.format(annot_ref2, label_ref2))
+sns.scatterplot(x=df_corr[annot_ref1], y=df_corr[annot_ref2], ax=axs[1])
 
-plt.xlim(0, 1)
-plt.ylim(0, 1)
+z = np.polyfit(df_corr[annot_ref1], df_corr[annot_ref2], 1)
+p = np.poly1d(z)
+plt.plot(df_corr[annot_ref1], p(df_corr[annot_ref1]), lw=1)
 
+axs[1].set_xlabel('{0}\n{1}'.format(annot_ref1, label_ref1))
+axs[1].set_ylabel('{0}\n{1}'.format(annot_ref2, label_ref2))
+axs[1].set_xlim(0, 1)
+axs[1].set_ylim(0, 1)
+axs[1].grid(linestyle='-', linewidth=0.2, axis='both')
 
-def annotate(data, **kws):
-    '''
-    Compute and plot the Pearson correlation coefficient
-    which is the correlation of 2 distributions of positives timebins (length timebin_ref) overs bins of length res_min
-    '''
+r, p = stats.pearsonr(df_corr[annot_ref1], df_corr[annot_ref2])
+axs[1].text(.05, .9, f'R²={r * r:.2f}', transform=axs[1].transAxes)
 
-    r, p = stats.pearsonr(data[annot_ref1], data[annot_ref2])
-    ax = plt.gca()
-    ax.text(.05, .8, 'R²={0:.2f}'.format(r * r),
-            transform=ax.transAxes)
-
-
-plot.map_dataframe(annotate)
+plt.tight_layout()
 plt.show()
-
 # %%
 # tb=3600
 # df1_test, _ = sorting_detections(file='Y:/Bioacoustique/APOCADO2/Campagne 6/PASSE PARTOUT/bouts rouges/7178/analysis/C6D3/results/APOCADO_C6D3 ST7178_results.csv',
