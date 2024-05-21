@@ -4,47 +4,144 @@ import pytz
 import pandas as pd
 import re
 import datetime as dt
-import random
 import numpy as np
-from tqdm import tqdm
 import os
-from tkinter import filedialog
-from tkinter import Tk
-import gzip
 import math
 import easygui
-import glob
 import bisect
 from astral.sun import sun
 import astral
 import csv
 import yaml
-import json
+from pathlib import Path
 
 
-def get_csv_file(num_files: int, message='Select csv') -> List[str]:
-    '''Opens a file dialog multiple times
-    to get X csv files (APLOSE formatted detection file, task status file...).
-    Parameters :
-        num_files: The number of detection files the user needs to select.
-    Returns :
-        List of file paths selected by the user.
-    '''
-    root = Tk()
-    root.withdraw()
+def reshape_timebin2(df: pd.DataFrame,
+                     timebin_new: int = None,
+                     timestamp: str = None,
+                     reshape_method: str = 'timestamp') -> pd.DataFrame:
 
-    file_paths = []
-    for _ in range(num_files):
-        file_path = filedialog.askopenfilename(
-            title=message + f' ({len(file_paths) + 1}/{num_files})',
-            filetypes=[('CSV files', '*.csv')],
-            parent=None
-        )
-        if not file_path:
-            break  # User cancelled or closed the file dialog
-        file_paths.append(file_path)
+    if isinstance(df, pd.DataFrame) is False:
+        raise Exception("Not a dataframe passed, reshape aborted")
 
-    return file_paths
+    df = df.sort_values('start_datetime').reset_index(drop=True)
+
+    annotators = list(df['annotator'].drop_duplicates())
+    labels = list(df['annotation'].drop_duplicates())
+
+    df_nobox = df.loc[(df['start_time'] == 0) & (df['end_time'] == max(df['end_time'])) & (df['end_frequency'] == max(df['end_frequency']))]
+    max_time = 1 if len(df_nobox) == 0 else int(max(df['end_time']))
+    max_freq = int(max(df['end_frequency']))
+
+    tz_data = pytz.FixedOffset(df['start_datetime'][0].utcoffset().total_seconds() // 60)
+
+    if timebin_new is None:
+
+        while True:
+            timebin_new = easygui.buttonbox('Select a new time resolution for the detections', df['dataset'][0], ['10s', '1min', '10min', '1h', '24h'])
+            if timebin_new == '10s':
+                f = timebin_new
+                timebin_new = 10
+            elif timebin_new == '1min':
+                f = timebin_new
+                timebin_new = 60
+            elif timebin_new == '10min':
+                f = timebin_new
+                timebin_new = 600
+            elif timebin_new == '1h':
+                f = timebin_new
+                timebin_new = 3600
+            elif timebin_new == '24h':
+                f = timebin_new
+                timebin_new = 86400
+
+            if timebin_new > max_time: break
+            else: easygui.msgbox('New time resolution is equal or smaller than the original one', 'Warning', 'Ok')
+    else: f = str(timebin_new) + 's'
+
+    df_new = pd.DataFrame()
+    if isinstance(annotators, str): annotators = [annotators]
+    if isinstance(labels, str): labels = [labels]
+    for annotator in annotators:
+        for label in labels:
+
+            df_detect_prov = df[(df['annotator'] == annotator) & (df['annotation'] == label)]
+
+            if len(df_detect_prov) == 0:
+                continue
+            if reshape_method == 'timebin':
+                t = t_rounder(t=timestamp[0], res=timebin_new)
+                t2 = t_rounder(timestamp[-1], timebin_new) + pd.Timedelta(seconds=timebin_new)
+                time_vector = [ts.timestamp() for ts in pd.date_range(start=t, end=t2, freq=f)]
+            elif reshape_method == 'timestamp':
+                time_vector = [ts.timestamp() for ts in timestamp]
+
+            # here test to find for each time vector value which filename corresponds
+            filenames = sorted(list(set(df_detect_prov['filename'])))
+            if not all(isinstance(filename, str) for filename in filenames):
+                if all(math.isnan(filename) for filename in filenames):
+                    # FPOD case: the filenames of a FPOD csv file are NaN values
+                    filenames = [i.strftime('%Y-%m-%dT%H:%M:%S%z') for i in df_detect_prov['start_datetime']]
+
+            ts_filenames = [extract_datetime(var=filename, tz=tz_data).timestamp()for filename in filenames]
+
+            filename_vector = []
+            for ts in time_vector:
+                index = bisect.bisect_left(ts_filenames, ts)
+                if index == 0:
+                    filename_vector.append(filenames[index])
+                elif index == len(ts_filenames):
+                    filename_vector.append(filenames[index - 1])
+                else:
+                    # filename_vector.append(filenames[index - 1]) # pb sur cette ligne, à creuser
+                    filename_vector.append(filenames[index])
+
+            times_detect_beg = [detect.timestamp() for detect in df_detect_prov['start_datetime']]
+            times_detect_end = [detect.timestamp() for detect in df_detect_prov['end_datetime']]
+
+            detect_vec, ranks, k = np.zeros(len(time_vector), dtype=int), [], 0
+            for i in range(len(times_detect_beg)):
+                for j in range(k, len(time_vector) - 1):
+                    if (times_detect_beg[i] >= time_vector[j] and times_detect_beg[i] < time_vector[j + 1]) or (times_detect_end[i] > time_vector[j] and times_detect_end[i] <= time_vector[j + 1]):
+                        ranks.append(j)
+                        k = j
+                        break
+                    else:
+                        continue
+
+            ranks = sorted(list(set(ranks)))
+            detect_vec[ranks] = 1
+            detect_vec = list(detect_vec)
+
+            start_datetime_str, end_datetime_str, filename = [], [], []
+            for i in range(len(time_vector)):
+                if detect_vec[i] == 1:
+                    start_datetime = pd.Timestamp(time_vector[i], unit='s', tz=tz_data)
+                    start_datetime_str.append(start_datetime.strftime('%Y-%m-%dT%H:%M:%S.%f%z')[:-8] + start_datetime.strftime('%Y-%m-%dT%H:%M:%S.%f%z')[-5:-2] + ':' + start_datetime.strftime('%Y-%m-%dT%H:%M:%S.%f%z')[-2:])
+                    end_datetime = pd.Timestamp(time_vector[i] + timebin_new, unit='s', tz=tz_data)
+                    end_datetime_str.append(end_datetime.strftime('%Y-%m-%dT%H:%M:%S.%f%z')[:-8] + end_datetime.strftime('%Y-%m-%dT%H:%M:%S.%f%z')[-5:-2] + ':' + end_datetime.strftime('%Y-%m-%dT%H:%M:%S.%f%z')[-2:])
+                    filename.append(filename_vector[i])
+
+            df_new_prov = pd.DataFrame()
+            dataset_str = list(set(df_detect_prov['dataset']))
+
+            df_new_prov['dataset'] = dataset_str * len(start_datetime_str)
+            df_new_prov['filename'] = filename
+            df_new_prov['start_time'] = [0] * len(start_datetime_str)
+            df_new_prov['end_time'] = [timebin_new] * len(start_datetime_str)
+            df_new_prov['start_frequency'] = [0] * len(start_datetime_str)
+            df_new_prov['end_frequency'] = [max_freq] * len(start_datetime_str)
+            df_new_prov['annotation'] = list(set(df_detect_prov['annotation'])) * len(start_datetime_str)
+            df_new_prov['annotator'] = list(set(df_detect_prov['annotator'])) * len(start_datetime_str)
+            df_new_prov['start_datetime'], df_new_prov['end_datetime'] = start_datetime_str, end_datetime_str
+
+            df_new = pd.concat([df_new, df_new_prov])
+
+        df_new['start_datetime'] = [pd.to_datetime(d, format='%Y-%m-%dT%H:%M:%S.%f%z') for d in df_new['start_datetime']]
+        df_new['end_datetime'] = [pd.to_datetime(d, format='%Y-%m-%dT%H:%M:%S.%f%z') for d in df_new['end_datetime']]
+        df_new = df_new.sort_values(by=['start_datetime'])
+
+    return df_new
 
 
 def sorting_detections(file: List[str],
@@ -56,7 +153,8 @@ def sorting_detections(file: List[str],
                        box: bool = False,
                        timebin_new: int = None,
                        timestamp_file: str = None,
-                       user_sel: str = 'all', 
+                       reshape_method: str = 'timestamp',
+                       user_sel: str = 'all',
                        fmin_filter: int = None,
                        fmax_filter: int = None) -> (pd.DataFrame, pd.DataFrame):
     ''' Filters an Aplose formatted detection file according to user specified filters
@@ -71,6 +169,7 @@ def sorting_detections(file: List[str],
             timebin_new : integer to be specified if the user already know the new time resolution to set the detection file to
             timestamp_file : path to the an APLOSE formatted timestamp file.
                             It is used to create a reshaped detection file with timestamps that matches the APLOSE annotations.
+            reshape_method : string to specify in order to create the time vector for the reshape
             user_sel: string to specify to filter detections of a file based on annotators
                 'union' : the common detections of all annotators and the unique detections of each annotators are selected
                 'intersection' : only the common detections of all annotators are selected
@@ -85,14 +184,7 @@ def sorting_detections(file: List[str],
             info : DataFrame containing infos such as max_time/max_freq/annotators/labels corresponding to each detection file
     '''
 
-    # find the proper delimiter for file
-    with open(file, 'r', newline='') as csv_file:
-        try:
-            temp_lines = csv_file.readline() + '\n' + csv_file.readline()
-            dialect = csv.Sniffer().sniff(temp_lines, delimiters=',;')
-            delimiter = dialect.delimiter
-        except csv.Error:
-            delimiter = ','
+    delimiter = find_delimiter(file)
 
     df = pd.read_csv(file, sep=delimiter, parse_dates=['start_datetime', 'end_datetime']).sort_values('start_datetime')
     df = df.dropna(subset=['annotation'])  # Drop the lines with only comments
@@ -100,10 +192,6 @@ def sorting_detections(file: List[str],
     list_labels = list(df['annotation'].drop_duplicates())
     max_freq = int(max(df['end_frequency']))
     max_time = int(max(df['end_time']))
-
-    # df['start_datetime'] = pd.to_datetime(df['start_datetime'], format='%Y-%m-%dT%H:%M:%S.%f%z')
-    # df['end_datetime'] = pd.to_datetime(df['end_datetime'], format='%Y-%m-%dT%H:%M:%S.%f%z')
-    # df = df.sort_values('start_datetime')
 
     if tz is not None:
         df['start_datetime'] = [x.tz_convert(tz) for x in df['start_datetime']]
@@ -145,11 +233,17 @@ def sorting_detections(file: List[str],
 
     if box is False:
         if len(df_nobox) == 0:
-            df = reshape_timebin(df=df.reset_index(drop=True), timebin_new=timebin_new, timestamp_file=timestamp_file)
+            df = reshape_timebin(df=df.reset_index(drop=True),
+                                 timebin_new=timebin_new,
+                                 reshape_method=reshape_method,
+                                 timestamp_file=timestamp_file)
             max_time = int(max(df['end_time']))
         else:
             if timebin_new is not None:
-                df = reshape_timebin(df=df.reset_index(drop=True), timebin_new=timebin_new, timestamp_file=timestamp_file)
+                df = reshape_timebin(df=df.reset_index(drop=True),
+                                     timebin_new=timebin_new,
+                                     reshape_method=reshape_method,
+                                     timestamp_file=timestamp_file)
                 max_time = int(max(df['end_time']))
             else:
                 df = df_nobox
@@ -195,7 +289,10 @@ def sorting_detections(file: List[str],
     return df.reset_index(drop=True), info
 
 
-def reshape_timebin(df: pd.DataFrame, timebin_new: int = None, timestamp_file: str = None) -> pd.DataFrame:
+def reshape_timebin(df: pd.DataFrame,
+                    timebin_new: int = None,
+                    timestamp_file: str = None,
+                    reshape_method: str = 'timestamp') -> pd.DataFrame:
     ''' Changes the timebin (time resolution) of a detection dataframe
     ex :    -from a raw PAMGuard detection file to a detection file with 10s timebin
             -from an 10s detection file to a 1min / 1h / 24h detection file
@@ -271,10 +368,13 @@ def reshape_timebin(df: pd.DataFrame, timebin_new: int = None, timestamp_file: s
                 # time_vector = time_vector_raw[0::int(timebin_new / (time_vector_raw[1] - time_vector_raw[0]))]
                 time_vector = [ts.timestamp() for ts in timestamp_range]
                 '''
-                t = t_rounder(t=timestamp_range[0], res=timebin_new)
-                t2 = t_rounder(timestamp_range[-1], timebin_new) + pd.Timedelta(seconds=timebin_new)
-                time_vector = [ts.timestamp() for ts in pd.date_range(start=t, end=t2, freq=f)]
-                
+                if reshape_method == 'timebin':
+                    t = t_rounder(t=timestamp_range[0], res=timebin_new)
+                    t2 = t_rounder(timestamp_range[-1], timebin_new) + pd.Timedelta(seconds=timebin_new)
+                    time_vector = [ts.timestamp() for ts in pd.date_range(start=t, end=t2, freq=f)]
+                elif reshape_method == 'timestamp':
+                    time_vector = [ts.timestamp() for ts in timestamp_range]
+
             # here test to find for each time vector value which filename corresponds
             filenames = sorted(list(set(df_detect_prov['filename'])))
             if not all(isinstance(filename, str) for filename in filenames):
@@ -388,10 +488,24 @@ def read_param(file: str):
             argument['user_sel'] = param['user_sel']
         if 'timestamp_file' in param:
             argument['timestamp_file'] = param['timestamp_file']
+        if 'reshape_method' in param:
+            argument['reshape_method'] = param['reshape_method']
 
         arguments_list.append(argument)
 
     return arguments_list
+
+
+def find_delimiter(file: Union[str, Path]) -> str:
+    ''' Finds the proper delimiter for csv file '''
+    with open(file, 'r', newline='') as csv_file:
+        try:
+            temp_lines = csv_file.readline() + '\n' + csv_file.readline()
+            dialect = csv.Sniffer().sniff(temp_lines, delimiters=',;')
+            delimiter = dialect.delimiter
+        except csv.Error:
+            delimiter = ','
+        return delimiter
 
 
 def task_status_selection(files: List[str], df_detections: pd.DataFrame, user: Union[str, List[str]] = 'all') -> pd.DataFrame:
@@ -412,16 +526,7 @@ def task_status_selection(files: List[str], df_detections: pd.DataFrame, user: U
 
     result_df = pd.DataFrame()
     for file in files:
-
-        # find the proper delimiter for file
-        with open(file, 'r', newline='') as csv_file:
-            try:
-                temp_lines = csv_file.readline() + '\n' + csv_file.readline()
-                dialect = csv.Sniffer().sniff(temp_lines, delimiters=',;')
-                delimiter = dialect.delimiter
-            except csv.Error:
-                delimiter = ','
-
+        delimiter = find_delimiter(file)
         df = pd.read_csv(file, sep=delimiter)
         annotators_df = [i for i in list(df.columns) if i != 'dataset' and i != 'filename']
 
@@ -450,20 +555,6 @@ def task_status_selection(files: List[str], df_detections: pd.DataFrame, user: U
         result_df = pd.concat([result_df, df_kept]).reset_index(drop=True)
 
     return result_df
-
-
-# def read_header(file:str) -> Tuple[int, int, int, int, int]:
-#     #reads header of a wav file to get info such as duration, samplerate etc...
-#     with open(file, 'rb') as fh:
-#        _, size, _ = struct.unpack('<4sI4s', fh.read(12))
-#        chunk_header = fh.read(8)
-#        subchunkid, _ = struct.unpack('<4sI', chunk_header)
-#        if (subchunkid == b'fmt '):
-#            _, channels, samplerate, _, _, sampwidth = struct.unpack('HHIIHH', fh.read(16))
-#        sampwidth = (sampwidth + 7) // 8
-#        framesize = channels * sampwidth
-#        frames = size // framesize
-#        return sampwidth, frames, samplerate, channels, frames/samplerate
 
 
 def read_header(file: str) -> Tuple[int, int, int, int]:
@@ -510,21 +601,8 @@ def read_header(file: str) -> Tuple[int, int, int, int]:
 
         return sampwidth, frames, samplerate, channels, frames / samplerate
 
-# def get_wav_info(folder):
-#     durations=[]
-#     wav_files = glob.glob(os.path.join(folder, '**/*.wav'), recursive=True)
-#     for file in tqdm(wav_files, 'Getting wav durations...', position=0, leave=True):
-#         try:
-#             with wave.open(file, 'r') as wav_files:
-#                 frames = wav_files.getnframes()
-#                 rate = wav_files.getframerate()
-#                 durations.append(frames / float(rate))
-#         except Exception as e:
-#             print(f'An error occured while reading the file {file} : {e}')
-#     return durations
 
-
-def extract_datetime(var: str, tz: pytz._FixedOffset = None, formats=None) -> Union[dt.datetime, str]:
+def extract_datetime(var: str, tz: pytz._FixedOffset = None, formats=None) -> Union[pd.Timestamp, str]:
     ''' Extracts datetime from filename based on the date format
         Parameters :
             var : name of the wav file
@@ -532,7 +610,7 @@ def extract_datetime(var: str, tz: pytz._FixedOffset = None, formats=None) -> Un
             formats : the date template in strftime format. For example, `2017/02/24` has the template `%Y/%m/%d`
                         For more information on strftime template, see https://strftime.org/
         Returns :
-            date_obj : datetime corresponding to the datetime found in var
+            date_obj : pd.Timestamp object corresponding to the datetime found in var
     '''
 
     if formats is None:
@@ -551,43 +629,43 @@ def extract_datetime(var: str, tz: pytz._FixedOffset = None, formats=None) -> Un
         match = re.search(f, var)
         if match:
             break
-    if match:
-        dt_string = match.group()
-        if f == r'\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}':
-            dt_format = '%Y-%m-%dT%H-%M-%S'
-        elif f == r'\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}':
-            dt_format = '%Y-%m-%d_%H-%M-%S'
-        elif f == r'\d{2}\d{2}\d{2}\d{2}\d{2}\d{2}':
-            dt_format = '%y%m%d%H%M%S'
-        elif f == r'\d{2}\d{2}\d{2}_\d{2}\d{2}\d{2}':
-            dt_format = '%y%m%d_%H%M%S'
-        elif f == r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}':
-            dt_format = '%Y-%m-%d %H:%M:%S'
-        elif f == r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}':
-            dt_format = '%Y-%m-%dT%H:%M:%S'
-        elif f == r'\d{4}_\d{2}_\d{2}_\d{2}_\d{2}_\d{2}':
-            dt_format = '%Y_%m_%d_%H_%M_%S'
-        elif f == r'\d{4}_\d{2}_\d{2}T\d{2}_\d{2}_\d{2}':
-            dt_format = '%Y_%m_%dT%H_%M_%S'
-        elif f == r'\d{4}-\d{2}-\d{2}T\d{2}_\d{2}_\d{2}':
-            dt_format = '%Y-%m-%dT%H_%M_%S'
-        elif f == r'\d{4}\d{2}\d{2}T\d{2}\d{2}\d{2}':
-            dt_format = '%Y%m%dT%H%M%S'
-
-        date_obj = pd.to_datetime(dt_string, format=dt_format)
-
-        if tz is None:
-            return date_obj
-        elif type(tz) is dt.timezone:
-            offset_minutes = tz.utcoffset(None).total_seconds() / 60
-            pytz_fixed_offset = pytz.FixedOffset(int(offset_minutes))
-            date_obj = pytz_fixed_offset.localize(date_obj)
-        else:
-            date_obj = tz.localize(date_obj)
-
-        return date_obj
-    else:
+    if not match:
         raise ValueError(f'{var}: No datetime found')
+
+    dt_string = match.group()
+    if f == r'\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}':
+        dt_format = '%Y-%m-%dT%H-%M-%S'
+    elif f == r'\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}':
+        dt_format = '%Y-%m-%d_%H-%M-%S'
+    elif f == r'\d{2}\d{2}\d{2}\d{2}\d{2}\d{2}':
+        dt_format = '%y%m%d%H%M%S'
+    elif f == r'\d{2}\d{2}\d{2}_\d{2}\d{2}\d{2}':
+        dt_format = '%y%m%d_%H%M%S'
+    elif f == r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}':
+        dt_format = '%Y-%m-%d %H:%M:%S'
+    elif f == r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}':
+        dt_format = '%Y-%m-%dT%H:%M:%S'
+    elif f == r'\d{4}_\d{2}_\d{2}_\d{2}_\d{2}_\d{2}':
+        dt_format = '%Y_%m_%d_%H_%M_%S'
+    elif f == r'\d{4}_\d{2}_\d{2}T\d{2}_\d{2}_\d{2}':
+        dt_format = '%Y_%m_%dT%H_%M_%S'
+    elif f == r'\d{4}-\d{2}-\d{2}T\d{2}_\d{2}_\d{2}':
+        dt_format = '%Y-%m-%dT%H_%M_%S'
+    elif f == r'\d{4}\d{2}\d{2}T\d{2}\d{2}\d{2}':
+        dt_format = '%Y%m%dT%H%M%S'
+
+    date_obj = pd.to_datetime(dt_string, format=dt_format)
+
+    if tz is None:
+        return date_obj
+    elif type(tz) is dt.timezone:
+        offset_minutes = tz.utcoffset(None).total_seconds() / 60
+        pytz_fixed_offset = pytz.FixedOffset(int(offset_minutes))
+        date_obj = pytz_fixed_offset.localize(date_obj)
+    else:
+        date_obj = tz.localize(date_obj)
+
+    return date_obj
 
 
 def t_rounder(t: dt.datetime, res: int):
@@ -618,134 +696,6 @@ def t_rounder(t: dt.datetime, res: int):
     else:
         raise ValueError(f'res={res}s: Resolution not available')
     return t
-
-
-def oneday_per_month(time_vector_ts, time_vector_str, vec) -> Tuple[list, list, list, list]:
-    # select a random day for each months in input datetimes list and returns all the datetimes of those randomly selected days
-
-    time_vector = [dt.datetime.fromtimestamp(time_vector_ts[i]) for i in range(len(time_vector_ts))]
-
-    datetimes_by_month = {}
-    for i in range(len(time_vector)):
-        key = (time_vector[i].year, time_vector[i].month)
-        if key not in datetimes_by_month:
-            datetimes_by_month[key] = []
-        datetimes_by_month[key].append((time_vector[i], vec[i], time_vector_str[i]))
-
-    # randomly select one day for each month
-    selected_datetimes = []
-    selected_vec = []
-    selected_str = []
-    for dt_by_month in datetimes_by_month.values():
-        if len(dt_by_month) > 0:
-            month_days = list(set(list_dt[0].day for list_dt in dt_by_month))  # get all unique days in the month
-            selected_day = random.choice(month_days)  # randomly select one day
-            for i, PG, time_str in dt_by_month:
-                if i.day == selected_day:
-                    selected_datetimes.append(i)
-                    selected_vec.append(PG)
-                    selected_str.append(time_str)
-
-    unique_dates = sorted(list(set(i.strftime('%d/%m/%Y') for i in selected_datetimes)), key=lambda x: dt.datetime.strptime(x, '%d/%m/%Y'))
-    return [selected_datetimes[i].timestamp() for i in range(len(selected_datetimes))], [selected_vec[i] for i in range(len(selected_vec))], [selected_str[i] for i in range(len(selected_str))], unique_dates
-
-
-def n_random_hour(time_vector_ts, time_vector_str, vec, n_hour: int, tz, time_step: int) -> Tuple[list, list, list, list]:
-    ''' Randomly select n non-overlapping hours from the time vector
-    Parameter :
-        time_vector_ts : vector of timestamps
-        time_vector_str : vector of strings corresponding to the timestamps
-        vec: vector of 0/1 representing the absense/presence of a detection at the corresponding timestamp of the time_vector
-        n_hour: number of hours to select
-        tz : timezone object
-        time_step: time bin of the time vector
-    Returns :
-        t: rounded Timestamp'''
-
-    if type(tz) is not pytz._FixedOffset and tz is not pytz.utc: tz = pytz.timezone(tz)
-
-    if not isinstance(n_hour, int):
-        print('n_hour is not an integer')
-        return
-
-    selected_time_vector_ts, selected_dates = [], []
-    while len(selected_dates) < n_hour:
-        # choose a random datetime from the time vector
-        rand_idx = random.randrange(len(time_vector_ts))
-        rand_datetime = time_vector_ts[rand_idx]
-
-        rand_datetime = np.round(rand_datetime / 3600) * 3600
-
-        selected_dates.append(rand_datetime)
-
-        # select all datetimes that fall within the hour following this datetime
-        possible_datetimes = time_vector_ts[rand_idx:rand_idx + round(3600 / time_step) + 1]
-
-        # check if any of the selected datetimes overlap with the previously selected datetimes
-        overlap = False
-        for i in selected_time_vector_ts:
-            if any(i <= time < i + 3600 for time in possible_datetimes):
-                overlap = True
-                break
-
-        if overlap: continue
-
-        # add the selected datetimes to the list
-        selected_time_vector_ts.extend(possible_datetimes)
-
-        # sort the selected datetimes in chronological order
-        selected_time_vector_ts.sort()
-        selected_dates.sort()
-
-    # extract the corresponding vectors and time strings
-    selected_vec = [vec[time_vector_ts.index(i)] for i in tqdm(selected_time_vector_ts, position=0, leave=True)]
-    selected_time_vector_str = [time_vector_str[time_vector_ts.index(i)] for i in tqdm(selected_time_vector_ts, position=0, leave=True)]
-    selected_dates = [dt.datetime.fromtimestamp(i, tz).strftime('%d/%m/%Y %H:%M:%S') for i in selected_dates]
-
-    return selected_time_vector_ts, selected_time_vector_str, selected_vec, selected_dates
-
-
-def pick_datetimes(time_vector_ts, time_vector_str, vec, selected_dates, selected_durations, TZ) -> Tuple[list, list, list, list]:
-    # user-selected datetimes from the time vector
-
-    selected_df_out = pd.DataFrame({'datetimes': selected_dates, 'durations': selected_durations})
-
-    # format the datetimes and durations from strings to datetimes/timedeltas
-    # selected_dates = [dt.datetime.strptime(i, '%d/%m/%Y %H:%M:%S').timestamp() for i in selected_dates]
-    selected_dates = [pd.to_datetime(i, format='%d/%m/%Y %H:%M:%S').timestamp() for i in selected_dates]
-    timedeltas = []
-    for i in selected_durations:
-        if i.endswith('h'):
-            timedeltas.append(dt.timedelta(hours=int(i[:-1])).total_seconds())
-        elif i.endswith('m'):
-            timedeltas.append(dt.timedelta(minutes=int(i[:-1])).total_seconds())
-        elif i.endswith('s'):
-            timedeltas.append(dt.timedelta(seconds=int(i[:-1])).total_seconds())
-        elif i.endswith('d'):
-            timedeltas.append(dt.timedelta(days=int(i[:-1])).total_seconds())
-        else:
-            print('incorrect duration format')
-            return
-    selected_durations = timedeltas
-
-    selected_time_vector_ts = []
-
-    for i in range(len(selected_dates)):
-        # select all datetimes that fall within the durations following this datetime
-        possible_datetimes = [time for time in time_vector_ts if selected_dates[i] <= time <= selected_dates[i] + selected_durations[i]]
-
-        # add the selected datetimes to the list
-        selected_time_vector_ts.extend(possible_datetimes)
-
-    # sort the selected datetimes in chronological order
-    selected_time_vector_ts.sort()
-
-    # extract the corresponding vectors and time strings
-    selected_vec = [vec[time_vector_ts.index(i)] for i in tqdm(selected_time_vector_ts, position=0, leave=True)]
-    selected_time_vector_str = [time_vector_str[time_vector_ts.index(i)] for i in tqdm(selected_time_vector_ts, position=0, leave=True)]
-    selected_dates = [dt.datetime.fromtimestamp(i, pytz.timezone(TZ)).strftime('%d/%m/%Y %H:%M:%S') for i in selected_dates]
-
-    return selected_time_vector_ts, selected_time_vector_str, selected_vec, selected_df_out
 
 
 def export2Raven(tuple_info, timestamps, df, timebin_new, bin_height, selection_vec: bool = False, offset: bool = False) -> pd.DataFrame:
@@ -836,17 +786,6 @@ def get_season(ts: pd.Timestamp) -> str:
         Returns :
             season : string corresponding to the season and year of the datetime (ex : if datetime is 01/01/2023, returns 'winter 2022')
     '''
-    # winter1 = range(1, 80)
-    # spring = range(80, 172)
-    # summer = range(172, 264)
-    # autumn = range(264, 355)
-    # winter2 = range(355, 367)
-
-    # if ts.dayofyear in spring: season = 'spring' + ' ' + str(ts.year)
-    # elif ts.dayofyear in summer: season = 'summer' + ' ' + str(ts.year)
-    # elif ts.dayofyear in autumn: season = 'autumn' + ' ' + str(ts.year)
-    # elif ts.dayofyear in winter1: season = 'winter' + ' ' + str(ts.year - 1)
-    # elif ts.dayofyear in winter2: season = 'winter' + ' ' + str(ts.year)
 
     winter = [1, 2, 12]
     spring = [3, 4, 5]
@@ -860,61 +799,6 @@ def get_season(ts: pd.Timestamp) -> str:
     elif ts.month in winter and ts.month == 12: season = 'winter' + ' ' + str(ts.year)
 
     return season
-
-
-def load_glider_nav():
-    ''' Load the navigation data from glider output files
-        Parameter :
-        Returns :
-            df : dataframe with glider navigation data
-    '''
-    root = Tk()
-    root.withdraw()
-    directory = filedialog.askdirectory(title='Select master folder')
-
-    all_rows = []  # Initialize an empty list to store the contents of all CSV files
-    yo = []  # List to store the file numbers
-    file = []
-
-    first_file = True
-    file_number = 1  # Initialize the file number
-
-    for filename in os.listdir(directory):
-        if filename.endswith('.gz'):
-            file_path = os.path.join(directory, filename)
-
-            with gzip.open(file_path, 'rt') as gz_file:
-                delimiter = ';'  # Specify the desired delimiter
-                gz_reader = pd.read_csv(gz_file, delimiter=delimiter)
-                # If it's the first file, append the header row
-                if first_file:
-                    all_rows.append(gz_reader.columns.tolist())
-                    first_file = False
-                # Add the rows from the current CSV file to the all_rows list
-                all_rows.extend(gz_reader.values.tolist())
-                # Add yo number to the yo list
-                yo.extend([filename.split('.')[-2]] * len(gz_reader))
-                file.extend([filename] * len(gz_reader))
-                file_number += 1  # Increment the file number for the next file
-
-    # Create a DataFrame from the combined data
-    df = pd.DataFrame(all_rows)
-    df.columns = df.iloc[0]  # set 1st row as headers
-    df = df.iloc[1:, 0:-1]  # delete last column and 1st row
-
-    # Add the yo number to the DataFrame
-    df['yo'] = [int(x) for x in yo]
-
-    df['file'] = file
-    df = df.sort_values(by=['Timestamp'])
-    df = df.drop(df[(df['Lat'] == 0) & (df['Lon'] == 0)].index).reset_index(drop=True)
-    df['Lat DD'] = [int(x) + (((x - int(x)) / 60) * 100) for x in df['Lat'] / 100]
-    df['Lon DD'] = [int(x) + (((x - int(x)) / 60) * 100) for x in df['Lon'] / 100]
-    # df['Datetime'] = [dt.datetime.strptime(x, '%d/%m/%Y %H:%M:%S') for x in df['Timestamp']]
-    df['Datetime'] = [pd.to_datetime(x, format='%d/%m/%Y %H:%M:%S') for x in df['Timestamp']]
-    df['Depth'] = -df['Depth']
-
-    return df
 
 
 __converter = {
@@ -951,122 +835,6 @@ def convert_template_to_re(date_template: str) -> str:
 
     return res
 
-
-def get_timestamps() -> pd.DataFrame:
-    '''
-    Read infos from APLOSE files timestamps.csv OR file_metadata.csv
-    Parameters :
-    Returns
-        df_timestamps : TYPE
-            DESCRIPTION.
-    '''
-
-    root = Tk()
-    root.withdraw()
-    timestampcsv_path = filedialog.askopenfilename(title='Select the timestamp.csv file', filetypes=[('CSV files', '*.csv')])
-    root = Tk()
-    root.withdraw()
-    df_timestamps = pd.read_csv(timestampcsv_path)
-
-    return df_timestamps
-
-
-def find_files(f_type: str, ext: str, path: str = None, msg: str = None, n_dir: int = 1) -> list:
-    ''' Based on selection_type, ask the user a folder and yields all the wav files inside it or ask the user multiple wav files
-    Parameters :
-        f_type : str, either 'dir' or 'file'
-        ext : str, ex: 'wav'
-        path : string, the user can specify the path of the askfolder dialog to open
-        msg : string, the user can specify a message to display on the askfolder dialog
-    Returns :
-        selected_files : list of the paths of the wav files
-    '''
-    root = Tk()
-    root.withdraw()
-
-    # Define the file types to display in the dialog
-
-    selected_files = []
-
-    if f_type == 'dir':
-
-        directory = []
-        if path is None:
-            for i in range(n_dir):
-                directory.append(filedialog.askdirectory(initialdir=path, title='Select {0} folder {1}'.format(ext, i + 1)))
-
-        else:
-            directory = os.path.join(path, 'wav')
-
-        if directory:
-            [selected_files.extend(glob.glob(os.path.join(d, '**/*.{0}'.format(ext)), recursive=True)) for d in directory]
-
-    elif f_type == 'file':
-        # If the user wants to select multiple files, show the file dialog
-        file_paths = filedialog.askopenfilenames(initialdir=path, title='Select {0} files {1}'.format(ext, msg), filetypes=[('{0} files'.format(ext), '*.{0}'.format(ext))])
-        selected_files.extend(file_paths)
-
-    return selected_files
-
-
-def get_tz(file):
-    '''Extract the tz from a detection file list
-    if more than one tz is present UTC is chosen by default
-    Parameters :
-        file : list of APLOSE formatted detection files
-    Returns:
-        tz: pytz.tz object
-    '''
-
-    tz = []
-    if isinstance(file, list):
-        if len(file) == 1: [file] = file  # Convert the single string to a list with one element
-        else:
-            for i in file:
-                dt = pd.to_datetime(pd.read_csv(i, usecols=['start_datetime'])['start_datetime'], format='%Y-%m-%dT%H:%M:%S.%f%z').tolist()
-                tz.append(list(set([x.tz for x in dt]))[0])
-            tz = list(set(tz))
-            if len(tz) == 1: tz = tz[0]
-            else:
-                print('More than one tz present on detection files, UTC is selected')
-                tz = pytz.UTC
-        return tz
-    else:
-        dt = pd.to_datetime(pd.read_csv(file, usecols=['start_datetime'])['start_datetime'].tolist(), format='%Y-%m-%dT%H:%M:%S.%f%z')
-        tz = list(set([x.tz for x in dt]))
-
-        if len(tz) == 1:
-            return tz[0]
-        elif len(tz) > 1:
-            print('More than one timezone present in file')
-        else: print('error tz')
-
-
-# def input_date(msg):
-
-#     title = 'Date'
-#     fieldNames = ['Year [YYYY]', 'Month [m]', 'Day [d]', 'Hour [H]', 'Minute [M]', 'Second [S]', 'Timezone [+/-HHMM]']
-#     fieldValues = []  # we start with blanks for the values
-#     fieldValues = easygui.multenterbox(msg, title, fieldNames)
-
-#     # make sure that none of the fields was left blank
-#     while 1:
-#         if fieldValues is None: break
-#         errmsg = ''
-#         for i in range(len(fieldNames)):
-#             if fieldValues[i].strip() == '':
-#                 errmsg = errmsg + ("'%s' is a required field.\n\n" % fieldNames[i])
-#         if errmsg == '': break  # no problems found
-#         fieldValues = easygui.multenterbox(errmsg, title, fieldNames, fieldValues)
-#     print('Reply was:', fieldValues)
-
-#     hours_offset = int(fieldValues[-1][:3])
-#     minutes_offset = int(fieldValues[-1][3:])
-#     tz = pytz.FixedOffset(hours_offset * 60 + minutes_offset)
-
-#     date_dt = dt.datetime(*map(int, fieldValues[:-1]), 0, tz)
-
-#     return date_dt
 
 def input_date(msg):
     ''' Based on selection_type, ask the user a folder and yields all the wav files inside it or ask the user multiple wav files

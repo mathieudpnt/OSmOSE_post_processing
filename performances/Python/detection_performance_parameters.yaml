@@ -8,7 +8,20 @@
 #   date_end: '2022-07-08 01:59:28 +0200'
 #   # date_begin: '2022-07-07 09:00:00 +0200'
 #   # date_end: '2022-07-08 00:00:00 +0200'
- 
+
+- file: 'C:\Users\dupontma2\Desktop\data_local\files\C2D1 ST335556632\C2D1 ST335556632 - aplose.csv'
+  timestamp_file: 'C:\Users\dupontma2\Desktop\data_local\files\C2D1 ST335556632\C2D1 ST335556632 - segment timestamp file.csv'
+  reshape_method: 'timebin'
+  timebin_new: 60
+- file: 'C:\Users\dupontma2\Desktop\data_local\files\C2D1 ST335556632\C2D1 ST335556632 - pamguard.csv'
+  timestamp_file: 'C:\Users\dupontma2\Desktop\data_local\files\C2D1 ST335556632\C2D1 ST335556632 - segment timestamp file.csv'
+  reshape_method: 'timebin'
+  timebin_new: 60
+  date_begin: '2022-07-06 23:59:47 +0200'
+  date_end: '2022-07-08 01:59:28 +0200'
+  # date_begin: '2022-07-07 09:00:00 +0200'
+  # date_end: '2022-07-08 00:00:00 +0200'
+
   # - file: 'Y:\Bioacoustique\APOCADO2\Campagne 5\IROISE\bouts bleus\7181\analysis\C5D18\aplose\APOCADO_C5D18_ST7181_results.csv'
   #   timestamp_file: 'Y:\Bioacoustique\APOCADO2\Campagne 5\IROISE\bouts bleus\7181\analysis\C5D18\10_128000\timestamp.csv'
   #   timebin_new: 60
@@ -43,14 +56,14 @@
    #   timebin_new: 60
 #########################
 #thalassa###############
-- file: 'L:\acoustock\Bioacoustique\DATASETS\APOCADO\PECHEURS_2022_PECHDAUPHIR_APOCADO\Campagne 2\IROISE\335556632\analysis\C2D1\aplose\APOCADO_C2D1_07072022_results.csv'
-  timestamp_file: 'L:\acoustock\Bioacoustique\DATASETS\APOCADO\PECHEURS_2022_PECHDAUPHIR_APOCADO\Campagne 2\IROISE\335556632\analysis\C2D1\10_144000\timestamp.csv'
-  timebin_new: 60
-- file: 'L:\acoustock\Bioacoustique\DATASETS\APOCADO\PECHEURS_2022_PECHDAUPHIR_APOCADO\Campagne 2\IROISE\335556632\analysis\C2D1\thalassa\thalassa_C2D1_ST335556632.csv'
-  timestamp_file: 'L:\acoustock\Bioacoustique\DATASETS\APOCADO\PECHEURS_2022_PECHDAUPHIR_APOCADO\Campagne 2\IROISE\335556632\analysis\C2D1\10_144000\timestamp.csv'
-  timebin_new: 60
-  date_begin: '2022-07-06 23:59:47 +0200'
-  date_end: '2022-07-08 01:59:28 +0200'
+# - file: 'C:\Users\dupontma2\Desktop\data_local\files\C2D1 ST335556632\C2D1 ST335556632 - aplose.csv'
+#   timestamp_file: 'C:\Users\dupontma2\Desktop\data_local\files\C2D1 ST335556632\C2D1 ST335556632 - segment timestamp file.csv'
+#   timebin_new: 60
+# - file: 'C:\Users\dupontma2\Desktop\data_local\files\C2D1 ST335556632\C2D1 ST335556632 - thalassa.csv'
+#   timestamp_file: 'C:\Users\dupontma2\Desktop\data_local\files\C2D1 ST335556632\C2D1 ST335556632 - segment timestamp file.csv'
+#   timebin_new: 60
+#   date_begin: '2022-07-06 23:59:47 +0200'
+#   date_end: '2022-07-08 01:59:28 +0200'
 
 # - file: 'Y:\Bioacoustique\APOCADO2\Campagne 5\IROISE\bouts bleus\7181\analysis\C5D18\aplose\APOCADO_C5D18_ST7181_results.csv'
 #   timestamp_file: 'Y:\Bioacoustique\APOCADO2\Campagne 5\IROISE\bouts bleus\7181\analysis\C5D18\10_128000\timestamp.csv'

@@ -15,7 +15,6 @@ from utilities.def_func import sorting_detections, extract_datetime, read_header
 path_csv = [r'L:\acoustock\Bioacoustique\DATASETS\APOCADO\PECHEURS_2022_PECHDAUPHIR_APOCADO',
             r'Y:\Bioacoustique\APOCADO2',
             r'Z:\Bioacoustique\DATASETS\APOCADO3']
-
 pattern = re.compile(r'C\d{1,2}D\d{1,2}')
 matching_folders = []
 for p in path_csv:
@@ -34,16 +33,16 @@ for f in tqdm(matching_folders):
     ap = glob.glob(os.path.join(f, r'aplose\**results.csv'))
     aplose_csv.append(next(iter(ap))) if ap else aplose_csv.append('')
 
-    file_mt = glob.glob(os.path.join(f, r'**/file_metadata.csv'))
-    file_metadata.append(next(iter(file_mt))) if file_mt else file_metadata.append('')
+    mt1 = glob.glob(os.path.join(f, r'**/file_metadata.csv'))
+    metadata_spectro1.append(next(iter(mt1))) if mt1 else metadata_spectro1.append('')
 
-    mt1 = os.path.join(os.path.dirname(next(iter(file_mt))), 'metadata.csv')
-    if os.path.exists(mt1):
-        metadata_spectro1.append(mt1)
+    file_mt = os.path.join(os.path.dirname(next(iter(mt1))), 'metadata.csv')
+    if os.path.exists(file_mt):
+        file_metadata.append(file_mt)
     else:
         raise ValueError('metadata file of original audio files error')
 
-    ts1 = os.path.join(os.path.dirname(next(iter(file_mt))), 'timestamp.csv')
+    ts1 = os.path.join(os.path.dirname(next(iter(mt1))), 'timestamp.csv')
     if os.path.exists(ts1):
         timestamp_csv1.append(ts1)
     else:
@@ -114,20 +113,20 @@ for i in tqdm(range(len(matching_folders)), total=len(matching_folders), ncols=5
 
         'wav folder': wav_folder,
 
-        'origin file metadata': file_mt,
-        'origin metadata file': mt1,
-        'origin timestamp file': ts1,
+        'path metadata': file_mt,
 
-        'segment metadata file': mt2,
-        'segment timestamp file': ts2,
+        'path origin metadata': mt1,
+        'path origin timestamp': ts1,
 
-        'pamguard detection file': p,
+        'path segment metadata': mt2,
+        'path segment timestamp': ts2,
 
-        'thalassa detection file': t,
+        'path pamguard': p,
+        'path thalassa': t,
     }
 
     if ap != '':
-        metadata['aplose file'] = ap
+        metadata['path aplose'] = ap
 
     out_file = os.path.join(f, 'metadata.json')
 

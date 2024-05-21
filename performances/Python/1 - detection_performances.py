@@ -17,7 +17,8 @@ from cycler import cycler
 import pytz
 import warnings
 
-os.chdir(r'U:/Documents_U/Git/post_processing_detections')
+# os.chdir(r'U:/Documents_U/Git/post_processing_detections')
+os.chdir(r'C:\Users\dupontma2\Desktop\data_local\post_processing_detections-main_17052024')
 from utilities.def_func import get_csv_file, sorting_detections, input_date, t_rounder, task_status_selection, read_param, t_rounder
 
 mpl.style.use('seaborn-v0_8-paper')
@@ -69,10 +70,10 @@ if mode == 'timestamps':
     begin_date = pd.read_csv(timestamp_file, parse_dates=['timestamp'])['timestamp'].iloc[0]
     end_date = pd.read_csv(timestamp_file, parse_dates=['timestamp'])['timestamp'].iloc[-1] + pd.Timedelta(timebin_detections, unit='second')
 elif mode == 'custom':
-    begin_date = pd.Timestamp('2022-07-06 23:59:47 +0200')
-    end_date = pd.Timestamp('2022-07-08 01:59:28 +0200')
-    # begin_date = pd.Timestamp('2022-07-07 09:00:00 +0200')
-    # end_date = pd.Timestamp('2022-07-08 00:00:00 +0200')
+    # begin_date = pd.Timestamp('2022-07-06 23:59:47 +0200')
+    # end_date = pd.Timestamp('2022-07-08 01:59:28 +0200')
+    begin_date = pd.Timestamp('2022-07-07 09:00:00 +0200')
+    end_date = pd.Timestamp('2022-07-08 00:00:00 +0200')
     # begin_date = pd.Timestamp('2023-02-11 12:00:00 +0100')
     # end_date = pd.Timestamp('2023-02-12 00:00:00 +0100')
 
@@ -126,8 +127,8 @@ time_vector = [ts.timestamp() for ts in timestamp_range]
 '''
 timestamp_csv = pd.read_csv(timestamp_file, parse_dates=['timestamp'])
 timestamp_range = timestamp_csv['timestamp'].to_list()
-t = t_rounder(t=timestamp_range[0], res=timebin_detections)
-t2 = t_rounder(timestamp_range[-1], timebin_detections) + pd.Timedelta(seconds=timebin_detections)
+t = t_rounder(t=max(timestamp_range[0], begin_date), res=timebin_detections)
+t2 = t_rounder(min(timestamp_range[-1], end_date), res=timebin_detections) + pd.Timedelta(seconds=timebin_detections)
 time_vector = [ts.timestamp() for ts in pd.date_range(start=t, end=t2, freq=str(timebin_detections) + 's')]
 
 

@@ -14,24 +14,26 @@ import pickle
 import matplotlib as mpl
 from cycler import cycler
 
-os.chdir(r'U:/Documents_U/Git/post_processing_detections')
+# os.chdir(r'U:/Documents_U/Git/post_processing_detections')
+os.chdir(r'C:\Users\dupontma2\Desktop\data_local\post_processing_detections-main_17052024')
 from utilities.def_func import extract_datetime, sorting_detections, t_rounder, get_season
 
 # %%
 detector = ['pamguard', 'thalassa']
 arg = ['season', 'net']
-timebin1 = 10  # en seconde
-timebin2 = 1  # en minute
+timebin1 = 60  # en seconde
+timebin2 = 10  # en minute
 
 mpl.style.use('seaborn-v0_8-paper')
 mpl.rcParams['figure.dpi'] = 200
 mpl.rcParams["axes.prop_cycle"] = cycler('color', ['#4590d3', 'darkorange', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf'])
 # %% Load data
 
-data_load = 'manual'
+data_load = 'pickle'
 match data_load:
     case 'pickle':
-        with open(r'L:\acoustock\Bioacoustique\DATASETS\APOCADO\PECHEURS_2022_PECHDAUPHIR_APOCADO\data.pkl', 'rb') as f:
+        # with open(r'L:\acoustock\Bioacoustique\DATASETS\APOCADO\PECHEURS_2022_PECHDAUPHIR_APOCADO\data.pkl', 'rb') as f:
+        with open(r'C:\Users\dupontma2\Desktop\data_local\data_timebin60s.pkl', 'rb') as f:
             data = pickle.load(f)
 
     case 'manual':
@@ -177,10 +179,10 @@ for d in detector:
         hue='net_len',
         scatter_kws={'s': 1},
         line_kws={'lw': 1},
-        ci=95,
+        ci=90,
         legend=False,
         height=12,
-        markers='',
+        markers='o',
         palette='tab10',
     )
 

@@ -13,7 +13,8 @@ import sys
 import os
 from cycler import cycler
 
-os.chdir(r'U:/Documents_U/Git/post_processing_detections')
+# os.chdir(r'U:/Documents_U/Git/post_processing_detections')
+os.chdir(r'C:\Users\dupontma2\Desktop\data_local\post_processing_detections-main_17052024')
 from utilities.def_func import sorting_detections, t_rounder, get_timestamps, input_date, suntime_hour, read_param
 
 mpl.style.use('seaborn-v0_8-paper')
@@ -59,10 +60,10 @@ Chose your mode :
 dt_mode = 'fixed'
 
 if dt_mode == 'fixed':
-    # begin_date = pd.Timestamp('2022-07-06 23:59:47 +0200')
-    # end_date = pd.Timestamp('2022-07-08 01:59:28 +0200')    
-    begin_date = pd.Timestamp('2022-07-07 09:00:00 +0200')
-    end_date = pd.Timestamp('2022-07-08 00:00:00 +0200')
+    begin_date = pd.Timestamp('2022-07-06 23:59:47 +0200')
+    end_date = pd.Timestamp('2022-07-08 01:59:28 +0200')    
+    # begin_date = pd.Timestamp('2022-07-07 09:00:00 +0200')
+    # end_date = pd.Timestamp('2022-07-08 00:00:00 +0200')
 
     # begin_date = pd.Timestamp('2023-02-05 11:39:00 +0100')
     # end_date = pd.Timestamp('2023-02-06 08:51:00 +0100')
