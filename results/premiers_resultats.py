@@ -13,8 +13,7 @@ import sys
 import os
 from cycler import cycler
 
-# os.chdir(r'U:/Documents_U/Git/post_processing_detections')
-os.chdir(r'C:\Users\dupontma2\Desktop\data_local\post_processing_detections-main_17052024')
+os.chdir(r'U:/Documents_U/Git/post_processing_detections')
 from utilities.def_func import sorting_detections, t_rounder, get_timestamps, input_date, suntime_hour, read_param
 
 mpl.style.use('seaborn-v0_8-paper')

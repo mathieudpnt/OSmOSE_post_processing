@@ -1,18 +1,10 @@
 import glob
 import pandas as pd
 import numpy as np
-import datetime as dt
 from datetime import timedelta
-import struct
 import os
-from typing import Union, Tuple
-import re
 from tqdm import tqdm
-
 import soundfile as sf
-from scipy.io import wavfile
-from scipy import signal
-
 from utilities.def_func import read_header, extract_datetime
 
 

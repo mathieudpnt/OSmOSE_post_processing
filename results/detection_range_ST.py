@@ -12,10 +12,8 @@ from tqdm import tqdm
 from scipy.stats import linregress
 import pickle
 import matplotlib as mpl
-from cycler import cycler
 
-# os.chdir(r'U:/Documents_U/Git/post_processing_detections')
-os.chdir(r'C:\Users\dupontma2\Desktop\data_local\post_processing_detections-main_17052024')
+os.chdir(r'U:/Documents_U/Git/post_processing_detections')
 from utilities.def_func import extract_datetime, sorting_detections, t_rounder, get_season
 
 # %%
@@ -26,7 +24,6 @@ timebin2 = 10  # en minute
 
 mpl.style.use('seaborn-v0_8-paper')
 mpl.rcParams['figure.dpi'] = 200
-mpl.rcParams["axes.prop_cycle"] = cycler('color', ['#4590d3', 'darkorange', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf'])
 # %% Load data
 
 data_load = 'pickle'
@@ -169,7 +166,7 @@ for d in detector:
 
     print('Done')
 
-    sns.set(font_scale=1.6)
+    sns.set(font_scale=2)
 
     # ST correlation
     g = sns.lmplot(
@@ -194,12 +191,11 @@ for d in detector:
 
         ax = plt.gca()
         ax.text(
-            0.6,
-            0.25 - (i * 0.035),
+            0.45,
+            0.20 - (i * 0.035),
             f'{n} - R²={r*r:.2f} - N={n_samples[i]}',
             transform=ax.transAxes,
             color=color_leg[i],
-            # bbox=dict(facecolor='grey', alpha=0.8)
         )
 
     g.ax.set(
@@ -209,6 +205,6 @@ for d in detector:
 
     plt.xlim(0, 100)
     plt.ylim(0, 100)
-    plt.title(f"Appaired SoundTraps correlation\n detector: {d} - {timebin1}s positive detection per {res_min}min bin", y=1,)
+    plt.title(f"Appaired SoundTraps correlation\n detector: {d} - {timebin1}s window per {res_min}min time bin", y=1)
 
     plt.show()

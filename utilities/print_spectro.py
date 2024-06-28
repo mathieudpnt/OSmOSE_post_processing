@@ -202,10 +202,18 @@ np.savez(
     Time=time,
     )
 
-
-
-
-
+# %% LTAS from raven
+import pandas as pd
+import os
+import numpy as np
+import matplotlib as mpl
+LTAS = pd.read_csv(os.path.join(r'C:\Users\dupontma2\Desktop\data_local', 'C6D3_ltsa.csv'), skiprows=2, header=None).transpose()
+f_res = 20
+t_res = 30
+mpl.rcParams['figure.dpi'] = 200
+frequencies = np.linspace(0, (LTAS.shape[0]) * f_res, LTAS.shape[0])
+times = np.linspace(0, ((LTAS.shape[1]) * f_res), (LTAS.shape[1]))
+plt.pcolormesh(times, frequencies, LTAS)
 
 
 

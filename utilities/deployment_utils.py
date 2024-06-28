@@ -6,7 +6,6 @@ import numpy as np
 import easygui
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-from cycler import cycler
 import seaborn as sns
 from scipy import stats
 import matplotlib.dates as mdates
@@ -15,13 +14,13 @@ from utilities.def_func import reshape_timebin2, t_rounder
 
 mpl.style.use('seaborn-v0_8-paper')
 mpl.rcParams['figure.dpi'] = 200
-mpl.rcParams["axes.prop_cycle"] = cycler('color', ['#4590d3', 'darkorange', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf'])
+mpl.rcParams['figure.figsize'] = [10, 4]
 
 
-def plot_single(deployment: Deployment, file: str, timebin: int = 60, begin_date: pd.Timestamp = None, end_date: pd.Timestamp = None, fmin_filter: int = None, fmax_filter: int = None) -> None:
+def plot_single(data: Deployment, file: str, timebin: int = 60, begin_date: pd.Timestamp = None, end_date: pd.Timestamp = None, fmin_filter: int = None, fmax_filter: int = None) -> None:
 
-    assert isinstance(deployment, Deployment), 'not a Deployment class'
-    assert hasattr(deployment, 'df_' + file), f'{file} results not available'
+    assert isinstance(data, Deployment), 'not a Deployment class'
+    assert hasattr(data, 'df_' + file), f'{file} results not available'
     if fmin_filter is not None:
         assert isinstance(fmin_filter, int), "An integer must be passed for fmin_filter"
     if fmax_filter is not None:
@@ -29,7 +28,7 @@ def plot_single(deployment: Deployment, file: str, timebin: int = 60, begin_date
     if all(isinstance(f, int) for f in [fmin_filter, fmax_filter]):
         assert fmin_filter < fmax_filter, "fmin_filter must be < than fmax_filter"
 
-    df = getattr(deployment, f'df_{file}')
+    df = getattr(data, f'df_{file}')
 
     if fmin_filter is not None:
         df = df[df['start_frequency'] >= fmin_filter]
@@ -39,20 +38,19 @@ def plot_single(deployment: Deployment, file: str, timebin: int = 60, begin_date
         df = df[df['start_frequency'] <= fmax_filter]
         assert (len(df) > 0), f"No detection found in {file[0]} DataFrame after fmax filtering at {fmax_filter} Hz, upload aborted"
 
-    annotator = getattr(deployment, f'{file}_annotator')
-    annotation = getattr(deployment, f'{file}_annotation')
+    annotator = getattr(data, f'{file}_annotator')
+    annotation = getattr(data, f'{file}_annotation')
 
     if not begin_date:
-        begin_date = getattr(deployment, 'start_date')
+        begin_date = getattr(data, 'start_date')
     if not end_date:
-        end_date = getattr(deployment, 'end_date')
+        end_date = getattr(data, 'end_date')
 
     df = df[(df['start_datetime'] >= begin_date) & (df['end_datetime'] <= end_date)]
     assert len(df) > 0, f'No annotation found between {begin_date} and {end_date}'
 
-    timestamp = getattr(deployment, 'segment_timestamp')
-    timestamp2 = [ts for ts in timestamp if begin_date <= ts <= end_date]
-
+    timestamp = getattr(data, 'segment_timestamp')
+    timestamp2 = list(dict.fromkeys([ts for ts in timestamp if begin_date <= ts <= end_date]))
     tz = pytz.FixedOffset(begin_date.utcoffset().total_seconds() // 60)
 
     if len(annotator) > 1 and not isinstance(annotator, str):
@@ -80,25 +78,38 @@ def plot_single(deployment: Deployment, file: str, timebin: int = 60, begin_date
     y_pos = np.linspace(0, n_annot_max, num=len(bars))
     ax.set_yticks(y_pos, bars)
     ax.tick_params(axis='x', rotation=60)
-    ax.set_ylabel('positive detection rate\n({0} min)'.format(res_min))
+    ax.set_ylabel(f'positive detection rate\n{timebin}s window per {res_min}min bin')
     ax.tick_params(axis='y')
-    fig.suptitle(f'[{annot_ref}/{label_ref}]', y=1.02)
+    fig.suptitle(f'{data.name}\n[{annot_ref}/{label_ref}]', y=1.02)
 
-    ax.xaxis.set_major_locator(mdates.HourLocator(interval=4))
-    ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M', tz=tz))
+    if data.duration < pd.Timedelta(12, 'hour'):
+        t_inter = 1
+        date_fmt = '%H:%M'
+    elif data.duration < pd.Timedelta(24, 'hour'):
+        t_inter = 2
+        date_fmt = '%H:%M'
+    elif data.duration < pd.Timedelta(4, 'day'):
+        t_inter = 4
+        date_fmt = '%m/%d - %H:%M'
+    elif data.duration < pd.Timedelta(7, 'day'):
+        t_inter = 24
+        date_fmt = '%m/%d'
+
+    ax.xaxis.set_major_locator(mdates.HourLocator(interval=t_inter))
+    ax.xaxis.set_major_formatter(mdates.DateFormatter(date_fmt, tz=tz))
     ax.set_xlim(time_vector[0], time_vector[-1])
     ax.grid(linestyle='-', linewidth=0.2, axis='both')
 
     plt.tight_layout()
     plt.show()
 
-    return
+    return df_1annot_1label['start_datetime'], time_vector
 
 
-def get_agreement(deployment: Deployment, file: str, timebin: int = 60, begin_date: pd.Timestamp = None, end_date: pd.Timestamp = None, fmin_filter: int = None, fmax_filter: int = None) -> None:
+def get_agreement(data: Deployment, file: str, timebin: int = 60, begin_date: pd.Timestamp = None, end_date: pd.Timestamp = None, fmin_filter: int = None, fmax_filter: int = None) -> None:
 
-    assert isinstance(deployment, Deployment), 'not a Deployment class'
-    assert hasattr(deployment, 'df_' + file), f'{file} results not available'
+    assert isinstance(data, Deployment), 'not a Deployment class'
+    assert hasattr(data, 'df_' + file), f'{file} results not available'
     if fmin_filter is not None:
         assert isinstance(fmin_filter, int), "An integer must be passed for fmin_filter"
     if fmax_filter is not None:
@@ -106,7 +117,7 @@ def get_agreement(deployment: Deployment, file: str, timebin: int = 60, begin_da
     if all(isinstance(f, int) for f in [fmin_filter, fmax_filter]):
         assert fmin_filter < fmax_filter, "fmin_filter must be < than fmax_filter"
 
-    df = getattr(deployment, f'df_{file}')
+    df = getattr(data, f'df_{file}')
 
     if fmin_filter is not None:
         df = df[df['start_frequency'] >= fmin_filter]
@@ -116,13 +127,13 @@ def get_agreement(deployment: Deployment, file: str, timebin: int = 60, begin_da
         df = df[df['start_frequency'] <= fmax_filter]
         assert (len(df) > 0), f"No detection found in {file[0]} DataFrame after fmax filtering at {fmax_filter} Hz, upload aborted"
 
-    annotator = getattr(deployment, f'{file}_annotator')
-    annotation = getattr(deployment, f'{file}_annotation')
+    annotator = getattr(data, f'{file}_annotator')
+    annotation = getattr(data, f'{file}_annotation')
     if not begin_date:
-        begin_date = getattr(deployment, 'start_date')
+        begin_date = getattr(data, 'start_date')
     if not end_date:
-        end_date = getattr(deployment, 'end_date')
-    timestamp = getattr(deployment, 'segment_timestamp')
+        end_date = getattr(data, 'end_date')
+    timestamp = getattr(data, 'segment_timestamp')
     timestamp2 = [ts for ts in timestamp if begin_date <= ts <= end_date]
 
     tz = pytz.FixedOffset(begin_date.utcoffset().total_seconds() // 60)
@@ -156,11 +167,11 @@ def get_agreement(deployment: Deployment, file: str, timebin: int = 60, begin_da
     hist_plot = axs[0].hist([df1_1annot_1label['start_datetime'], df2_1annot_1label['start_datetime']], bins=time_vector, label=[annot_ref1, annot_ref2], edgecolor='black')
     axs[0].legend(loc='upper right')
 
-    bars = range(0, 110, 10)  # from 0 to 100 step 10
+    bars = range(0, 101, 10)  # from 0 to 100 step 10
     y_pos = np.linspace(0, n_annot_max, num=len(bars))
     axs[0].set_yticks(y_pos, bars)
     axs[0].tick_params(axis='x', rotation=60)
-    axs[0].set_ylabel('positive detection rate\n({0} min)'.format(res_min))
+    axs[0].set_ylabel(f'positive detection rate\n{timebin}s window per {res_min}min bin')
     axs[0].tick_params(axis='y')
     fig.suptitle(f'[{annot_ref1}/{label_ref}] VS [{annot_ref2}/{label_ref}]', y=1.02)
 
@@ -201,13 +212,13 @@ def get_agreement(deployment: Deployment, file: str, timebin: int = 60, begin_da
     return
 
 
-def get_perf(deployment: Deployment, file: List[str], timebin: int = 60, begin_date: pd.Timestamp = None, end_date: pd.Timestamp = None, fmin_filter: List[int] = None, fmax_filter: List[int] = None) -> None:
+def get_perf(data: Deployment, file: List[str], timebin: int = 60, begin_date: pd.Timestamp = None, end_date: pd.Timestamp = None, fmin_filter: List[int] = None, fmax_filter: List[int] = None) -> None:
 
-    assert isinstance(deployment, Deployment), 'deployment arg is not a Deployment class'
+    assert isinstance(data, Deployment), 'data arg is not a Deployment class'
     assert isinstance(file, List), 'file arg is not a list'
     assert len(file) == 2, f'{len(file)} arg were passed instead of 2 for file arg'
-    assert hasattr(deployment, 'df_' + file[0]), f'{file[0]} results not available'
-    assert hasattr(deployment, 'df_' + file[1]), f'{file[1]} results not available'
+    assert hasattr(data, 'df_' + file[0]), f'{file[0]} results not available'
+    assert hasattr(data, 'df_' + file[1]), f'{file[1]} results not available'
     if fmin_filter is not None:
         assert isinstance(fmin_filter, List), "A list of 2 integers must be passed for fmin_filter"
         assert len(fmin_filter) == 2, "A list of 2 integers must be passed for fmin_filter"
@@ -218,8 +229,8 @@ def get_perf(deployment: Deployment, file: List[str], timebin: int = 60, begin_d
         for i in range(2):
             assert fmin_filter[i] < fmax_filter[i], "fmin_filter must be < than fmax_filter"
 
-    df1 = getattr(deployment, f'df_{file[0]}')
-    df2 = getattr(deployment, f'df_{file[1]}')
+    df1 = getattr(data, f'df_{file[0]}')
+    df2 = getattr(data, f'df_{file[1]}')
 
     if fmin_filter is not None:
         df1 = df1[df1['start_frequency'] >= fmin_filter[0]]
@@ -233,18 +244,18 @@ def get_perf(deployment: Deployment, file: List[str], timebin: int = 60, begin_d
         assert (len(df1) > 0), f"No detection found in {file[0]} DataFrame after fmax filtering at {fmax_filter} Hz, upload aborted"
         assert (len(df2) > 0), f"No detection found in {file[1]} DataFrame after fmax filtering at {fmax_filter} Hz, upload aborted"
 
-    annotator1 = getattr(deployment, f'{file[0]}_annotator')
-    annotator2 = getattr(deployment, f'{file[1]}_annotator')
+    annotator1 = getattr(data, f'{file[0]}_annotator')
+    annotator2 = getattr(data, f'{file[1]}_annotator')
 
-    annotation1 = getattr(deployment, f'{file[0]}_annotation')
-    annotation2 = getattr(deployment, f'{file[1]}_annotation')
+    annotation1 = getattr(data, f'{file[0]}_annotation')
+    annotation2 = getattr(data, f'{file[1]}_annotation')
 
     if not begin_date:
-        begin_date = getattr(deployment, 'start_date')
+        begin_date = getattr(data, 'start_date')
     if not end_date:
-        end_date = getattr(deployment, 'end_date')
+        end_date = getattr(data, 'end_date')
 
-    timestamp = getattr(deployment, 'segment_timestamp')
+    timestamp = getattr(data, 'segment_timestamp')
     timestamp2 = [ts for ts in timestamp if begin_date <= ts <= end_date]
 
     t = t_rounder(t=max(timestamp2[0], begin_date), res=timebin)

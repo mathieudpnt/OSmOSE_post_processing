@@ -8,27 +8,35 @@ import numpy as np
 from collections import Counter
 import glob
 import json
-from scipy.stats import norm
+from scipy.stats import norm, shapiro, mannwhitneyu, ttest_ind
 import seaborn as sns
 import pickle
 import matplotlib as mpl
 from cycler import cycler
+import pytz
+import re
 
 os.chdir(r'U:/Documents_U/Git/post_processing_detections')
-from utilities.def_func import stat_box_day, stats_diel_pattern, sorting_detections, get_season
+from utilities.def_func import sorting_detections, get_season
+from utilities.APOCADO_stat import stats_diel_pattern
 
+mpl.rcdefaults()
 mpl.style.use('seaborn-v0_8-paper')
 mpl.rcParams['figure.dpi'] = 200
-mpl.rcParams["axes.prop_cycle"] = cycler('color', ['#4590d3', 'darkorange', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf'])
+mpl.rcParams['figure.figsize'] = [10, 4]
+
 # %%
 data_load = 'pickle'  # manual or pickle
 detector = ['pamguard', 'thalassa']
 arg = ['season', 'net', 'all']
 timebin = 60  # seconds
+light_regime = ['Night', 'Dawn', 'Day', 'Dusk']
+
 # %% Import csv deployments
 
-deploy = pd.read_excel('L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/APOCADO - Suivi déploiements.xlsm', skiprows=[0])
-deploy = deploy[deploy['check heure Raven'] == 1].reset_index(drop=True)
+deploy_path = r'L:/acoustock/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/APOCADO - Suivi déploiements.xlsm'
+deploy = pd.read_excel(deploy_path, skiprows=1)
+deploy = deploy[deploy['final selection'] == 1].reset_index(drop=True)
 
 deploy['datetime deployment'] = [pd.Timestamp.combine(deploy['date deployment'][i], deploy['time deployment'][i]) for i in range(len(deploy))]
 deploy['datetime recovery'] = [pd.Timestamp.combine(deploy['date recovery'][i], deploy['time recovery'][i]) for i in range(len(deploy))]
@@ -36,6 +44,7 @@ deploy['duration'] = [deploy['datetime recovery'][i] - deploy['datetime deployme
 deploy['season_y'] = [get_season(i) for i in deploy['datetime deployment']]
 deploy['season'] = [i.split(' ')[0] for i in deploy['season_y']]
 deploy['year'] = [int(s[-4:]) for s in deploy['season_y']]
+deploy['species'] = deploy['species'].apply(lambda x: x.lower() if isinstance(x, str) else x)
 
 # result deployments
 print('\n# Observation effort #')
@@ -73,11 +82,9 @@ for net in net_type:
         print(f'-{s}/{net}: {duration_net:2.0f}h')
 
 print('\n# Observation effort per net type & per season #')
-# list_season = sorted(list(set(deploy['season'])))
 list_season = ['spring', 'summer', 'autumn', 'winter']
 net_type = ['Droit', 'Trémail']
 for season in list_season:
-    # net_type = list(dict.fromkeys(deploy[(deploy['season'] == s)]['net']))
     for net in net_type:
         duration_net = (deploy[(deploy['net'] == net) & (deploy['season'] == season)]['duration'] / deploy[(deploy['net'] == net) & (deploy['season'] == season)]['recorder number']).sum().total_seconds() / 3600
         print(f'-{season}/{net}: {duration_net:2.0f}h')
@@ -101,7 +108,7 @@ for length, yi in zip(net_length, net_length_distrib):
 # distribution of deployment durations
 duration_distrib = [t.total_seconds() / 3600 for t in deploy['duration']]
 
-fig, axs = plt.subplots(1, 2, dpi=200, figsize=(10, 4), gridspec_kw={'width_ratios': [4, 3]})
+fig, axs = plt.subplots(1, 2, gridspec_kw={'width_ratios': [4, 3]})
 axs[0].hist(duration_distrib, bins=range(0, int(1.05 * max(duration_distrib)), 2), edgecolor='black', linewidth=0.5, zorder=2)
 axs[0].set_xlabel('Hours')
 axs[0].set_ylabel('Deployment number')
@@ -115,20 +122,48 @@ axs[1].grid(axis='y', linestyle='--', alpha=0.5, zorder=1)
 plt.tight_layout()
 plt.show()
 
+# distribution of deployments per species
+species_set = set(deploy['species'])
+unique_species = set()
+for entry in species_set:
+    if entry and isinstance(entry, str):
+        species = re.split(r'[\n ]', entry)
+        unique_species.update([sp.lower() for sp in species])
+unique_species_list = list(unique_species)
+
+species_result = []
+for i in range(len(deploy)):
+    line = []
+    if not pd.isna(deploy['species'][i]):
+        [line.append(1) if u in deploy['species'][i] else line.append(0) for u in unique_species_list]
+        species_result.append(line)
+    else:
+        species_result.append([0] * len(unique_species_list))
+
+species_result = pd.DataFrame(species_result, columns=unique_species_list)
+
+species_result.sum().plot(kind='bar', zorder=2, edgecolor='black', linewidth=1, figsize=(6, 2))
+plt.xlabel('Species')
+plt.ylabel('Deployment number')
+plt.title('Distribution of deployment species')
+plt.grid(axis='y', linestyle='--', alpha=0.5, zorder=1)
+plt.show()
+
 # %% Load all metadata
 
 match data_load:
+
     case 'pickle':
-        with open(r'L:\acoustock\Bioacoustique\DATASETS\APOCADO\PECHEURS_2022_PECHDAUPHIR_APOCADO\data.pkl', 'rb') as f:
+        with open(r'L:\acoustock\Bioacoustique\DATASETS\APOCADO\PECHEURS_2022_PECHDAUPHIR_APOCADO\data_timebin60s.pkl', 'rb') as f:
             data = pickle.load(f)
 
     case 'manual':
         data = []
-        path_json = [r'L:\acoustock\Bioacoustique\DATASETS\APOCADO\PECHEURS_2022_PECHDAUPHIR_APOCADO',
-                     r'Y:\Bioacoustique\APOCADO2',
-                     r'Z:\Bioacoustique\DATASETS\APOCADO3']
+        path_acoustock = [r'L:\acoustock\Bioacoustique\DATASETS\APOCADO\PECHEURS_2022_PECHDAUPHIR_APOCADO',
+                          r'Y:\Bioacoustique\APOCADO2',
+                          r'Z:\Bioacoustique\DATASETS\APOCADO3']
 
-        list_json = [file_path for path in path_json for file_path in glob.glob(os.path.join(path, "**/metadata.json"), recursive=True)]
+        list_json = [file_path for path in path_acoustock for file_path in glob.glob(os.path.join(path, "**/metadata.json"), recursive=True)]
 
         for i in tqdm(range(len(list_json)), desc="Scanning metadata files"):
             r_file = open(list_json[i], 'r')
@@ -138,21 +173,23 @@ match data_load:
 
         df_detections_pamguard, df_detections_thalassa = [], []
         for i in tqdm(range(len(data)), desc="DataFrame creation"):
-            f1 = data['pamguard detection file'][i]
-            f2 = data['thalassa detection file'][i]
+            f1 = data['path pamguard'][i]
+            f2 = data['path thalassa'][i]
             tz = data['datetime deployment'][i][-5:-2] + ':' + data['datetime deployment'][i][-2:]
-            ts = data['segment timestamp file'][i]
+            # tz = data['datetime deployment'][i].tz
+            ts = pd.read_csv(data['path segment timestamp'][i], parse_dates=['timestamp']).drop_duplicates().reset_index(drop=True)['timestamp']
+
             df_detections_file1, _ = sorting_detections(file=f1,
                                                         tz=tz,
                                                         timebin_new=timebin,
-                                                        timestamp_file=ts,
+                                                        timestamp=ts,
                                                         date_begin=data['datetime deployment'][i],
                                                         date_end=data['datetime recovery'][i]
                                                         )
             df_detections_file2, _ = sorting_detections(file=f2,
                                                         tz=tz,
                                                         timebin_new=timebin,
-                                                        timestamp_file=ts,
+                                                        timestamp=ts,
                                                         date_begin=data['datetime deployment'][i],
                                                         date_end=data['datetime recovery'][i]
                                                         )
@@ -169,14 +206,20 @@ match data_load:
         data['season'] = [i.split(' ')[0] for i in data['season_y']]
         data['year'] = [int(s[-4:]) for s in data['season_y']]
         data['duration'] = [pd.Timedelta(d) for d in data['duration']]
+        data['deployment'] = [data['platform'][i] + ' ST' + str(data['recorder'][i]) for i in range(len(data))]
+        data['species'] = data['species'].apply(lambda x: x.lower() if isinstance(x, str) else x)
 
         for d in detector:
-            data[f'detection rate {d}'] = [(len(data[f'df {d}'][i]) / (pd.to_timedelta(data['duration'][i]).total_seconds() / 86400)) / (86400 / timebin) for i in range(len(data))]
+            data[f'detection rate {d}'] = [(len(data[f'df {d}'][i]) / (data['duration'][i].total_seconds() / 86400)) / (86400 / timebin) for i in range(len(data))]
 
-    # save the DataFrame to a pickle file
-    with open(os.path.join(r'C:\Users\dupontma2\Desktop\data_local', f'data_timebin{timebin}s.pkl'), 'wb') as f:
-        pickle.dump(data, f)
+# exclude data rows if deployment not selected in csv
+data = data.loc[data['deployment'].isin(deploy['ID deployment'])].reset_index(drop=True)
 
+# %% Save data
+
+# save the DataFrame to a pickle file
+with open(os.path.join(r'L:\acoustock\Bioacoustique\DATASETS\APOCADO\PECHEURS_2022_PECHDAUPHIR_APOCADO', f'data_timebin{timebin}s.pkl'), 'wb') as f:
+    pickle.dump(data, f)
 
 # %% hourly detection rate and double check selection
 
@@ -184,16 +227,15 @@ hourly_detection_rate = []
 for i in tqdm(range(len(data))):
 
     timestamp_range_begin = data['datetime deployment'][i].replace(minute=0, second=0, microsecond=0)
-    if (data['datetime recovery'][i].minute != 0) | (data['datetime recovery'][i].second != 0) | (data['datetime recovery'][i].microsecond != 0):
+    if (data['datetime recovery'][i].minute != 0) or (data['datetime recovery'][i].second != 0) or (data['datetime recovery'][i].microsecond != 0):
         timestamp_range_end = data['datetime recovery'][i].replace(hour=data['datetime recovery'][i].hour + 1, minute=0, second=0, microsecond=0)
     else:
         timestamp_range_end = data['datetime recovery'][i]
 
-    test = pd.read_csv(data['segment timestamp file'][i])
-    timestamp_range2 = [pd.Timestamp(ts) for ts in test['timestamp']]
-    timestamp_range2[0::360]
-
     timestamp_range = pd.date_range(start=timestamp_range_begin, end=timestamp_range_end, freq='1h').tolist()
+
+    test = pd.read_csv(data['path segment timestamp'][i], parse_dates=['timestamp'])
+    timestamp_range2 = test['timestamp'][::360]
 
     df_hourly = pd.DataFrame()
     for d in detector:
@@ -227,19 +269,24 @@ plt.title('Hourly detection rate distribution')
 plt.legend()
 plt.show()
 
-double_check_selection = df_hourly_all[(df_hourly_all['pamguard hourly detection rate'] == 1) & (df_hourly_all['pamguard coverage'] == 1) & (df_hourly_all['thalassa hourly detection rate'] == 1) & (df_hourly_all['thalassa coverage'] == 1)].sample(n=10).sort_values(by='start_datetime')
+# double_check_selection = df_hourly_all[(df_hourly_all['pamguard hourly detection rate'] == 1) & (df_hourly_all['pamguard coverage'] == 1) & (df_hourly_all['thalassa hourly detection rate'] == 1) & (df_hourly_all['thalassa coverage'] == 1)].sample(n=10).sort_values(by='start_datetime')
+# lim_low = 0.2
+# lim_high = 0.8
+# double_check_selection = df_hourly_all[(df_hourly_all['pamguard hourly detection rate'] <= lim_high) &
+#                                        (df_hourly_all['pamguard hourly detection rate'] >= lim_low ) &
+#                                        (df_hourly_all['pamguard coverage'] == 1) & 
+#                                        (df_hourly_all['thalassa hourly detection rate'] <= lim_high) &
+#                                        (df_hourly_all['thalassa hourly detection rate'] >= lim_low ) &
+#                                        (df_hourly_all['thalassa coverage'] == 1)].sample(n=10).sort_values(by='start_datetime')
+# print(f"\nSelection for double check : \n\n{double_check_selection['ID']}")
 
-lim_low = 0.2
-lim_high = 0.8
-double_check_selection = df_hourly_all[(df_hourly_all['pamguard hourly detection rate'] <= lim_high) &
-                                       (df_hourly_all['pamguard hourly detection rate'] >= lim_low ) &
-                                       (df_hourly_all['pamguard coverage'] == 1) & 
-                                       (df_hourly_all['thalassa hourly detection rate'] <= lim_high) &
-                                       (df_hourly_all['thalassa hourly detection rate'] >= lim_low ) &
-                                       (df_hourly_all['thalassa coverage'] == 1)].sample(n=10).sort_values(by='start_datetime')
-print(f"\nSelection for double check : \n\n{double_check_selection['ID']}")
-
-# %% filtering data
+# %% filtering data for following analysis
+'''
+here the data is treated differently according to which detector is used i.e. which signal are studied
+for whistles, appaired recorders are trated separately if the length on the net  is >500m
+for clicks, appaired recorders are trated separately if the length on the net  is >200m
+In the other case, only one of the appaired recorder is considered
+'''
 
 detector = ['pamguard', 'thalassa']
 
@@ -250,16 +297,21 @@ filtered_data = {}
 for d in detector:
 
     if d == 'thalassa':
+        colorplot = 'teal'
         filtered_df_2 = data[(data['recorder number'] == 2) & (data['net length'] <= 200)]
         sub_df_2 = filtered_df_2.groupby('platform').first().reset_index()  # only the first ST
         filtered_df_3 = data[(data['recorder number'] == 2) & (data['net length'] > 200)]
         filtered_data[f'{d}'] = pd.concat([filtered_df_1, sub_df_2, filtered_df_3]).reset_index(drop=True)
 
     elif d == 'pamguard':
+        colorplot = 'darkorange'
         filtered_df_2 = data[(data['recorder number'] == 2) & (data['net length'] <= 500)]
         sub_df_2 = filtered_df_2.groupby('platform').first().reset_index()  # only the first ST
         filtered_df_3 = data[(data['recorder number'] == 2) & (data['net length'] > 500)]
         filtered_data[f'{d}'] = pd.concat([filtered_df_1, sub_df_2, filtered_df_3]).reset_index(drop=True)
+# %% distribution of deployement detection rates
+
+for d in detector:
 
     mean_filter_df = filtered_data[f'{d}'][f'detection rate {d}'].mean()
     std_filter_df = filtered_data[f'{d}'][f'detection rate {d}'].std()
@@ -267,8 +319,10 @@ for d in detector:
     min_filter_df = filtered_data[f'{d}'][f'detection rate {d}'].min()
     print(f"\n{d} / all season: {mean_filter_df * 100:.0f}% +/- {100 * std_filter_df:.0f}%, max={100 * max_filter_df:.0f}%, min={100 * min_filter_df:.0f}%, N={len(filtered_data[f'{d}'])}")
 
-    fig, ax = plt.subplots(figsize=(18, 9), facecolor='#36454F')
-    hist, bins, _ = plt.hist(100 * filtered_data[f'{d}'][f'detection rate {d}'], bins=np.arange(0, 101, 5), density=False, edgecolor='black', alpha=0.5)
+    fig, ax = plt.subplots()
+    ax.set_axisbelow(True)  # Set grid behind plot
+    plt.grid(alpha=0.5)
+    hist, bins, _ = plt.hist(100 * filtered_data[f'{d}'][f'detection rate {d}'], bins=np.arange(0, 101, 5), density=False, edgecolor='black')
     # Fit a normal distribution to the data
     mu, std = norm.fit(100 * filtered_data[f'{d}'][f'detection rate {d}'])
     # Create range for the smoothed line
@@ -276,70 +330,77 @@ for d in detector:
     # Calculate the Gaussian curve
     pdf = norm.pdf(x_range, mu, std)
     # Plot the Gaussian curve
-    plt.plot(x_range, (pdf / max(pdf)) * max(hist), color='limegreen', linewidth=3)
-    ax.set_facecolor('#36454F')
-    ax.spines['bottom'].set_color('w')
-    ax.spines['left'].set_color('w')
-    ax.spines['right'].set_visible(False)
-    ax.spines['top'].set_visible(False)
-    ax.tick_params(axis='both', colors='w', labelsize=14)
+    # plt.plot(x_range, (pdf / max(pdf)) * max(hist), color='teal')
     plt.xticks(np.arange(0, 100 + 1, 10))
-    plt.xlabel('Positive minute detection rate / day', fontsize=16, color='w')
-    plt.ylabel('Deployment number', fontsize=16, color='w')
-    plt.title(f'Distribution of deployment detection rate\ndetector: {d}', color='w', fontsize=18)
+    plt.xlabel('Positive minute detection rate / day')
+    plt.ylabel('Deployment number')
+    plt.title(f'Distribution of deployment detection rate\ndetector: {d}')
     plt.show()
 
-    for i in list(dict.fromkeys(filtered_data[f'{d}']['season_y'])):
-        N = len(filtered_data[f'{d}'][filtered_data[f'{d}']['season_y'] == i])
-        mean = filtered_data[f'{d}'][filtered_data[f'{d}']['season_y'] == i][f'detection rate {d}'].mean()
-        std = filtered_data[f'{d}'][filtered_data[f'{d}']['season_y'] == i][f'detection rate {d}'].std()
-        max_stat = filtered_data[f'{d}'][filtered_data[f'{d}']['season_y'] == i][f'detection rate {d}'].max()
-        min_stat = filtered_data[f'{d}'][filtered_data[f'{d}']['season_y'] == i][f'detection rate {d}'].min()
+    arg = 'season'
+    for i in list(dict.fromkeys(filtered_data[f'{d}'][f'{arg}'])):
+
+    # for i in unique_species_list:
+
+        if i == 'spring':
+            colorplot = '#59D955'
+        elif i == 'summer':
+            colorplot = '#F2E205'
+        elif i == 'autumn':
+            colorplot = '#F28B66'
+        elif i == 'winter':
+            colorplot = '#4694A6'
+
+        # species
+        # N = filtered_data[f'{d}'][f'{arg}'].str.contains(i).sum()
+        # mean = filtered_data[f'{d}'][filtered_data[f'{d}'][f'{arg}'].str.contains(i, na=False)][f'detection rate {d}'].mean()
+        # std = filtered_data[f'{d}'][filtered_data[f'{d}'][f'{arg}'].str.contains(i, na=False)][f'detection rate {d}'].std()
+        # max_stat = filtered_data[f'{d}'][filtered_data[f'{d}'][f'{arg}'].str.contains(i, na=False)][f'detection rate {d}'].max()
+        # min_stat = filtered_data[f'{d}'][filtered_data[f'{d}'][f'{arg}'].str.contains(i, na=False)][f'detection rate {d}'].min()
+
+        N = len(filtered_data[f'{d}'][filtered_data[f'{d}'][f'{arg}'] == i])
+        mean = filtered_data[f'{d}'][filtered_data[f'{d}'][f'{arg}'] == i][f'detection rate {d}'].mean()
+        std = filtered_data[f'{d}'][filtered_data[f'{d}'][f'{arg}'] == i][f'detection rate {d}'].std()
+        max_stat = filtered_data[f'{d}'][filtered_data[f'{d}'][f'{arg}'] == i][f'detection rate {d}'].max()
+        min_stat = filtered_data[f'{d}'][filtered_data[f'{d}'][f'{arg}'] == i][f'detection rate {d}'].min()
 
         print(f"\t{d} / {i}: {mean * 100:.0f}% +/- {100 * std:.0f}%, max={100 * max_stat:.0f}%, min={100 * min_stat:.0f}%, N={N}")
 
-        # fig, ax = plt.subplots(figsize=(18, 9), facecolor='#36454F')
-        # # plt.hist(100 * filtered_data[f'{d}'][f'detection rate {d}'], bins=range(0, 101, 4), density=False, alpha=0.5, edgecolor='black')
-        # hist, bins, _ = plt.hist(100 * filtered_data[f'{d}'][filtered_data[f'{d}']['season_y'] == i][f'detection rate {d}'], bins=np.arange(0, 101, 5), density=False, edgecolor='black', alpha=0.5)
-        # # Fit a normal distribution to the data
-        # mu, std = norm.fit(100 * filtered_data[f'{d}'][filtered_data[f'{d}']['season_y'] == i][f'detection rate {d}'])
-        # # Create range for the smoothed line
-        # x_range = np.linspace(0, 100, 1000)
-        # # Calculate the Gaussian curve
-        # pdf = norm.pdf(x_range, mu, std)
-        # # Plot the Gaussian curve
-        # plt.plot(x_range, (pdf / max(pdf)) * max(hist), color='limegreen', linewidth=3)
-        # ax.set_facecolor('#36454F')
-        # ax.spines['bottom'].set_color('w')
-        # ax.spines['left'].set_color('w')
-        # ax.spines['right'].set_visible(False)
-        # ax.spines['top'].set_visible(False)
-        # ax.tick_params(axis='both', colors='w', labelsize=14)
-        # plt.xticks(np.arange(0, 100 + 1, 10))
-        # plt.xlabel('Positive minute detection rate / day', fontsize=16, color='w')
-        # plt.ylabel('Deployment number', fontsize=16, color='w')
-        # plt.title(f'Distribution of deployment detection rate\nseason: {i} - detector: {d} - N={N}', color='w', fontsize=18)
-        # plt.show()
+        fig, ax = plt.subplots()
+        ax.set_axisbelow(True)  # Set grid behind plot
+        plt.grid(alpha=0.5)
+        # hist, bins, _ = plt.hist(100 * filtered_data[f'{d}'][filtered_data[f'{d}'][f'{arg}'] == i][f'detection rate {d}'], bins=np.arange(0, 101, 5), density=False, edgecolor='black', color=colorplot)
+        hist, bins, _ = plt.hist(100 * filtered_data[f'{d}'][filtered_data[f'{d}'][f'{arg}'].str.contains(i, na=False)][f'detection rate {d}'], bins=np.arange(0, 101, 5), density=False, edgecolor='black', color=colorplot)
+        # Fit a normal distribution to the data
+        mu, std = norm.fit(100 * filtered_data[f'{d}'][filtered_data[f'{d}'][f'{arg}'] == i][f'detection rate {d}'])
+        # Create range for the smoothed line
+        x_range = np.linspace(0, 100, 1000)
+        # Calculate the Gaussian curve
+        pdf = norm.pdf(x_range, mu, std)
+        # Plot the Gaussian curve
+        # plt.plot(x_range, (pdf / max(pdf)) * max(hist), color='teal')
+        plt.xticks(np.arange(0, 100 + 1, 10))
+        plt.xlabel('Positive minute detection rate / day')
+        plt.ylabel('Deployment number')
+        plt.title(f'Distribution of deployment detection rate\n{arg}: {i} - detector: {d} - N={N}')
+        plt.show()
 
-# %% analyze metadata - distribution of the period with most detections
+# %% distribution of the period with most detections
 
 '''
 Distribution of all the detection dataframes most populated time period,
 first, each detection dataframe is divided into n periods of equal durations
 Then the distribution of the period with the most detections for each df is plotted
 '''
-n_periods = 12
-detector = ['pamguard', 'thalassa']
-arg = ['season', 'net', 'all']
+n_periods = 10
+detector = ['thalassa']
+# arg = ['season', 'net', 'all']
+arg = ['all']
 
 for d in detector:
 
-    if d == 'pamguard':
-        colorplot = 'orange'
-    elif d == 'thalassa':
-        colorplot = 'teal'
-
-    data2 = filtered_data[f'{d}'][(filtered_data[f'{d}']['duration'] >= pd.Timedelta(hours=17)) & (filtered_data[f'{d}']['duration'] <= pd.Timedelta(hours=28))].reset_index(drop=True)
+    # data2 = filtered_data[f'{d}'][(filtered_data[f'{d}']['duration'] >= pd.Timedelta(hours=17)) & (filtered_data[f'{d}']['duration'] <= pd.Timedelta(hours=28))].reset_index(drop=True)
+    data2 = filtered_data[f'{d}']
     print(f"{d}: {100 * len(data2) / len(filtered_data[f'{d}']):.0f}% of deployments selected ({len(data2)}/{len(filtered_data[f'{d}'])} deployments)")
 
     # # distribution of deployment durations
@@ -395,33 +456,19 @@ for d in detector:
                 count_min = [min_c for min_c in list(value_min_counts.values())]
                 values = list(value_max_counts.keys())
 
-                fig, ax = plt.subplots(figsize=(15, 6), facecolor='#36454F')
-                ax.set_facecolor('#36454F')
-
+                fig, ax = plt.subplots()
                 # bar plots
-                ax.bar(values, count_max, align='center', alpha=0.8, edgecolor='w', color=colorplot)
-
-                # spines
-                ax.spines['right'].set_color('w')
-                ax.spines['top'].set_color('w')
-                ax.spines['bottom'].set_color('w')
-                ax.spines['left'].set_color('w')
-
+                ax.bar(values, count_max, align='center', edgecolor='black')
                 # grid
                 ax.yaxis.grid(color='gray', linestyle='--')
-
                 # x-label
-                ax.set_xlabel('Periods', color='w')
-
+                ax.set_xlabel('Periods')
                 # title
-                ax.set_title(f'Distribution of the period with most detections\n{a}: {f} - detector: {d} - N={N}', color='w')
-
+                ax.set_title(f'Distribution of the period with most detections\n{a}: {f} - detector: {d} - N={N}')
                 # ticks
                 ax.set_xticks(values)
                 # ax.set_yticks(range(0, max(count_max) + 1, 3))
                 ax.set_yticks(range(0, 20, 2))
-                ax.tick_params(axis='both', colors='w')
-
                 plt.ylim(0, max(count_max) + 2)
                 # plt.ylim(0, 20)
                 plt.show()
@@ -458,55 +505,40 @@ for d in detector:
             count_min = [min_c for min_c in list(value_min_counts.values())]
             values = list(value_max_counts.keys())
 
-            fig, ax = plt.subplots(figsize=(15, 6), facecolor='#36454F')
-            ax.set_facecolor('#36454F')
-
+            fig, ax = plt.subplots()
             # bar plots
-            ax.bar(values, count_max, align='center', alpha=0.8, edgecolor='w', color=colorplot)
-
-            # spines
-            ax.spines['right'].set_color('w')
-            ax.spines['top'].set_color('w')
-            ax.spines['bottom'].set_color('w')
-            ax.spines['left'].set_color('w')
-
+            ax.bar(values, count_max, align='center', edgecolor='black')
             # grid
             ax.yaxis.grid(color='gray', linestyle='--')
-
+            ax.set_axisbelow(True)  # Set grid behind plot
             # x-label
-            ax.set_xlabel('Periods', color='w')
-
+            ax.set_xlabel('Periods')
             # title
-            ax.set_title(f'Distribution of the period with most detections\ndetector: {d} - N={N}', color='w')
-
+            ax.set_title(f'Distribution of the period with most detections\ndetector: {d} - N={N}')
             # ticks
             ax.set_xticks(values)
-            # ax.set_yticks(range(0, max(count_max) + 1, 3))
-            ax.set_yticks(range(0, 20, 2))
-            ax.tick_params(axis='both', colors='w')
-
+            ax.set_yticks(range(0, max(count_max) + 1, 2))
+            # ax.set_yticks(range(0, 25, 2))
+            ax.tick_params(axis='both')
             plt.ylim(0, max(count_max) + 1)
             # plt.ylim(0, 19)
             plt.show()
 
 
-# %% analyze metadata - stat diel plot
+# %% statistics on diel plots
 '''
-Distribution of all the detection over the different periods of the day
+Distribution of all the detection over night/day periods
 '''
 
-detector = ['pamguard', 'thalassa']
-arg = ['season', 'net', 'all']
+detector = ['pamguard']
+# arg = ['season', 'net', 'all']
+arg = ['all', 'season']
+lr_result = {}
+pie_data = pd.DataFrame()
 
 for d in detector:
-    data2 = filtered_data[f'{d}'][(filtered_data[f'{d}']['duration'] >= pd.Timedelta(hours=17)) & (filtered_data[f'{d}']['duration'] <= pd.Timedelta(hours=28))].reset_index(drop=True)
-
-    if d == 'pamguard':
-        inside_color = '#D9C5A0'
-        contour_color = '#D97F11'
-    elif d == 'thalassa':
-        inside_color = '#65A6A6'
-        contour_color = '#0A7373'
+    # data2 = filtered_data[f'{d}'][(filtered_data[f'{d}']['duration'] >= pd.Timedelta(hours=17)) & (filtered_data[f'{d}']['duration'] <= pd.Timedelta(hours=28))].reset_index(drop=True)
+    data2 = filtered_data[f'{d}']
 
     for a in arg:
         if a != 'all':
@@ -516,81 +548,159 @@ for d in detector:
                 data3 = data2[data2[f'{a}'] == f]
                 N = len(data3)
 
-                df_detections = pd.DataFrame()
-                for df in data3[f'df {d}']:
-                    df_detections = pd.concat([df_detections, df], ignore_index=True)
+                # Pie plot data
+                pie_row = pd.DataFrame([
+                    {'detector': f'{d}',
+                     f'{a}': f'{f}',
+                     'duration': data3['duration'].sum().total_seconds() / 3600,
+                     'detection': sum([len(df) for df in data3[f'df {d}']])
+                     }])
+                pie_data = pd.concat([pie_data, pie_row], ignore_index=True)
 
-                begin_deploy = min(data3['datetime deployment'])
-                end_deploy = max(data3['datetime deployment'])
-                lat = data3['latitude'].mean()
-                u_lat = data3['latitude'].std()
-                lon = data3['longitude'].mean()
-                u_lon = data3['longitude'].std()
+                # Light regime
+                lr = pd.DataFrame()
+                for i in range(len(data3)):
+                    lr = pd.concat([stats_diel_pattern(deployment=data3.iloc[i], detector=d), lr], ignore_index=True)
+                lr_result[f'{d}/{a}/{f}'] = lr
 
-                lr, BoxNames = stats_diel_pattern(df_detections=df_detections, begin_date=begin_deploy, end_date=end_deploy, lat=lat, lon=lon)
-                LR = lr[(lr[BoxNames[0]] != 0) & (lr[BoxNames[1]] != 0) & (lr[BoxNames[2]] != 0) & (lr[BoxNames[3]] != 0)]
+                ## Remove NaN values from each column for boxplot
+                lr_clean = []
+                for col in lr:
+                    col_clean = lr[col][~np.isnan(lr[col])]
+                    lr_clean.append(col_clean)
 
-                fig, ax = plt.subplots(figsize=(10, 6), facecolor='#36454F')
-                ax.set_facecolor('#36454F')
-                ax.tick_params(axis='both', colors='w')
-                ax.spines['bottom'].set_color('w')
-                ax.spines['left'].set_color('w')
-                ax.spines['right'].set_color('w')
-                ax.spines['top'].set_color('w')
+                # Light Regime boxplot
+                fig, ax = plt.subplots(figsize=(2, 4))
                 ax.grid(visible=False)
-
-                ax.boxplot(x=LR,
+                ax.boxplot(x=lr_clean,
+                           positions=[1, 1.25],
                            patch_artist=True,
                            notch=False,
                            showfliers=False,
-                           boxprops=dict(facecolor=inside_color, color=contour_color, linewidth=2),
-                           capprops=dict(color=contour_color, linewidth=2),
-                           medianprops=dict(color=contour_color, linewidth=2),
-                           flierprops=dict(markeredgecolor=contour_color, linewidth=2),
-                           whiskerprops=dict(color=contour_color, linewidth=2))
-                plt.xticks([1, 2, 3, 4], BoxNames)
-                plt.title(f'Detection distribution\n{a}: {f} - detector: {d} - N={N}', color='w', fontsize=14)
+                           medianprops=dict(color='black'),
+                           widths=0.15,
+                           whis=0.75)
+                plt.xlim(0.8, 1.4)
+                plt.ylim(-15, 10)
+                plt.xticks([1, 1.25], ['Night', 'Day'])
+                plt.ylabel(f'Detection distribution\n{a}: {f} - detector: {d} - N_deployment={N}', fontsize=8)
+                plt.tight_layout()
+
         else:
             data3 = data2
             N = len(data3)
 
-            df_detections = pd.DataFrame()
-            for df in data3[f'df {d}']:
-                df_detections = pd.concat([df_detections, df], ignore_index=True)
+            lr = pd.DataFrame()
+            for i in range(len(data3)):
+                lr = pd.concat([stats_diel_pattern(deployment=data3.iloc[i], detector=d), lr], ignore_index=True)
+            lr_result[f'{d}/{a}'] = lr
 
-            begin_deploy = min(data3['datetime deployment'])
-            end_deploy = max(data3['datetime deployment'])
-            lat = data3['latitude'].mean()
-            u_lat = data3['latitude'].std()
-            lon = data3['longitude'].mean()
-            u_lon = data3['longitude'].std()
+            # Remove NaN values from each column for boxplot
+            lr_clean = []
+            for col in lr:
+                col_clean = lr[col][~np.isnan(lr[col])]
+                lr_clean.append(col_clean)
 
-            lr, BoxNames = stats_diel_pattern(df_detections=df_detections, begin_date=begin_deploy, end_date=end_deploy, lat=lat, lon=lon)
-            LR = lr[(lr[BoxNames[0]] != 0) & (lr[BoxNames[1]] != 0) & (lr[BoxNames[2]] != 0) & (lr[BoxNames[3]] != 0)]
-
-            fig, ax = plt.subplots(figsize=(10, 6), facecolor='#36454F')
-            ax.set_facecolor('#36454F')
-            ax.tick_params(axis='both', colors='w')
-            ax.spines['bottom'].set_color('w')
-            ax.spines['left'].set_color('w')
-            ax.spines['right'].set_color('w')
-            ax.spines['top'].set_color('w')
+            fig, ax = plt.subplots(figsize=(2, 4))
             ax.grid(visible=False)
-
-            ax.boxplot(x=LR,
+            ax.boxplot(x=lr_clean,
+                       positions=[1, 1.25],
                        patch_artist=True,
                        notch=False,
                        showfliers=False,
-                       boxprops=dict(facecolor=inside_color, color=contour_color, linewidth=2),
-                       capprops=dict(color=contour_color, linewidth=2),
-                       medianprops=dict(color=contour_color, linewidth=2),
-                       flierprops=dict(markeredgecolor=contour_color, linewidth=2),
-                       whiskerprops=dict(color=contour_color, linewidth=2))
-            plt.xticks([1, 2, 3, 4], BoxNames)
-            plt.title(f'Detection distribution per period of the day\ndetector: {d} - N={N}', color='w', fontsize=14)
+                       medianprops=dict(color='black'),
+                       widths=0.15,
+                       whis=0.75)
+            plt.xticks([1, 1.25], ['Night', 'Day'])
+            plt.xlim(0.8, 1.4)
+            plt.ylim(-15, 10)
+            plt.ylabel(f'Detection distribution\n{a} - detector: {d} - N_deployment={N}')
+            plt.tight_layout()
+
+        result_stat = []
+        for i, regime in enumerate(lr_result):
+            for period in ['Night', 'Day']:
+                n = len(lr_result[regime][period])
+                mean = lr_result[regime][period].mean()
+                std = lr_result[regime][period].std()
+                shapiro_stat, shapiro_pvalue = shapiro(lr_result[regime][period], nan_policy='omit')
+
+                if shapiro_pvalue < 1e-7:
+                    mann_stat, mann_pvalue = mannwhitneyu(lr_result[regime]['Night'], lr_result[regime]['Day'], method="exact", nan_policy='omit')
+                    student_stat = float('NaN')
+                    student_pvalue = float('NaN')
+                else:
+                    mann_stat = float('NaN')
+                    mann_pvalue = float('NaN')
+                    student_stat, student_pvalue = ttest_ind(lr_result[regime]['Night'], lr_result[regime]['Day'], equal_var=False, nan_policy='omit')
+
+                result_stat.append([regime, period, n, mean, std, shapiro_stat, shapiro_pvalue, mann_stat, mann_pvalue, student_stat, student_pvalue])
+
+        result_stat2 = pd.DataFrame(result_stat, columns=['regime', 'period', 'n', 'mean', 'std', 'shapiro_stat', 'shapiro_pvalue', 'mann_stat', 'mann_pvalue', 'student_stat', 'student_pvalue'])
 
 
-# %% analyze metadata - cumulated histogram of detections for a single detection file
+# Pie plot
+for d in detector:
+    pie_data2 = pie_data[pie_data['detector'] == d]
+    pie_total = (pie_data2['detection'] / pie_data2['duration']).sum()
+    perc = []
+    for i in range(len(pie_data2)):
+        perc.append((pie_data2['detection'].iloc[i] / pie_data2['duration'].iloc[i]) / pie_total)
+    pie_data2['percentage'] = perc
+
+    plt.figure()
+    plt.pie(
+        pie_data2['percentage'],
+        labels=pie_data2['season'],
+        autopct='%1.1f%%',
+        startangle=140,
+        colors=['#59D955', '#F2E205', '#F28B66', '#4694A6']
+    )
+    plt.title(f'{d}')
+    plt.show()
+
+# %% Pie plots - distribution of detection over seasons
+
+detector = ['pamguard', 'thalassa']
+
+for d in detector:
+    pie_data = pd.DataFrame()
+
+    # data2 = filtered_data[f'{d}'][(filtered_data[f'{d}']['duration'] >= pd.Timedelta(hours=17)) & (filtered_data[f'{d}']['duration'] <= pd.Timedelta(hours=28))].reset_index(drop=True)
+    data2 = filtered_data[f'{d}']
+
+    filter_list = list(dict.fromkeys(data2['season']))
+
+    for f in filter_list:
+        data3 = data2[data2[f'{a}'] == f]
+
+        pie_row = pd.DataFrame([
+            {'detector': f'{d}',
+             f'{a}': f'{f}',
+             'duration': data3['duration'].sum().total_seconds() / 3600,
+             'detection': sum([len(df) for df in data3[f'df {d}']])
+             }])
+        pie_data = pd.concat([pie_data, pie_row], ignore_index=True)
+
+    pie_total = (pie_data['detection'] / pie_data['duration']).sum()
+
+    perc = []
+    for i in range(len(pie_data)):
+        perc.append((pie_data['detection'].iloc[i] / pie_data['duration'].iloc[i]) / pie_total)
+    pie_data['percentage'] = perc
+
+    plt.figure()
+    plt.pie(
+        pie_data['percentage'],
+        labels=pie_data['season'],
+        autopct='%1.1f%%',
+        startangle=140,
+        colors=['#59D955', '#F2E205', '#F28B66', '#4694A6']
+    )
+    plt.title(f'{d}')
+    plt.show()
+
+# %% cumulated histogram of detections for a single detection file
 
 i = 40
 detector = ['pamguard', 'thalassa']
@@ -660,65 +770,53 @@ for d in detector:
     data_histo = df_detections['start_datetime']
     periods = pd.date_range(start=data_test['datetime deployment'], end=data_test['datetime recovery'], freq=str(int(data_test['duration'].total_seconds() / n_periods)) + 's')
 
-    fig, ax = plt.subplots(figsize=(20, 9), facecolor='#36454F')
-    ax.set_facecolor('#36454F')
-    detect_periods, _, bars = ax.hist(data_histo, periods, edgecolor='None')
-
-    # spines
-    ax.spines['right'].set_color('w')
-    ax.spines['top'].set_color('w')
-    ax.spines['bottom'].set_color('w')
-    ax.spines['left'].set_color('w')
-
-    ax.tick_params(axis='both', colors='w', size=20)
+    fig, ax = plt.subplots()
+    detect_periods, _, bars = ax.hist(data_histo, periods, edgecolor='black')
 
     # grids
     ax.yaxis.grid(color='gray', linestyle='--')
 
     # x-labels
-    ax.set_xlabel('Periods', color='w', fontsize=20)
+    ax.set_xlabel('Periods')
 
     [ax.axvline(x=period, color='lime') for period in periods]
     ax.grid(color='k', linestyle='-', linewidth=0.1, axis='both')
 
     max_value = np.max(detect_periods)
     rank_max = np.argmax(detect_periods) + 1
-    # rank_min = np.argmin(detect_periods) + 1
-    bars[rank_max - 1].set_color('orange')
-    # bars[rank_min - 1].set_color('#CD3333')
+    bars[rank_max - 1].set_color('darkorange')
 
-    ax.set_ylabel("Detections", fontsize=20, color='w')
+    ax.set_ylabel("Detections")
 
     perc_max = detect_periods[rank_max - 1] / len(data_test[f'df {d}'])
-    # perc_min = detect_periods[rank_min - 1] / len(data_test[f'df {d}'])
-    fig.suptitle(f'{name}\ndetector: {d}', fontsize=24, y=0.98, color='w')
+    fig.suptitle(f'{name}\ndetector: {d}')
 
     print(f"\n{d}: most detections at period {rank_max}/{n_periods}, {detect_periods[rank_max-1]:.0f}/{len(data_test[f'df {d}'])} detections ({100*perc_max:.0f}%)", end='')
 
 # %% export csv for QGIS
 
-deploy2 = deploy[(deploy['campaign'] <= 7)].sort_values(by=['campaign', 'deployment', 'ID recorder']).reset_index(drop=True)
-
 detector = 'thalassa'
 
-filtered_df_1 = deploy2[(deploy2['recorder number'] == 1)]  # data with 1 ST
+filtered_df_1 = deploy[(deploy['recorder number'] == 1)]  # data with 1 ST
 
 if detector == 'thalassa':
-    filtered_df_2 = deploy2[(deploy2['recorder number'] == 2) & (deploy2['net length'] <= 200)]
-    filtered_df_3 = deploy2[(deploy2['recorder number'] == 2) & (deploy2['net length'] > 200)]
+    filtered_df_2 = deploy[(deploy['recorder number'] == 2) & (deploy['net length'] <= 200)]
+    filtered_df_3 = deploy[(deploy['recorder number'] == 2) & (deploy['net length'] > 200)]
 elif detector == 'pamguard':
-    filtered_df_2 = deploy2[(deploy2['recorder number'] == 2) & (deploy2['net length'] <= 500)]
-    filtered_df_3 = deploy2[(deploy2['recorder number'] == 2) & (deploy2['net length'] > 500)]
+    filtered_df_2 = deploy[(deploy['recorder number'] == 2) & (deploy['net length'] <= 500)]
+    filtered_df_3 = deploy[(deploy['recorder number'] == 2) & (deploy['net length'] > 500)]
 
 sub_df_2 = filtered_df_2.groupby('ID platform').first().reset_index()  # only the first ST
-deploy3 = pd.concat([filtered_df_1, sub_df_2, filtered_df_3]).sort_values(by=['campaign', 'deployment', 'ID recorder']).reset_index(drop=True)
+deploy2 = pd.concat([filtered_df_1, sub_df_2, filtered_df_3]).sort_values(by=['campaign', 'deployment', 'ID recorder']).reset_index(drop=True)
 
 df_deploy = []
-for c, d, r in zip(deploy3['campaign'], deploy3['deployment'], deploy3['ID recorder']):
-    df_deploy.append(data[(data['campaign'] == c) & (data['deployment'] == d) & (data['recorder'] == r)][f'df {detector}'].iloc[-1])
+for c, d, r in zip(deploy2['campaign'], deploy2['deployment'], deploy2['ID recorder']):
+    df_deploy.append(data[(data['campaign'] == c) & (data['deployment'] == d) & (data['recorder'] == str(r))][f'df {detector}'].iloc[-1])
 
-deploy3[f'detection rate {detector}'] = [(len(df_deploy[i]) / (pd.to_timedelta(deploy3['duration'][i]).total_seconds() / 86400) / 1440) * 100 for i in range(len(deploy3))]
+deploy2[f'detection rate {detector}'] = [(len(df_deploy[i]) / (pd.to_timedelta(deploy2['duration'][i]).total_seconds() / 86400) / 1440) * 100 for i in range(len(deploy2))]
 
-deploy_out = deploy3.drop(columns=['lat D', 'lat DM', 'lat DD', 'long D', 'long DM', 'long DD', 'weather', 'weather.1', 'comment', 'species'])
+deploy_out = deploy2.drop(columns=['lat D', 'lat DM', 'lat DD', 'long D', 'long DM', 'long DD', 'weather deployment', 'weather recovery', 'comment', 'species'])
 date_today = pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')
-# deploy_out.to_csv(os.path.join(r'C:\Users\dupontma2\Desktop\code_local\Delmoges V2', f'APOCADO - Suivi déploiements {detector}_{date_today}.csv'), index=False, encoding='latin1')
+out_filename = f'APOCADO - Suivi déploiements {detector}_{date_today}.csv'
+out_folder = r'L:\acoustock\Bioacoustique\DATASETS\APOCADO\Code\carto'
+deploy_out.to_csv(os.path.join(out_folder, out_filename), index=False, encoding='latin1')

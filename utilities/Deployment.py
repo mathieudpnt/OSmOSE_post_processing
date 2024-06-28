@@ -4,7 +4,6 @@ from typing import Union
 import pandas as pd
 from dataclasses import dataclass
 
-
 @dataclass
 class Deployment:
     """
@@ -50,8 +49,18 @@ class Deployment:
 
         if path_json:
             self.load_json(path_json)
+            self.datetime_deployment = pd.to_datetime(self.datetime_deployment)
+            self.datetime_recovery = pd.to_datetime(self.datetime_recovery)
+
         else:
             self.load_metadata(campaign, deployment, recorder, path_metadata, path_origin_metadata, path_origin_timestamp, path_segment_metadata, path_segment_timestamp, path_pamguard, path_thalassa, path_aplose)
+            self.campaign = campaign
+            self.deployment = deployment
+            self.recorder = recorder
+            self.datetime_deployment = self.origin_timestamp[0]
+            self.datetime_recovery = self.origin_timestamp[-1]
+
+        self.duration = self.datetime_recovery - self.datetime_deployment
 
     def load_json(self, path_json):
         """Load metadata from a JSON file and initialize attributes."""
@@ -192,7 +201,7 @@ class Deployment:
         def setter(self, value):
             raise AttributeError(f"can't set attribute '{attribute}'")
 
-        return setter
+        return
 
     def __str__(self):
         """Return a string representation of the deployment metadata."""

@@ -8,13 +8,16 @@ from pathlib import Path
 import pytz
 
 os.chdir(r'./post_processing_detections')
-from utilities.def_func import sorting_detections, extract_datetime, read_header
 
 # %% Write metadata files
 
 path_csv = [r'L:\acoustock\Bioacoustique\DATASETS\APOCADO\PECHEURS_2022_PECHDAUPHIR_APOCADO',
             r'Y:\Bioacoustique\APOCADO2',
             r'Z:\Bioacoustique\DATASETS\APOCADO3']
+
+# ltas = [glob.glob(os.path.join(p, '**', '*.ravenltsa'), recursive=True) for p in path_csv]
+# ltas = [item for sublist in ltas for item in sublist]
+
 pattern = re.compile(r'C\d{1,2}D\d{1,2}')
 matching_folders = []
 for p in path_csv:
@@ -53,7 +56,7 @@ for f in tqdm(matching_folders):
 
     ts2 = glob.glob(os.path.join(f, r'10_**/timestamp.csv'))
     timestamp_csv2.append(next(iter(ts2))) if ts2 else timestamp_csv2.append('')
-
+    
 deploy = pd.read_excel(r'L:\acoustock\Bioacoustique\DATASETS\APOCADO\PECHEURS_2022_PECHDAUPHIR_APOCADO\APOCADO - Suivi déploiements.xlsm', skiprows=[0])
 deploy = deploy.loc[(deploy['check heure Raven'] == 1)].reset_index(drop=True)
 
@@ -73,11 +76,11 @@ for i in tqdm(range(len(matching_folders)), total=len(matching_folders), ncols=5
     mt2 = metadata_spectro2[i]
     ts2 = timestamp_csv2[i]
 
-    df_detections = pd.read_csv(p, parse_dates=['start_datetime'])
+    df_detections_extract = pd.read_csv(p, parse_dates=['start_datetime'], nrows=1, header='infer')
 
-    tz = pytz.FixedOffset(df_detections['start_datetime'][0].utcoffset().total_seconds() // 60)
+    tz = pytz.FixedOffset(df_detections_extract['start_datetime'][0].utcoffset().total_seconds() // 60)
 
-    [ID0] = list(set(df_detections['dataset']))
+    [ID0] = list(set(df_detections_extract['dataset']))
     platform = re.search(r'C\d{1,2}D\d{1,2}', ID0).group()  # campaign and deployment identifier
     recorder = re.search(r'ST\d+', ID0).group().split('ST')[-1]  # instrument identifier
     ID_deploy = platform + ' ST' + recorder
