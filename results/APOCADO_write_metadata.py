@@ -15,9 +15,6 @@ path_csv = [r'L:\acoustock\Bioacoustique\DATASETS\APOCADO\PECHEURS_2022_PECHDAUP
             r'Y:\Bioacoustique\APOCADO2',
             r'Z:\Bioacoustique\DATASETS\APOCADO3']
 
-# ltas = [glob.glob(os.path.join(p, '**', '*.ravenltsa'), recursive=True) for p in path_csv]
-# ltas = [item for sublist in ltas for item in sublist]
-
 pattern = re.compile(r'C\d{1,2}D\d{1,2}')
 matching_folders = []
 for p in path_csv:
@@ -25,7 +22,7 @@ for p in path_csv:
         if pattern.match(os.path.basename(folder)) and 'archive' not in folder.lower() and '070722' not in folder.lower():
             matching_folders.append(folder)
 
-pamguard_csv, thalassa_csv, aplose_csv, file_metadata, metadata_spectro1, timestamp_csv1, metadata_spectro2, timestamp_csv2 = [], [], [], [], [], [], [], []
+pamguard_csv, thalassa_csv, aplose_csv, file_metadata, metadata_spectro1, timestamp_csv1, metadata_spectro2, timestamp_csv2, ltas, psd = [], [], [], [], [], [], [], [], [], []
 for f in tqdm(matching_folders):
     p = glob.glob(os.path.join(f, r'pamguard\PG_rawdata_**.csv'))
     pamguard_csv.append(next(iter(p))) if p else pamguard_csv.append('')
@@ -56,7 +53,13 @@ for f in tqdm(matching_folders):
 
     ts2 = glob.glob(os.path.join(f, r'10_**/timestamp.csv'))
     timestamp_csv2.append(next(iter(ts2))) if ts2 else timestamp_csv2.append('')
-    
+
+    ss1 = glob.glob(os.path.join(f, r'soundscape/LTAS*.npz'))
+    ltas.append(next(iter(ss1))) if ss1 else ltas.append('')
+
+    ss2 = glob.glob(os.path.join(f, r'soundscape/PSD*.npz'))
+    psd.append(next(iter(ss2))) if ss2 else ltas.append('')
+
 deploy = pd.read_excel(r'L:\acoustock\Bioacoustique\DATASETS\APOCADO\PECHEURS_2022_PECHDAUPHIR_APOCADO\APOCADO - Suivi déploiements.xlsm', skiprows=[0])
 deploy = deploy.loc[(deploy['check heure Raven'] == 1)].reset_index(drop=True)
 
@@ -75,6 +78,8 @@ for i in tqdm(range(len(matching_folders)), total=len(matching_folders), ncols=5
     ts1 = timestamp_csv1[i]
     mt2 = metadata_spectro2[i]
     ts2 = timestamp_csv2[i]
+    ss1 = ltas[i]
+    ss2 = psd[i]
 
     df_detections_extract = pd.read_csv(p, parse_dates=['start_datetime'], nrows=1, header='infer')
 
@@ -98,7 +103,6 @@ for i in tqdm(range(len(matching_folders)), total=len(matching_folders), ncols=5
         'project': 'APOCADO',
         'campaign': int(deploy['campaign'][rank]),
         'deployment': int(deploy['deployment'][rank]),
-        # 'platform': platform,
         'recorder': recorder,
         'recorder number': int(deploy['recorder number'][rank]),
 
@@ -126,6 +130,9 @@ for i in tqdm(range(len(matching_folders)), total=len(matching_folders), ncols=5
 
         'path pamguard': p,
         'path thalassa': t,
+
+        'path LTAS': ss1,
+        'path PSD': ss2,
     }
 
     if ap != '':

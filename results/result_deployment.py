@@ -2,6 +2,7 @@ import os
 import glob
 import pandas as pd
 from tqdm import tqdm
+import pickle
 
 os.chdir(r'U:/Documents_U/Git/post_processing_detections')
 from utilities.Deployment import Deployment
@@ -14,7 +15,7 @@ list_json = [file_path for path in path_acoustock for file_path in glob.glob(os.
 
 # %%
 deploy = []
-for json in tqdm(list_json[0:4]):
+for json in tqdm(list_json):
     deploy.append(Deployment(path_json=json))
 
 # with open(os.path.join(r'L:\acoustock\Bioacoustique\DATASETS\APOCADO\PECHEURS_2022_PECHDAUPHIR_APOCADO', 'data_Deployment.pkl'), 'wb') as f:

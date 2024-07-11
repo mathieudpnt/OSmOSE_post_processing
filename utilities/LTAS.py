@@ -12,6 +12,7 @@ from utilities.def_func import suntime_hour
 import csv
 import pytz
 import os
+from tqdm import tqdm
 
 mpl.rcdefaults() 
 mpl.style.use('seaborn-v0_8-paper')
@@ -32,6 +33,7 @@ class LTAS:
                  t_res: int = None,
                  f_res: int = None,
                  sensitivity: float = None,
+                 duty_cycle: int = 100,
                  ):
 
         if matrix is not None:
@@ -64,23 +66,24 @@ class LTAS:
                 self.welch = welch_sorted
                 '''
             elif path.endswith('csv'):
-                self.load_from_csv(path, begin_datetime, datetime_min, datetime_max, t_res, f_res, sensitivity)
+                self.load_from_csv(path, begin_datetime, datetime_min, datetime_max, t_res, f_res, sensitivity, duty_cycle)
 
-    def load_from_csv(self, file, begin_datetime, date_min, date_max, t_res, f_res, sensitivity):
+    def load_from_csv(self, path, begin_datetime, date_min, date_max, t_res, f_res, sensitivity=None, duty_cycle=100):
         assert isinstance(begin_datetime, pd.Timestamp), 'A datetime must be passed to begin_datetime arg'
         assert isinstance(t_res, (int, np.integer)), 'An integer must be passed to t_res arg'
         assert isinstance(f_res, (int, np.integer)), 'An integer must be passed to f_res arg'
-        assert sensitivity is not None and isinstance(sensitivity, Union[float, int]), 'Sensitivity must be an numerical value > 0'
+        assert sensitivity is None or isinstance(sensitivity, Union[float, int]), 'If provided, sensitivity must be a numerical value > 0'
+        assert isinstance(duty_cycle, int) and duty_cycle > 0 and duty_cycle <= 100, 'If provided, duty_cycle must be an integer between 0 and 100'
 
         # get matrix shape
-        with open(file, mode='r') as f:
+        with open(path, mode='r') as f:
             reader = csv.reader(f, delimiter=',')
             shape_t = int(next(reader)[1]) - 1
             shape_f = int(next(reader)[1]) - 1
 
         freq = list(np.linspace(0, shape_f * f_res, shape_f).astype('int32'))
-        end_datetime = begin_datetime + pd.Timedelta(t_res * (shape_t), 'second')
-        time = pd.date_range(start=begin_datetime, end=end_datetime, freq=str(t_res) + 's').to_list()
+        end_datetime = begin_datetime + pd.Timedelta(int(t_res // (0.01 * duty_cycle)) * (shape_t), 'second')
+        time = pd.date_range(start=begin_datetime, end=end_datetime, freq=str(int(t_res // (0.01 * duty_cycle))) + 's').to_list()
 
         index = [0, len(time)]
         if date_min is not None and date_max is not None:
@@ -88,10 +91,31 @@ class LTAS:
             index = [time.index(t) for t in [time2[0], time2[-1]]]
             time = time2
 
-        matrix_raw = pd.read_csv(file, delimiter=',', skiprows=2, header=None, nrows=index[-1])
+        # matrix_raw = pd.read_csv(path, delimiter=',', skiprows=2, header=None, nrows=index[-1], low_memory=False)
+
+        chunks = []
+        chunk_size = 1000
+
+        try:
+            for i, chunk in tqdm(enumerate(pd.read_csv(path, delimiter=',', skiprows=2, header=None, chunksize=chunk_size, low_memory=False, on_bad_lines='skip')),
+                                 desc='Reading csv...',
+                                 total=(shape_t // chunk_size) + 1,
+                                 unit='chunk',
+                                 colour='green'):
+                chunk.replace(-np.inf, np.nan, inplace=True)
+                chunk.dropna(inplace=True)
+                chunks.append(chunk)
+        except pd.errors.ParserError as e:
+            print(f"Parser error: {e}")
+        print('Done!')
+
+        matrix_raw = pd.concat(chunks, ignore_index=True)
+
         matrix = matrix_raw.iloc[index[0]:index[-1]]
         matrix = np.array(matrix, dtype=np.float64).transpose()
-        matrix += np.abs(sensitivity)
+
+        if sensitivity:
+            matrix += np.abs(sensitivity)
 
         self.time = time
         self.welch = matrix[:-1]
@@ -109,9 +133,9 @@ class LTAS:
 
         return ltas_concat
 
-    def plot_LTAS(self, output_path=None, output_name=None, dyn_min=40, dyn_max=80):
-        fig, ax = plt.subplots()
-
+    def plot_LTAS(self, output_path=None, output_name=None, dyn_min=-120, dyn_max=0):
+        
+        # fig, ax = plt.subplots()
         # X, Y = np.meshgrid(self.time, self.freq)
         # p = plt.pcolormesh(
         #     X,
@@ -125,6 +149,7 @@ class LTAS:
         # cbar = fig.colorbar(p)
         # cbar.set_label("dB ref 1µPa² @ 1m", rotation=270, labelpad=20)
 
+        fig, ax = plt.subplots()
         plt.imshow(self.welch[:-1, :-1],
                    aspect='auto',
                    vmin=dyn_min,
@@ -139,20 +164,23 @@ class LTAS:
         if duration < pd.Timedelta(12, 'hour'):
             t_inter = 1
             date_fmt = '%H:%M'
+            locator = mdates.HourLocator(interval=t_inter)
         elif duration < pd.Timedelta(24, 'hour'):
             t_inter = 2
             date_fmt = '%H:%M'
+            locator = mdates.HourLocator(interval=t_inter)
         elif duration < pd.Timedelta(7, 'day'):
             t_inter = 4
             date_fmt = '%m/%d\n%H:%M'
-        if duration > pd.Timedelta(7, 'day'):
-            t_inter = 15 * 24 * 7
-            date_fmt = '%m/%d'
+            locator = mdates.HourLocator(interval=t_inter)
+        elif duration > pd.Timedelta(7, 'day'):
+            t_inter = 1
+            date_fmt = '%Y%n%b'
+            locator = mdates.MonthLocator(interval=t_inter)
 
         tz = pytz.FixedOffset(self.time[0].utcoffset().total_seconds() // 60)
 
         ax.xaxis.set_major_formatter(mdates.DateFormatter(date_fmt, tz=tz))
-        locator = mdates.HourLocator(interval=t_inter)
         ax.xaxis.set_major_locator(locator)
 
         if output_name is not None:
