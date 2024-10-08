@@ -1,34 +1,25 @@
-- file: 'C:\Users\dupontma2\Desktop\data_local\files\C2D1 ST335556632\C2D1 ST335556632 - aplose.csv'
-  tz: '+02:00'
+L:\acoustock\Bioacoustique\DATASETS\CETIROISE\ANALYSE\PAMGUARD_threshold_7\PHASE_5_POINT_F\PG_rawdata_230713_230823.csv:
+#Y:\Bioacoustique\APOCADO2\Campagne 5\7181\analysis\C5D18\aplose\APOCADO_C5D18_ST7181_results.csv:
 
-# - file: 'C:\Users\dupontma2\Desktop\data_local\files\C5D18 ST7181\C5D18 ST7181 - aplose.csv'
-  # tz: '+01:00'
-
-# - file: 'C:\Users\dupontma2\Desktop\data_local\files\C6D3 ST7180\C6D3 ST7180 - aplose.csv'
-#   tz: '+01:00'
-
-
-
-
-
-
-
-
-# - file: 'L:\acoustock\Bioacoustique\DATASETS\APOCADO\PECHEURS_2022_PECHDAUPHIR_APOCADO\Campagne 2\IROISE\335556632\analysis\C2D1_070722\aplose\APOCADO_C2D1_07072022_results.csv'
-#   tz: '+02:00'
-
-# - file: 'L:\acoustock\Bioacoustique\DATASETS\APOCADO\PECHEURS_2022_PECHDAUPHIR_APOCADO\Campagne 2\IROISE\335556632\analysis\C2D1_070722\pamguard\PAMGuard_rawdata_220706_220707.csv'
-#   timebin_new: 10
-#   tz: '+02:00'
-
-# - file: 'L:\acoustock2\Bioacoustique\APOCADO2\Campagne 5\IROISE\bouts bleus\7181\analysis\C5D18\aplose\APOCADO_C5D18_ST7181_results.csv'
-#   tz: '+01:00'
-
-# - file: 'Y:\Bioacoustique\APOCADO2\Campagne 6\PASSE PARTOUT\bouts rouges\7178\analysis\C6D3\aplose\APOCADO_C6D3 ST7178_results.csv'
-#   tz: '+01:00'
-
-# - file: 'Y:\Bioacoustique\APOCADO2\Campagne 6\PASSE PARTOUT\bouts rouges\7180\analysis\C6D3\aplose\APOCADO_C6D3 ST7180_results_16-01-2024.csv'
-#   tz: '+01:00'
-
-# - file: 'Y:\Bioacoustique\APOCADO2\Campagne 7\Gwalarn II\7189\analysis\C7D6\aplose\APOCADO_C7D6_ST7189_results.csv'
-#   tz: '+02:00'
+  # timebin
+  'timebin_new': 60
+  # timezone offset in minute
+  'tz': null
+  # begin datetime
+  'datetime_begin': null
+  # end datetime
+  'datetime_end': null
+  # annotator
+  'annotator': null
+  # annotation
+  'annotation': null
+  # box
+  'box': False
+  # timestamp file
+  'timestamp_file': null
+  # user selection
+  'user_sel': all
+  # f_min filter
+  'fmin_filter': null
+  # f_max filter
+  'fmax_filter': null
