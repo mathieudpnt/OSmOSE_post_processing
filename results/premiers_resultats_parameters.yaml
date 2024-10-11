@@ -1,5 +1,6 @@
-L:\acoustock\Bioacoustique\DATASETS\CETIROISE\ANALYSE\PAMGUARD_threshold_7\PHASE_5_POINT_F\PG_rawdata_230713_230823.csv:
-#Y:\Bioacoustique\APOCADO2\Campagne 5\7181\analysis\C5D18\aplose\APOCADO_C5D18_ST7181_results.csv:
+#L:\acoustock\Bioacoustique\DATASETS\CETIROISE\ANALYSE\PAMGUARD_threshold_7\PHASE_5_POINT_F\PG_rawdata_230713_230823.csv:
+Y:\Bioacoustique\APOCADO2\Campagne 5\7181\analysis\C5D1\aplose\APOCADO_C5D1_ST7181_results.csv:
+#L:\acoustock\Bioacoustique\DATASETS\GLIDER\GLIDER SEA034\MISSION_46_DELGOST\ANALYSES\ANNOTATION\HF\D2\DELGOST2_D2_HF_results.csv:
 
   # timebin
   'timebin_new': 60
@@ -23,3 +24,5 @@ L:\acoustock\Bioacoustique\DATASETS\CETIROISE\ANALYSE\PAMGUARD_threshold_7\PHASE
   'fmin_filter': null
   # f_max filter
   'fmax_filter': null
+
+

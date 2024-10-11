@@ -1,16 +1,14 @@
 # %% Import raw data
 import os
-
-os.chdir(r"U:/Documents_U/Git/post_processing_detections")
-
-from utils.glider_utils import load_glider_nav
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import gpxpy
 from pathlib import Path
 
+from utils.glider_utils import load_glider_nav
+
 # %%
-input_dir = Path(r"L:\acoustock\Bioacoustique\DATASETS\GLIDER\GLIDER SEA034\MISSION_58_OHAGEODAMS\APRES_MISSION\NAV")
+input_dir = Path(r"L:\acoustock\Bioacoustique\DATASETS\GLIDER\GLIDER SEA034\MISSION_58_OHAGEODAMS_2023\APRES_MISSION\NAV")
 
 df = load_glider_nav(input_dir)
 df.to_csv(Path(input_dir) / "out.csv", index=False)

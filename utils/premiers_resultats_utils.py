@@ -7,10 +7,11 @@ import easygui
 import matplotlib as mpl
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
-from def_func import t_rounder, suntime_hour, get_duration, read_yaml, sort_detections
+from utils.def_func import t_rounder, suntime_hour, get_duration, read_yaml, sort_detections
 from collections import Counter
 import seaborn as sns
 from scipy.stats import pearsonr
+import def_func
 
 
 def load_parameters_from_yaml():
@@ -34,8 +35,8 @@ def load_parameters_from_yaml():
 
     time_bin = list(set(df["end_time"]))
     fmax = list(set(df["end_frequency"]))
-    annotators = list(set(df["annotator"]))
-    labels = list(set(df["annotation"]))
+    annotators = sorted(list(set(df["annotator"])))
+    labels = sorted(list(set(df["annotation"])))
     tz_data = [df["start_datetime"].iloc[0].tz]
 
     datetime_begin = df["start_datetime"].iloc[0]
@@ -602,6 +603,43 @@ def multiuser_plot(df: pd.DataFrame):
 
     r, p = pearsonr(df_corr[annot_ref1], df_corr[annot_ref2])
     ax[1].text(0.05, 0.9, f"R²={r * r:.2f}", transform=ax[1].transAxes)
+
+    plt.tight_layout()
+    plt.show()
+
+    return
+
+
+def plot_detection_timeline(df: pd.DataFrame):
+    """Plot detections on a timeline
+
+    Parameters
+    ----------
+    df: pd.DataFrame, APLOSE formatted DataFrame
+    """
+    labels = sorted(list(set(df["annotation"])))
+
+    fig, ax = plt.subplots()
+
+    for i, label in enumerate(labels[::-1]):
+        time_det = df[(df["annotation"] == label)]["start_datetime"].to_list()
+        l_data = len(time_det)
+        x = np.ones((l_data, 1), int) * i
+        plt.scatter(time_det, x, s=12)
+
+    xtick_resolution = def_func.get_duration(msg='Enter x-tick resolution', default='1d')
+    locator = mdates.SecondLocator(interval=xtick_resolution)
+    ax.xaxis.set_major_locator(locator)
+
+    datetime_format = def_func.get_datetime_format(msg='Enter x-tick format', default='%d/%m')
+    formatter = mdates.DateFormatter(datetime_format)
+    ax.xaxis.set_major_formatter(formatter)
+
+    plt.grid(color="k", linestyle="-", linewidth=0.2)
+    ax.set_yticks(np.arange(0, len(labels), 1))
+    ax.set_yticklabels(labels[::-1])
+    ax.set_xlabel("Date")
+    plt.xlim(df["start_datetime"].min().normalize(), df["end_datetime"].max().normalize() + pd.Timedelta(days=1))
 
     plt.tight_layout()
     plt.show()

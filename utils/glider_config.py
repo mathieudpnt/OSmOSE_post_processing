@@ -1,13 +1,13 @@
 # Dict are easier to modify, namedtuple easier to use
-navstate_mapping = {
-    105: "Initializing",
-    115: "Surfacing",
-    119: "GPS activated",
-    116: "Transmitting",
-    110: "Inflecting down",
+NAV_STATE = {
     100: "Going down",
-    118: "Inflecting up",
+    105: "Initializing",
+    110: "Inflecting down",
+    115: "Surfacing",
+    116: "Transmitting",
     117: "Going up",
+    118: "Inflecting up",
+    119: "GPS activated",
     120: "Landing maneuver",
     121: "Bottom landing",
     122: "Taking off",
@@ -17,4 +17,4 @@ navstate_mapping = {
 
 SEA034_SENSITIVITY = -165
 # Specify what should be imported when using 'from glider_config import *'
-__all__ = ["navstate_mapping"]
+__all__ = ["NAV_STATE", "SEA034_SENSITIVITY"]

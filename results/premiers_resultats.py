@@ -1,8 +1,8 @@
 import matplotlib as mpl
 
-from def_func import get_coordinates
+from utils.def_func import get_coordinates
 
-from premiers_resultats_utils import (
+from utils.premiers_resultats_utils import (
     load_parameters_from_yaml,
     scatter_detections,
     plot_hourly_detection_rate,
@@ -15,7 +15,7 @@ from premiers_resultats_utils import (
 mpl.rcdefaults()
 mpl.style.use("seaborn-v0_8-paper")
 mpl.rcParams["figure.dpi"] = 200
-mpl.rcParams["figure.figsize"] = [10, 4]
+mpl.rcParams["figure.figsize"] = [10, 8]
 
 # %% load parameters from the YAML file
 df_detections, time_bin, annotators, labels, fmax, datetime_begin, datetime_end, _ = (

@@ -1171,6 +1171,38 @@ def get_duration(title: str = 'Get duration', msg: str = 'Enter a time alias', d
     else:
         return value
 
+
+def get_datetime_format(title: str = 'Get datetime format', msg: str = 'Enter a datetime format code', default: str = '%d/%m/%Y\n%H:%M') -> str:
+    """Ask user input to get datetime format.
+    Datetime format codes are to be used,
+    See https://docs.python.org/fr/3/library/datetime.html
+    Parameters
+    ----------
+    title : str
+    msg : str
+    default : '%d/%m/%Y\n%H:%M'
+    """
+    fmt = easygui.enterbox(msg=f'{msg}', title=f'{title}', default=f'{default}', strip=True)
+
+    while True:
+        if fmt is None:
+            raise TypeError("'get_duration()' was cancelled")
+
+        errmsg = ""
+        datetime_test = pd.Timestamp('now')
+        try:
+            datetime_test.strftime(format=fmt)
+        except ValueError:
+            errmsg = f"'{fmt}' is not a valid datetime format code."
+
+        if errmsg == "":
+            break
+
+        fmt = easygui.enterbox(msg=errmsg, title=f'{title}', strip=True)
+
+    return fmt
+
+
 def stats_diel_pattern(
     df_detections: pd.DataFrame,
     begin_date: dt.datetime,

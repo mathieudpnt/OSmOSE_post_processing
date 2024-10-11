@@ -1,34 +1,21 @@
 import pandas as pd
 import numpy as np
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import pytz
-from utils.trajectoryFda import TrajectoryFda
 import gpxpy
-from tkinter import filedialog
 import time
-from tkinter import Tk
 from pathlib import Path
 
-from utils.def_func import get_csv_file, sort_detections
+import def_func
+import utils
+from utils.def_func import sort_detections
+from utils.premiers_resultats_utils import load_parameters_from_yaml
+from utils.glider_utils import load_glider_nav
+from premiers_resultats_utils import plot_detection_timeline
 
-
-def get_gpx(num_files):
-    root = Tk()
-    root.withdraw()
-
-    file_paths = []
-    for _ in range(num_files):
-        file_path = filedialog.askopenfilename(
-            title=f"Select gpx ({len(file_paths) + 1}/{num_files})",
-            filetypes=[("GPX files", "*.gpx")],
-            parent=None,
-        )
-        if not file_path:
-            break  # User cancelled or closed the file dialog
-        file_paths.append(file_path)
-    return file_paths
-
+from utils.trajectoryFda import TrajectoryFda
 
 def get_track_data(gpx_path):
     gpx_file = open(gpx_path, "r")
@@ -55,22 +42,25 @@ def get_track_data(gpx_path):
     return track_data
 
 
-def compute_loc_from_time(track_data, time_unix):
+def compute_loc_from_time(track_data, time_detections):
     dict_mmsi = {}
     key_mmsi = dict_mmsi.keys()
+
     # ix : index de la position
     # row : ligne de la position (time, lat, lon, depth)
-    for ix, row in enumerate(track_data):
+    for ix, row in track_data.iterrows():
+
         # on commence par chercher si le navire existe déjà dans le flux
         if 0 not in key_mmsi:
             dict_mmsi[0] = TrajectoryFda(0, 0.001, 3)
 
-        dict_mmsi[0].setNewData(row[0], row[2], row[1])
+        dict_mmsi[0].setNewData(row.iloc[0], row.iloc[2], row.iloc[1])
 
-    ts_min = time_unix[0]
-    ts_max = time_unix[-1]
+    ts_min = min(time_detections)
+    ts_max = max(time_detections)
+
     res = []
-    for ts in time_unix:
+    for ts in time_detections:
         if ts_min <= ts <= ts_max:
             lat, lon = dict_mmsi[0].getPosition(ts)
 
@@ -79,306 +69,67 @@ def compute_loc_from_time(track_data, time_unix):
 
     return res
 
+# %% Load detections and navigation data
 
-def write_gps_in_csv(files_list, df_detections, gpx_path):
-
-    track_data = get_track_data(gpx_path)
-    time_unix = np.array([val[0] for val in track_data])
-    depth_gps = np.array([val[3] for val in track_data])
-
-    ts_min = time_unix[0]
-    ts_max = time_unix[-1]
-
-    time_det = df_detections["start_datetime"]
-    time_det_unix = [time.mktime(t.timetuple()) for t in time_det]
-
-    res = compute_loc_from_time(track_data, time_det_unix)
-
-    # Find depth of glider for each detections
-    depthD = []
-    for j, detT in enumerate(time_det_unix):
-        if ts_min < detT < ts_max:
-            a = np.abs(np.array(time_unix) - detT)
-            idx = np.where(a == a.min())
-            depthD.append(depth_gps[np.array(idx[0]).min()])
-
-        else:
-            continue
-
-    df_detections["longitude"] = [res[i][1] for i in list(range(0, len(res)))]
-    df_detections["latitude"] = [res[i][2] for i in list(range(0, len(res)))]
-    df_detections["depth"] = depthD
-
-    # Save the csv file in the same folder
-    fn = (files_list[0].split("/")[-1]).split(".")[0]
-    df_detections.to_csv(fn + "_position.csv", index=False)
-
-
-# %% First step : write a (new?) csv result file containng the position and depth of each detection
-
-files_list = get_csv_file(1)
-
-arguments_list = [
-    {
-        "file": files_list[0],
-        #'timebin_new': 60,
-        "tz": pytz.FixedOffset(120),
-        #'fmin_filter': 10000
-    },
-]
-
-df_detections, info = pd.DataFrame(), pd.DataFrame()
-for args in arguments_list:
-    df_detections_file, info_file = sort_detections(**args)
-    df_detections = pd.concat([df_detections, df_detections_file], ignore_index=True)
-    info = pd.concat([info, info_file], ignore_index=True)
-
-
-time_bin = list(set(info["max_time"].explode()))
-fmax = list(set(info["max_freq"].explode()))
-annotators = list(set(info["annotators"].explode()))
-labels = list(set(info["labels"].explode()))
-tz_data = list(set(info["tz_data"].explode()))
-if len(tz_data) == 1:
-    [tz_data] = tz_data
-else:
-    raise Exception("More than one timezone in the detections")
-
-# Download track data
-gpx_paths = get_gpx(1)
-
-
-for i, p in enumerate(gpx_paths):
-    td = get_track_data(p)
-    if i == 0:
-        track_data = td
-    else:
-        track_data = np.concatenate((track_data, td), axis=0)
-# Sort track data
-track_data = track_data[np.argsort(track_data[:, 0])]
-
-write_gps_in_csv(files_list, df_detections, gpx_paths[0])
-
-
-# %%┴Figure 'planning'
-# Select all csv files with detections/annotations that will appear in the following Figures
-files_list = get_csv_file(2)
-
-arguments_list = [
-    {
-        "file": files_list[0],
-        #'timebin_new': 60,
-        "tz": pytz.FixedOffset(120),
-        #'fmin_filter': 10000
-    },
-    {
-        "file": files_list[1],
-        #'timebin_new': 60,
-        "tz": pytz.FixedOffset(120),
-        #'fmin_filter': 10000
-    },
-    {
-        "file": files_list[2],
-        #'timebin_new': 60,
-        "tz": pytz.FixedOffset(120),
-        #'fmin_filter': 10000
-    },
-    {
-        "file": files_list[3],
-        #'timebin_new': 60,
-        "tz": pytz.FixedOffset(120),
-        #'fmin_filter': 10000
-    },
-    {
-        "file": files_list[4],
-        #'timebin_new': 60,
-        "tz": pytz.FixedOffset(120),
-        #'fmin_filter': 10000
-    },
-    {
-        "file": files_list[5],
-        #'timebin_new': 60,
-        "tz": pytz.FixedOffset(120),
-        #'fmin_filter': 10000
-    },
-]
-
-
-df_detections, info = pd.DataFrame(), pd.DataFrame()
-for args in arguments_list:
-    df_detections_file, info_file = sort_detections(**args)
-    df_detections = pd.concat([df_detections, df_detections_file], ignore_index=True)
-    info = pd.concat([info, info_file], ignore_index=True)
-
-
-time_bin = list(set(info["max_time"].explode()))
-fmax = list(set(info["max_freq"].explode()))
-annotators = list(set(info["annotators"].explode()))
-labels = list(set(info["labels"].explode()))
-tz_data = list(set(info["tz_data"].explode()))
-if len(tz_data) == 1:
-    [tz_data] = tz_data
-else:
-    raise Exception("More than one timezone in the detections")
-
-
-det = df_detections.drop_duplicates(subset=["annotation", "start_datetime"])
-
-list_color = {
-    "label": [
-        "Odontocete whistles",
-        "Sperm whale clics",
-        "Odontocete clics",
-        "UnidentifiedCalls",
-        "Odontocete buzz",
-        "Blackfish whistles",
-        "Fin whale 40 Hz",
-        "Fin whale 20 Hz",
-    ],
-    "color": [
-        "#7fd779",
-        "#e8718d",
-        "#e77148",
-        "#1c4a64",
-        "#b7484b",
-        "#72450a",
-        "black",
-        "gray",
-    ],
-}
-
-list_labels = list(det["annotation"].unique())
-
-df_color = pd.DataFrame(data=list_color)
-fig, ax = plt.subplots(figsize=(20, 8))
-for i, label in enumerate(list_labels):
-    det_label = df_detections[(df_detections["annotation"] == label)]
-    time_det = det_label["start_datetime"]
-    time_det_unix = [time.mktime(t.timetuple()) for t in time_det]
-    mpl_time_det = mdates.epoch2num(time_det_unix)
-
-    l_data = len(mpl_time_det)
-    x = np.ones((l_data, 1), int) * i
-    c = df_color.loc[df_color["label"] == label, "color"].values[0]
-
-    plt.scatter(mpl_time_det, x, s=38, color=c)
-    print(i)
-    print(label)
-
-    # locator = mdates.HourLocator(interval=24)
-    # formatter = mdates.DateFormatter('%d/%m - %H:%M')
-    locator = mdates.DayLocator(interval=1)
-    formatter = mdates.DateFormatter("%d-%m")
-    ax.xaxis.set_major_locator(locator)
-    ax.xaxis.set_major_formatter(formatter)
-
-    plt.grid(color="k", linestyle="-", linewidth=0.2)
-
-    # ticks labels
-    # plt.yticks(np.arange(0, 6, 1.0))
-    plt.ylim(-0.5, len(list_labels) - 0.5)
-    ax.set_yticks(np.arange(0, len(list_labels), 1.0))
-    ax.set_yticklabels(list_labels)
-
-    ax.set_ylabel("Label", fontsize=25)
-    ax.set_xlabel("Jour", fontsize=25)
-    # ax.tick_params(labelsize=20)
-    # plt.xlabel('Date (dd.mm)', fontsize=22)
-
-
-# %% Compute acoustic diversity
-# filename_audioF = 'C:/Users/torterma/Documents/Projets_GLIDER/Delgost/DELGOST2_D2 HF_task_status.csv'
-filename_audioF = get_csv_file(2, "Select task status csv")
-# Put a coordinate on each audio file
-for i, f in enumerate(filename_audioF):
-
-    l = pd.read_csv(f, delimiter=",")
-    if i == 0:
-        list_audioF = l
-    else:
-        list_audioF = pd.concat([list_audioF, l])
-
-
-# Download track data
-gpx_paths = get_gpx(2)
-
-for i, p in enumerate(gpx_paths):
-    td = get_track_data(p)
-    if i == 0:
-        track_data = td
-    else:
-        track_data = np.concatenate((track_data, td), axis=0)
-# Sort track data
-track_data = track_data[np.argsort(track_data[:, 0])]
-
-# Array with unix time of files
-time_unix = np.array([val[0] for val in track_data])
-
-# Compute localisation of each audio file
-res = compute_loc_from_time(track_data, time_unix)
-
-# %% Read detections
-files_list = get_csv_file(2)
-
-arguments_list = [
-    {
-        "file": files_list[0],
-        #'timebin_new': 60,
-        "tz": pytz.FixedOffset(120),
-        #'fmin_filter': 10000
-    },
-    {
-        "file": files_list[1],
-        #'timebin_new': 60,
-        "tz": pytz.FixedOffset(120),
-        #'fmin_filter': 10000
-    },
-]
-
-df_detections, info = pd.DataFrame(), pd.DataFrame()
-for args in arguments_list:
-    df_detections_file, info_file = sort_detections(**args)
-    df_detections = pd.concat([df_detections, df_detections_file], ignore_index=True)
-    info = pd.concat([info, info_file], ignore_index=True)
-
-
-time_bin = list(set(info["max_time"].explode()))
-fmax = list(set(info["max_freq"].explode()))
-annotators = list(set(info["annotators"].explode()))
-labels = list(set(info["labels"].explode()))
-tz_data = list(set(info["tz_data"].explode()))
-if len(tz_data) == 1:
-    [tz_data] = tz_data
-else:
-    raise Exception("More than one timezone in the detections")
-
-det = df_detections.drop_duplicates(subset=["annotation", "start_datetime"])
-# DElete unkown detections
-det.drop(det[det["annotation"] == "UnidentifiedCalls"].index, inplace=True)
-
-# Create array with unix time of detections
-time_det = det["start_datetime"]
-time_det_unix = [time.mktime(t.timetuple()) for t in time_det]
-
-
-AD = np.zeros(len(time_unix))
-list_det = []
-
-for i, file in enumerate(time_unix):
-    for d in time_det_unix:
-        if d == file:
-            AD[i] += 1
-
-    list_det.append([file, res[i][1], res[i][2], AD[i]])
-
-
-np.savetxt(
-    "C:/Users/torterma/Documents/Projets_GLIDER/TAAF/Delgost/Acoustic_Diversity_D2.csv",
-    [p for p in list_det],
-    delimiter=",",
-    fmt="%i,%f,%f,%i",
+df_detections, time_bin, annotators, labels, fmax, datetime_begin, datetime_end, _ = (
+    load_parameters_from_yaml()
+)
+print(
+    f"\ntime_bin: {time_bin}\nfmax: {fmax}\nannotators: {annotators}\nlabels: {labels}"
 )
 
+directory = Path(r'L:\acoustock\Bioacoustique\DATASETS\GLIDER\GLIDER SEA034\MISSION_46_DELGOST\APRES_MISSION\NAV')
+glider_data = load_glider_nav(directory)
+
+# %% 'Timeline' figure'
+plot_detection_timeline(df_detections)
+
+# %% Compute acoustic diversity
+
+# track_data: glider positions at every timestamp
+glider_data['Timestamp_unix'] = [ts.timestamp() for ts in glider_data['Timestamp']]
+track_data = glider_data[['Timestamp_unix', 'Lat', 'Lon', 'Depth']]
+
+# time_detections: datetime of every detections
+time_detections = [ts.timestamp() for ts in df_detections['start_datetime'].drop_duplicates().to_list()]
+
+# Compute localisation of each detection
+track_det = compute_loc_from_time(track_data, time_detections)
+
+# Compute localisation of each detection
+task_status_directory = Path(r'L:\acoustock\Bioacoustique\DATASETS\GLIDER\GLIDER SEA034\MISSION_46_DELGOST\ANALYSES\ANNOTATION\HF')
+task_status_files = list(task_status_directory.glob('*/*task_status.csv'))
+list_det = pd.DataFrame(columns=['Timestamp', 'Latitude', 'Longitude', 'Acoustic Diversity'])
+
+for deployment in tqdm(task_status_files):
+
+    task_status_filenames = pd.read_csv(deployment)['filename']
+    time_vector = [def_func.extract_datetime(fn).tz_localize('UTC').timestamp() for fn in task_status_filenames]
+    track_time_vector = compute_loc_from_time(track_data, time_vector)
+
+    # delete duplicate detection in case of several users
+    det = df_detections.drop_duplicates(subset=["annotation", "start_datetime"])
+
+    # Delete unkown detections
+    det.drop(det[det["annotation"] == "UnidentifiedCalls"].index, inplace=True)
+
+    # unix time of detections
+    time_det_unix = [ts.timestamp() for ts in det["start_datetime"]]
+
+    acoustic_diversity = np.zeros(len(time_vector))
+    for i, ts in enumerate(time_vector[:-1]):
+        for ts_det in time_det_unix:
+            if ts <= ts_det <= ts + 1:
+                acoustic_diversity[i] += 1
+
+            new_row = pd.DataFrame({
+                'Timestamp': [str(pd.Timestamp(ts, unit='s').tz_localize('UTC'))],
+                'Latitude': [track_det[i][1]],
+                'Longitude': [track_det[i][2]],
+                'Acoustic Diversity': [acoustic_diversity[i]]
+            })
+
+           list_det = new_row if list_det.empty else pd.concat([list_det, new_row], ignore_index=True)
 
 # %%----------- Plot detection according to the depth of the glider ------------
 # User inputs (APLOSE csv)

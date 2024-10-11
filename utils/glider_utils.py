@@ -3,7 +3,11 @@ import gzip
 from pathlib import Path
 from tqdm import tqdm
 import numpy as np
-from utils.glider_config import navstate_mapping
+from numpy.lib.npyio import NpzFile
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+
+from utils.glider_config import NAV_STATE
 
 def load_glider_nav(directory: Path):
     """Load the navigation data from glider output files in a specified directory.
@@ -29,9 +33,13 @@ def load_glider_nav(directory: Path):
         - A 'Depth' column with depth values adjusted to be positive.
     """
 
-    assert directory.exists(), f"Directory '{directory}' does not exist."
+    if not directory.exists():
+        raise FileNotFoundError(f"Directory '{directory}' does not exist.")
+
     file = [f for f in directory.glob("*.gz") if "gli" in f.name]
-    assert len(file) > 0, f"Directory '{directory}' does not contain '.gz' files."
+
+    if not len(file) > 0:
+        raise FileNotFoundError(f"Directory '{directory}' does not contain '.gz' files.")
 
     all_rows = []  # Initialize an empty list to store the contents of all CSV files
     yo = []  # List to store the file numbers
@@ -65,17 +73,61 @@ def load_glider_nav(directory: Path):
 
     df["file"] = data
     df = df.drop(df[(df["Lat"] == 0) & (df["Lon"] == 0)].index).reset_index(drop=True)
-    df["Lat DD"] = [
+    df["Lat"] = [
         int(x) + (((x - int(x)) / 60) * 100) if not np.isnan(x) else np.nan
         for x in df["Lat"] / 100
     ]
-    df["Lon DD"] = [
+    df["Lon"] = [
         int(x) + (((x - int(x)) / 60) * 100) if not np.isnan(x) else np.nan
         for x in df["Lon"] / 100
     ]
     df["Depth"] = -df["Depth"]
-    df["NavState"] = df["NavState"].replace(navstate_mapping)
-    df["Timestamp"] = pd.to_datetime(df["Timestamp"], format="%d/%m/%Y %H:%M:%S")
-    df = df.sort_values(by=["Timestamp"])
+    df["NavState"] = df["NavState"].replace(NAV_STATE)
+    df["Timestamp"] = [pd.to_datetime(ts, format="%d/%m/%Y %H:%M:%S").tz_localize('UTC') for ts in df['Timestamp']]
+    df = df.sort_values(by=["Timestamp"]).reset_index(drop=True)
 
     return df
+
+
+def plot_nav_state(df: pd.DataFrame, npz: NpzFile):
+    """Plot the LTAS from a npz file and the associated glider state of navigation
+
+    Parameters
+    ----------
+    df: pd.DataFrame, glider navigation data
+    npz: npz file containing the LTAS matrix, its associated frequency and time vectors
+    """
+    f = npz["Freq"]
+    sxx = npz["LTAS"]
+    t = npz["time"]
+
+    fig, (ax, cax) = plt.subplots(2, gridspec_kw={"height_ratios": [1, 0.05]})
+    im = ax.imshow(
+        sxx[1:-1],
+        aspect="auto",
+        extent=[t[0], t[-1], f[1], f[-1]],
+        origin="lower",
+        vmin=40,
+        vmax=100,
+    )
+    ax.xaxis.set_major_formatter(mdates.DateFormatter(fmt="%H:%M"))
+    ax.xaxis.set_major_locator(mdates.SecondLocator(interval=3600 * 4))
+    ax.set_ylabel("Frequency (Hz)")
+    ax.set_xlabel("Date")
+
+    cbar = fig.colorbar(im, orientation="horizontal", cax=cax)
+    cbar.ax.set_xlabel("dB ref 1µPa/Hz")
+
+    ax2 = ax.twinx()
+    ax2.plot(
+        df[(df["Timestamp"] >= t[0]) & (df["Timestamp"] <= t[-1])]["Timestamp"],
+        df[(df["Timestamp"] >= t[0]) & (df["Timestamp"] <= t[-1])]["NavState"],
+        color="white",
+        linewidth=1,
+        alpha=0.7,
+        zorder=3,
+    )
+    ax2.set_ylabel("Navigation state")
+
+    plt.tight_layout()
+    plt.show()
