@@ -7,7 +7,87 @@ from numpy.lib.npyio import NpzFile
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
+import def_func
 from utils.glider_config import NAV_STATE
+from utils.trajectoryFda import TrajectoryFda
+
+
+def set_trajectory(nav: pd.DataFrame)->TrajectoryFda:
+    """Create a trajectory object in order to track data
+
+    Parameters
+    ----------
+    nav: navigation data with a GPS position and associated datetime
+
+    Returns
+    -------
+    TrajectoryFda object
+
+    """
+    traj = TrajectoryFda()
+    for ix, row in tqdm(nav.iterrows(), total=len(nav), desc='Tracking data'):
+        traj.setNewData(timestamp=row['Timestamp_unix'], latitude=row['Lat'], longitude=row['Lon'])
+    return traj
+
+
+def get_loc_from_time(traj: TrajectoryFda, time_vector: list[int | float])->(list[float], list[float], list[float]):
+    """Compute location for at a given datetime for a given trajectory
+
+    Parameters
+    ----------
+    traj: TrajectoryFda object
+    time_vector:  list of datetimes to associate a location to, in unix time
+
+    Returns
+    -------
+    (latitude, longitude, timestamp)
+
+    """
+    latitude, longitude, timestamp = [], [], []
+    for ts in time_vector:
+        if min(time_vector) <= ts <= max(time_vector):
+            lat, lon = traj.getPosition(timestamp=ts)
+            latitude.append(lat)
+            longitude.append(lon)
+            timestamp.append(ts)
+    return latitude, longitude, timestamp
+
+
+def plot_detection_with_nav_data(df: pd.DataFrame, nav: pd.DataFrame, criterion: str, annotation: str):
+    """Plot detections of one annotation type according to a navigation data criterion
+
+    Parameters
+    ----------
+    df: pd.DataFrame, APLOSE formatted detection file
+    nav: pd.DataFrame, navigation data comprised of criteria (latitude, longitude, depth...) and associated datetimes
+    criterion: user selected navigation parameter from nav (latitude, longitude, depth...)
+    annotation: user selected annotation from df
+    """
+    df_1label = df[df['annotation']==annotation]
+
+    glider_timestamps_numeric = [int(ts.timestamp()) for ts in nav['Timestamp']]
+    detections_timestamps_numeric = [int(ts.timestamp()) for ts in df_1label['start_datetime']]
+    matching_depths = np.interp(detections_timestamps_numeric, glider_timestamps_numeric, nav[criterion].astype('float'))
+
+    fig, ax = plt.subplots()
+    plt.plot(nav['Timestamp'], nav[criterion], label=criterion, zorder=1, linewidth=0.8)
+    plt.scatter(df_1label['start_datetime'], matching_depths, label=annotation, zorder=2, color='r', s=8)
+    plt.grid(color="k", linestyle="--", linewidth=0.2, zorder=0)
+    plt.xlim(nav['Timestamp'].iloc[0], nav['Timestamp'].iloc[-1])
+
+    xtick_resolution = def_func.get_duration(msg='Enter x-tick resolution', default='1d')
+    locator = mdates.SecondLocator(interval=xtick_resolution)
+    ax.xaxis.set_major_locator(locator)
+
+    datetime_format = def_func.get_datetime_format(msg='Enter x-tick format', default='%d/%m/%y')
+    formatter = mdates.DateFormatter(datetime_format)
+    ax.xaxis.set_major_formatter(formatter)
+
+    plt.ylabel(criterion)
+    plt.title(f"'{annotation}' detections")
+    plt.tight_layout()
+    plt.show()
+
 
 def load_glider_nav(directory: Path):
     """Load the navigation data from glider output files in a specified directory.
@@ -48,7 +128,7 @@ def load_glider_nav(directory: Path):
     first_file = True
     file_number = 1  # Initialize the file number
 
-    for f in tqdm(file, "Reading data..."):
+    for f in tqdm(file, desc="Reading navigation data"):
         with gzip.open(f, "rt") as gz_file:
             delimiter = ";"  # Specify the desired delimiter
             gz_reader = pd.read_csv(gz_file, delimiter=delimiter)
