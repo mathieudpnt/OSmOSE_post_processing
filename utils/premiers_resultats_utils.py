@@ -1,3 +1,4 @@
+import datetime
 from typing import Iterable
 from pathlib import Path
 import pytz
@@ -7,15 +8,32 @@ import easygui
 import matplotlib as mpl
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
-from utils.def_func import t_rounder, suntime_hour, get_duration, read_yaml, sort_detections
+from utils.def_func import (
+    t_rounder,
+    suntime_hour,
+    get_duration,
+    read_yaml,
+    sort_detections,
+)
 from collections import Counter
 import seaborn as sns
 from scipy.stats import pearsonr
 import def_func
 
 
-def load_parameters_from_yaml():
-    """Loads parameters from results\premier_resultats_parameters.yaml
+def load_parameters_from_yaml(
+    file: Path = Path(r".\results\premiers_resultats_parameters.yaml"),
+) -> (
+    pd.DataFrame,
+    list[int],
+    list[str],
+    list[str],
+    list[int],
+    pd.Timestamp,
+    pd.Timestamp,
+    list[datetime.timezone],
+):
+    """Loads parameters from scripts\premier_resultats_parameters.yaml
 
     Returns
     -------
@@ -26,8 +44,9 @@ def load_parameters_from_yaml():
     fmax: list of maximum frequencies
     datetime_begin: pd.Timestamp
     datetime_end: pd.Timestamp
+    tz: timezone
     """
-    parameters = read_yaml(Path(r".\results\premiers_resultats_parameters.yaml"))
+    parameters = read_yaml(file=file)
 
     df = pd.DataFrame()
     for file in parameters:
@@ -37,7 +56,7 @@ def load_parameters_from_yaml():
     fmax = list(set(df["end_frequency"]))
     annotators = sorted(list(set(df["annotator"])))
     labels = sorted(list(set(df["annotation"])))
-    tz_data = [df["start_datetime"].iloc[0].tz]
+    tz_data = df["start_datetime"].iloc[0].tz
 
     datetime_begin = df["start_datetime"].iloc[0]
     datetime_end = df["end_datetime"].iloc[-1]
@@ -155,7 +174,7 @@ def set_y_axis(ax: mpl.axes, max_annotation_number: int):
     resolution
     """
     choice_percentage = easygui.buttonbox(
-        msg="Do you want your results plot in percentage or in raw values ?",
+        msg="Do you want your scripts plot in percentage or in raw values ?",
         choices=["percentage", "raw values"],
     )
 
@@ -506,9 +525,7 @@ def multiuser_plot(df: pd.DataFrame):
     annotators = list(set(df["annotator"]))
 
     if len(annotators) < 2:
-        raise ValueError(
-            "Only 1 annotator detected, multiuser plot cancelled"
-        )
+        raise ValueError("Only 1 annotator detected, multiuser plot cancelled")
 
     annot_ref1 = select_reference(annotators, "annotator 1")
     annot_ref2 = select_reference(
@@ -627,11 +644,15 @@ def plot_detection_timeline(df: pd.DataFrame):
         x = np.ones((l_data, 1), int) * i
         plt.scatter(time_det, x, s=12)
 
-    xtick_resolution = def_func.get_duration(msg='Enter x-tick resolution', default='1d')
+    xtick_resolution = def_func.get_duration(
+        msg="Enter x-tick resolution", default="1d"
+    )
     locator = mdates.SecondLocator(interval=xtick_resolution)
     ax.xaxis.set_major_locator(locator)
 
-    datetime_format = def_func.get_datetime_format(msg='Enter x-tick format', default='%d/%m')
+    datetime_format = def_func.get_datetime_format(
+        msg="Enter x-tick format", default="%d/%m"
+    )
     formatter = mdates.DateFormatter(datetime_format)
     ax.xaxis.set_major_formatter(formatter)
 
@@ -639,7 +660,10 @@ def plot_detection_timeline(df: pd.DataFrame):
     ax.set_yticks(np.arange(0, len(labels), 1))
     ax.set_yticklabels(labels[::-1])
     ax.set_xlabel("Date")
-    plt.xlim(df["start_datetime"].min().normalize(), df["end_datetime"].max().normalize() + pd.Timedelta(days=1))
+    plt.xlim(
+        df["start_datetime"].min().normalize(),
+        df["end_datetime"].max().normalize() + pd.Timedelta(days=1),
+    )
 
     plt.tight_layout()
     plt.show()

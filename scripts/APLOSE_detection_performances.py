@@ -1,5 +1,4 @@
-"""
-This script is used in order to compute the detection performances of an APLOSE formatted detection file
+"""This script is used in order to compute the detection performances of an APLOSE formatted detection file
 the computed metrics are precision and recall and F-score
 it takes as an input 2 APLOSE formatted detection/annotation files and a corresponding parameters file
 the user has to select one of the 2 files as the reference/"ground truth" to calculate the performance of the second file
@@ -8,7 +7,6 @@ the user has to select one of the 2 files as the reference/"ground truth" to cal
 import pandas as pd
 import numpy as np
 import easygui
-from scipy import stats
 import os
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -17,10 +15,7 @@ from cycler import cycler
 import pytz
 import warnings
 
-# os.chdir(r'U:/Documents_U/Git/post_processing_detections')
-os.chdir(
-    r"C:\Users\dupontma2\Desktop\data_local\post_processing_detections-main_17052024"
-)
+
 from utilities.def_func import (
     get_csv_file,
     sorting_detections,
@@ -52,9 +47,7 @@ mpl.rcParams["axes.prop_cycle"] = cycler(
 # %% Load data - user inputs
 
 # Load parameters from the YAML file
-yaml_file_path = os.path.join(
-    os.getcwd(), "performances", "Python", "detection_performance_parameters.yaml"
-)
+yaml_file_path = Path(r".\results\premiers_resultats_parameters.yaml")
 parameters = read_param(file=yaml_file_path)
 
 # import detections, reference timebin, labels and annotators for each file

@@ -1,6 +1,4 @@
-*.yaml
 __pycache__/
 .spyproject/
-/utils/pgmatlab/
 archive/
 .idea/

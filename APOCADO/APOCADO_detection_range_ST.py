@@ -1,8 +1,6 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import datetime as dt
-import matplotlib.dates as mdates
 import os
 import glob
 import seaborn as sns
@@ -13,22 +11,16 @@ from scipy.stats import linregress
 import pickle
 import matplotlib as mpl
 
-os.chdir(r"U:/Documents_U/Git/post_processing_detections")
-from utilities.def_func import (
-    extract_datetime,
-    sorting_detections,
-    t_rounder,
-    get_season,
-)
+from utils.def_func import t_rounder, get_season, sort_detections
 
+mpl.style.use("seaborn-v0_8-paper")
+mpl.rcParams["figure.dpi"] = 200
 # %%
 detector = ["pamguard", "thalassa"]
 arg = ["season", "net"]
 timebin1 = 60  # en seconde
 timebin2 = 10  # en minute
 
-mpl.style.use("seaborn-v0_8-paper")
-mpl.rcParams["figure.dpi"] = 200
 # %% Load data
 
 data_load = "pickle"
@@ -78,7 +70,7 @@ match data_load:
                 + data["datetime deployment"][i][-2:]
             )
             ts = data["segment timestamp file"][i]
-            df_detections_file1, _ = sorting_detections(
+            df_detections_file1, _ = sort_detections(
                 file=f1,
                 tz=tz,
                 timebin_new=timebin1,

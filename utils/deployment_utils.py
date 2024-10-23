@@ -72,10 +72,7 @@ def plot_single(
     elif isinstance(annotator, str):
         annot_ref = annotator
 
-    df_reshaped = reshape_timebin2(
-        df=df,
-        timebin_new=timebin, timestamp=timestamp2
-    )
+    df_reshaped = reshape_timebin2(df=df, timebin_new=timebin, timestamp=timestamp2)
 
     # list of the labels corresponding to the selected user
     if isinstance(annotation, str):

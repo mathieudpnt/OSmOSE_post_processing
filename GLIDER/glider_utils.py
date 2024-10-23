@@ -8,11 +8,11 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
 import def_func
-from utils.glider_config import NAV_STATE
+from GLIDER.glider_config import NAV_STATE
 from utils.trajectoryFda import TrajectoryFda
 
 
-def set_trajectory(nav: pd.DataFrame)->TrajectoryFda:
+def set_trajectory(nav: pd.DataFrame) -> TrajectoryFda:
     """Create a trajectory object in order to track data
 
     Parameters
@@ -25,12 +25,16 @@ def set_trajectory(nav: pd.DataFrame)->TrajectoryFda:
 
     """
     traj = TrajectoryFda()
-    for ix, row in tqdm(nav.iterrows(), total=len(nav), desc='Tracking data'):
-        traj.setNewData(timestamp=row['Timestamp_unix'], latitude=row['Lat'], longitude=row['Lon'])
+    for ix, row in tqdm(nav.iterrows(), total=len(nav), desc="Tracking data"):
+        traj.setNewData(
+            timestamp=row["Timestamp_unix"], latitude=row["Lat"], longitude=row["Lon"]
+        )
     return traj
 
 
-def get_loc_from_time(traj: TrajectoryFda, time_vector: list[int | float])->(list[float], list[float], list[float]):
+def get_loc_from_time(
+    traj: TrajectoryFda, time_vector: list[int | float]
+) -> (list[float], list[float], list[float]):
     """Compute location for at a given datetime for a given trajectory
 
     Parameters
@@ -53,7 +57,9 @@ def get_loc_from_time(traj: TrajectoryFda, time_vector: list[int | float])->(lis
     return latitude, longitude, timestamp
 
 
-def plot_detection_with_nav_data(df: pd.DataFrame, nav: pd.DataFrame, criterion: str, annotation: str):
+def plot_detection_with_nav_data(
+    df: pd.DataFrame, nav: pd.DataFrame, criterion: str, annotation: str
+):
     """Plot detections of one annotation type according to a navigation data criterion
 
     Parameters
@@ -63,23 +69,40 @@ def plot_detection_with_nav_data(df: pd.DataFrame, nav: pd.DataFrame, criterion:
     criterion: user selected navigation parameter from nav (latitude, longitude, depth...)
     annotation: user selected annotation from df
     """
-    df_1label = df[df['annotation']==annotation]
+    df_1label = df[df["annotation"] == annotation]
 
-    glider_timestamps_numeric = [int(ts.timestamp()) for ts in nav['Timestamp']]
-    detections_timestamps_numeric = [int(ts.timestamp()) for ts in df_1label['start_datetime']]
-    matching_depths = np.interp(detections_timestamps_numeric, glider_timestamps_numeric, nav[criterion].astype('float'))
+    glider_timestamps_numeric = [int(ts.timestamp()) for ts in nav["Timestamp"]]
+    detections_timestamps_numeric = [
+        int(ts.timestamp()) for ts in df_1label["start_datetime"]
+    ]
+    matching_depths = np.interp(
+        detections_timestamps_numeric,
+        glider_timestamps_numeric,
+        nav[criterion].astype("float"),
+    )
 
     fig, ax = plt.subplots()
-    plt.plot(nav['Timestamp'], nav[criterion], label=criterion, zorder=1, linewidth=0.8)
-    plt.scatter(df_1label['start_datetime'], matching_depths, label=annotation, zorder=2, color='r', s=8)
+    plt.plot(nav["Timestamp"], nav[criterion], label=criterion, zorder=1, linewidth=0.8)
+    plt.scatter(
+        df_1label["start_datetime"],
+        matching_depths,
+        label=annotation,
+        zorder=2,
+        color="r",
+        s=8,
+    )
     plt.grid(color="k", linestyle="--", linewidth=0.2, zorder=0)
-    plt.xlim(nav['Timestamp'].iloc[0], nav['Timestamp'].iloc[-1])
+    plt.xlim(nav["Timestamp"].iloc[0], nav["Timestamp"].iloc[-1])
 
-    xtick_resolution = def_func.get_duration(msg='Enter x-tick resolution', default='1d')
+    xtick_resolution = def_func.get_duration(
+        msg="Enter x-tick resolution", default="1d"
+    )
     locator = mdates.SecondLocator(interval=xtick_resolution)
     ax.xaxis.set_major_locator(locator)
 
-    datetime_format = def_func.get_datetime_format(msg='Enter x-tick format', default='%d/%m/%y')
+    datetime_format = def_func.get_datetime_format(
+        msg="Enter x-tick format", default="%d/%m/%y"
+    )
     formatter = mdates.DateFormatter(datetime_format)
     ax.xaxis.set_major_formatter(formatter)
 
@@ -119,7 +142,9 @@ def load_glider_nav(directory: Path):
     file = [f for f in directory.glob("*.gz") if "gli" in f.name]
 
     if not len(file) > 0:
-        raise FileNotFoundError(f"Directory '{directory}' does not contain '.gz' files.")
+        raise FileNotFoundError(
+            f"Directory '{directory}' does not contain '.gz' files."
+        )
 
     all_rows = []  # Initialize an empty list to store the contents of all CSV files
     yo = []  # List to store the file numbers
@@ -163,7 +188,10 @@ def load_glider_nav(directory: Path):
     ]
     df["Depth"] = -df["Depth"]
     df["NavState"] = df["NavState"].replace(NAV_STATE)
-    df["Timestamp"] = [pd.to_datetime(ts, format="%d/%m/%Y %H:%M:%S").tz_localize('UTC') for ts in df['Timestamp']]
+    df["Timestamp"] = [
+        pd.to_datetime(ts, format="%d/%m/%Y %H:%M:%S").tz_localize("UTC")
+        for ts in df["Timestamp"]
+    ]
     df = df.sort_values(by=["Timestamp"]).reset_index(drop=True)
 
     return df
@@ -211,3 +239,65 @@ def plot_nav_state(df: pd.DataFrame, npz: NpzFile):
 
     plt.tight_layout()
     plt.show()
+
+
+def compute_acoustic_diversity(
+    df: pd.DataFrame, nav: pd.DataFrame, time_vector: list[int | float]
+) -> pd.DataFrame:
+    """Compute the number of different annotations at given positions and timestamps.
+
+    Parameters
+    ----------
+    df: pd.DataFrame, APLOSE formatted result file
+    nav: pd.DataFrame, navigation data comprised of positions and associated timestamps
+    time_vector: list[int | float], list of timestamps used to check for annotations from df.
+    For APLOSE user, this vector can typically be constructed from corresponding task status files.
+
+    Returns
+    -------
+    df_acoustic_diversity: pd.DataFrame, DataFrame comprised of timestamps, associated position and acoustic diversity
+    """
+    # track_data: glider positions at every timestamp
+    nav["Timestamp_unix"] = [ts.timestamp() for ts in nav["Timestamp"]]
+    track_data = nav[["Timestamp_unix", "Timestamp", "Lat", "Lon", "Depth"]]
+
+    # compute trajectory object from glider navigation data
+    trajectory = set_trajectory(track_data)
+
+    # compute localisation of each detection
+    df_acoustic_diversity = pd.DataFrame(
+        columns=["Timestamp", "Latitude", "Longitude", "Acoustic Diversity"]
+    )
+
+    lat_time_vector, lon_time_vector, ts_time_vector = get_loc_from_time(
+        trajectory, time_vector
+    )
+
+    # delete duplicate detection in case several users annotated the same segment
+    det = df.drop_duplicates(subset=["annotation", "start_datetime"])
+
+    # unix time of detections
+    time_det_unix = [ts.timestamp() for ts in det["start_datetime"]]
+
+    acoustic_diversity = np.zeros(len(time_vector))
+    for i, ts in enumerate(time_vector[:-1]):
+        for ts_det in time_det_unix:
+            if ts <= ts_det <= ts + 1:
+                acoustic_diversity[i] += 1
+
+        new_row = pd.DataFrame(
+            {
+                "Timestamp": [str(pd.Timestamp(ts, unit="s").tz_localize("UTC"))],
+                "Latitude": [lat_time_vector[i]],
+                "Longitude": [lon_time_vector[i]],
+                "Acoustic Diversity": [acoustic_diversity[i]],
+            }
+        )
+
+        df_acoustic_diversity = (
+            new_row
+            if df_acoustic_diversity.empty
+            else pd.concat([df_acoustic_diversity, new_row], ignore_index=True)
+        )
+
+    return df_acoustic_diversity

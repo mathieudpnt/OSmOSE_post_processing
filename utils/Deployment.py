@@ -4,6 +4,7 @@ from typing import Union
 import pandas as pd
 from dataclasses import dataclass
 
+
 @dataclass
 class Deployment:
     """

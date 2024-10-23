@@ -3,7 +3,7 @@ import glob
 import pandas as pd
 from tqdm import tqdm
 
-# from results.soundscape import deployment
+# from scripts.soundscape import deployment
 from utils.Deployment import Deployment
 from deployment_utils import get_agreement, plot_single, get_perf
 
@@ -20,7 +20,7 @@ list_json = [
     )
 ]
 
-#%%
+# %%
 deploy = []
 for json in tqdm(list_json):
     deploy.append(Deployment(path_json=json))

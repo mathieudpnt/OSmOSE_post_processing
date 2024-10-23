@@ -1,8 +1,5 @@
 from tqdm import tqdm
 import os
-import glob
-from tkinter import filedialog
-from tkinter import Tk
 import sys
 import numpy as np
 import time
