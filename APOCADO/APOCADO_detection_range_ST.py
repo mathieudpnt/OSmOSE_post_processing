@@ -11,7 +11,7 @@ from scipy.stats import linregress
 import pickle
 import matplotlib as mpl
 
-from utils.def_func import t_rounder, get_season, sort_detections
+from def_func import t_rounder, get_season, sort_detections
 
 mpl.style.use("seaborn-v0_8-paper")
 mpl.rcParams["figure.dpi"] = 200

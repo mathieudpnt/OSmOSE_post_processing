@@ -1,5 +1,5 @@
-from utils.LTAS import LTAS
-from utils.def_func import extract_datetime
+from LTAS import LTAS
+from def_func import extract_datetime
 import pandas as pd
 import os
 from matplotlib import pyplot as plt
@@ -9,7 +9,7 @@ import pytz
 import json
 from tqdm import tqdm
 from pathlib import Path
-from utils.SoundTrap import *
+from SoundTrap import *
 import matplotlib.image as mpimg
 
 # %% Load data

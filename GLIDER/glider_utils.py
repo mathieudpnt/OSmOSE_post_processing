@@ -9,7 +9,7 @@ import matplotlib.dates as mdates
 
 import def_func
 from GLIDER.glider_config import NAV_STATE
-from utils.trajectoryFda import TrajectoryFda
+from trajectoryFda import TrajectoryFda
 
 
 def set_trajectory(nav: pd.DataFrame) -> TrajectoryFda:

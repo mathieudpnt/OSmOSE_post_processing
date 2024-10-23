@@ -6,11 +6,10 @@ import matplotlib.dates as mdates
 from pathlib import Path
 from tqdm import tqdm
 import def_func
-import utils
 import csv
 import pytz
 
-from utils.premiers_resultats_utils import load_parameters_from_yaml
+from premiers_resultats_utils import load_parameters_from_yaml
 from GLIDER.glider_utils import (
     load_glider_nav,
     plot_nav_state,

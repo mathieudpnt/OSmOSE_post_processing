@@ -1,7 +1,7 @@
 from pathlib import Path
 import pandas as pd
 import yaml
-from hydra_zen import load_from_yaml, instantiate
+from hydra_zen import instantiate
 
 
 def read_yaml(file_path: Path):
@@ -45,7 +45,7 @@ def load_parameters_from_yaml():
 
 from utils.def_func import get_coordinates
 
-from utils.premiers_resultats_utils import (
+from premiers_resultats_utils import (
     load_parameters_from_yaml,
     scatter_detections,
     plot_hourly_detection_rate,

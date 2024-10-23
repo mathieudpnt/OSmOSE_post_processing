@@ -8,7 +8,7 @@ import easygui
 import matplotlib as mpl
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
-from utils.def_func import (
+from def_func import (
     t_rounder,
     suntime_hour,
     get_duration,

@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import pandas as pd
 import scipy.signal as signal
-from utils.def_func import suntime_hour
+from def_func import suntime_hour
 import csv
 import pytz
 import os

@@ -7,8 +7,6 @@ import re
 from pathlib import Path
 import pytz
 
-os.chdir(r"./post_processing_detections")
-
 # %% Write metadata files
 
 path_csv = [

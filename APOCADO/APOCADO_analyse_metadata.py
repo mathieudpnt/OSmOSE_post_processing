@@ -16,9 +16,8 @@ from cycler import cycler
 import pytz
 import re
 
-os.chdir(r"U:/Documents_U/Git/post_processing_detections")
-from utilities.def_func import sorting_detections, get_season
-from utilities.APOCADO_stat import stats_diel_pattern
+from def_func import sorting_detections, get_season
+from utils.APOCADO_stat import stats_diel_pattern
 
 mpl.rcdefaults()
 mpl.style.use("seaborn-v0_8-paper")
