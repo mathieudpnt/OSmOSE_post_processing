@@ -1,9 +1,9 @@
 clear;clc
-cd('U:\Documents_U\Git\post_processing_detections\')
-addpath('utilities')
-addpath('utilities\pgmatlab')
-addpath('performances\MATLAB')
-addpath(genpath(fullfile(fileparts(fileparts(pwd)), 'utilities')))
+cd('C:\Users\dupontma2\Documents\Git\OSmOSE\OSmOSE_post_processing')
+addpath('utils')
+addpath('utils\pgmatlab')
+addpath('utils\MATLAB')
+addpath(genpath(fullfile(fileparts(fileparts(pwd)), 'utils')))
 
 % user inputs
 info_deploy.annotator = 'PAMGuard';

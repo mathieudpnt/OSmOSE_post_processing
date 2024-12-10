@@ -1,20 +1,21 @@
 import pytz
 import pandas as pd
 import numpy as np
-import easygui
 import bisect
-from astral.sun import sun
 import astral
+from astral.sun import sun
 import csv
 import yaml
+import easygui
 from pathlib import Path
 from pandas.tseries.frequencies import to_offset
 from scipy.io import wavfile
 from scipy.signal import spectrogram
 import matplotlib.pyplot as plt
+import yaml
 
 from OSmOSE.utils.audio_utils import is_supported_audio_format
-from OSmOSE.utils.timestamp_utils import is_datetime_template_valid
+from OSmOSE.utils.timestamp_utils import is_datetime_template_valid, strptime_from_text
 from OSmOSE.config import TIMESTAMP_FORMAT_AUDIO_FILE
 
 
@@ -69,7 +70,7 @@ def reshape_timebin(
             if len(df_1annot_1label) == 0:
                 continue
 
-            if timestamp:
+            if timestamp is not None:
                 # timestamp_csv = pd.read_csv(timestamp_file, parse_dates=['timestamp'])
                 # timestamp_range = timestamp_csv['timestamp'].to_list()
                 origin_timebin = (timestamp[1] - timestamp[0]).total_seconds()
@@ -94,13 +95,7 @@ def reshape_timebin(
             ]
             ts_detect_end = [ts.timestamp() for ts in df_1annot_1label["end_datetime"]]
 
-            # filenames = sorted(list(set(df_1annot_1label["filename"])))
             filenames = df_1annot_1label["filename"]
-            # FPOD case: the filenames of a FPOD csv file are NaN values
-            if all(pd.isna(filename) for filename in filenames):
-                filenames = [
-                    ts.strftime(TIMESTAMP_FORMAT_AUDIO_FILE) for ts in filenames
-                ]
 
             filename_vector = []
             for ts in time_vector:
@@ -172,7 +167,7 @@ def reshape_timebin(
     return df_new_timebin.sort_values(by=["start_datetime"])
 
 
-def sort_detections(
+def load_detections(
     file: Path,
     timebin_new: int = None,
     datetime_begin: pd.Timestamp = None,
@@ -185,7 +180,7 @@ def sort_detections(
     fmin_filter: int = None,
     fmax_filter: int = None,
 ) -> pd.DataFrame:
-    """Filters an Aplose formatted detection file according to user specified filters
+    """Loads and filters an Aplose formatted detection file according to user specified filters
 
     Parameters
     ----------
@@ -285,12 +280,18 @@ def sort_detections(
         & (df["end_frequency"] == max_freq)
     ]
 
-    if box is False:
+    if not box:
         if len(df_no_box) == 0 or timebin_new is not None:
+
+            if timestamp_file:
+                timestamp = pd.read_csv(timestamp_file, parse_dates=["timestamp"]).drop_duplicates().reset_index(drop=True)["timestamp"]
+            else:
+                timestamp = None
+
             df = reshape_timebin(
                 df=df,
                 timebin_new=timebin_new,
-                timestamp=timestamp_file,
+                timestamp=timestamp,
             )
         else:
             df = df_no_box
@@ -361,7 +362,7 @@ def read_yaml(file: Path) -> dict:
         parameters: dict
             Dictionary containing a set of parameters for each csv file
     """
-    with open(file, "r") as yaml_file:
+    with open(file, "r", encoding="utf-8") as yaml_file:
         parameters = yaml.safe_load(yaml_file)
 
     for filename in parameters.keys():
@@ -376,13 +377,6 @@ def read_yaml(file: Path) -> dict:
         ):
             raise ValueError(
                 f"An integer must be passed to 'timebin_new', '{parameters[filename]['timebin_new']}' not a valid value."
-            )
-
-        if parameters[filename]["datetime_format"] and not is_datetime_template_valid(
-            parameters[filename]["datetime_format"]
-        ):
-            raise ValueError(
-                f"'{parameters[filename]['timebin_new']}' must be a valid datetime format."
             )
 
         if parameters[filename]["fmin_filter"] and not isinstance(
@@ -539,6 +533,8 @@ def t_rounder(t: pd.Timestamp, res: int):
             t = t.replace(hour=0, minute=0, second=0, microsecond=0)
     elif res == 3:
         t = t.replace(microsecond=0)
+    elif res > 86400:
+        t = t.replace(hour=0, minute=0, second=0, microsecond=0)
     else:
         raise ValueError(f"res={res}s: Resolution not available")
     return t
@@ -883,8 +879,14 @@ def get_duration(
 
         errmsg = ""
         try:
-            base_str = to_offset(value).base.freqstr
-            value = int(pd.Timedelta(to_offset(value)).total_seconds())
+            offset = to_offset(value)
+            base_str = offset.base.freqstr
+            # Check if the offset is convertible to Timedelta
+            try:
+                seconds = int(pd.Timedelta(offset).total_seconds())
+            except ValueError:
+                # For offsets like '3MS', seconds are not defined
+                return offset
         except ValueError:
             errmsg = f"'{value}' is not a valid time alias."
 
@@ -894,9 +896,9 @@ def get_duration(
         value = easygui.enterbox(msg=errmsg, title=f"{title}", strip=True)
 
     if base:
-        return value, base_str
+        return seconds, base_str
     else:
-        return value
+        return seconds
 
 
 def get_datetime_format(
@@ -1242,7 +1244,7 @@ def print_spectro_from_audio(
         dpi=my_dpi,
     )
 
-    plt.pcolormesh(times, frequencies, 10 * np.log10(sxx))
+    plt.pcolormesh(times, frequencies, 10 * np.log10(sxx), vmin=20, vmax=100)
 
     if not ax:
         plt.axis("off")
@@ -1307,3 +1309,47 @@ def print_spectro_from_npz(file: Path, ax: bool = True):
     plt.show()
 
     return
+
+
+def add_weak_detection(file: Path, datetime_format: str=TIMESTAMP_FORMAT_AUDIO_FILE) -> pd.DataFrame:
+    """Adds weak detection lines to APLOSE formatted DataFrame with only strong detections.
+
+    Parameters
+    ----------
+    file: Path
+        An APLOSE formatted csv file.
+    datetime_format: str
+        A string corresponding to the datetime format in the `filename` column
+    """
+    df = load_detections(file=file, box=True)
+    annotators = df["annotator"].drop_duplicates().tolist()
+    labels = df["annotation"].drop_duplicates().tolist()
+    max_freq = int(max(df["end_frequency"]))
+    max_time = int(max(df["end_time"]))
+    dataset_id = df["dataset"][0]
+    tz = df["start_datetime"].iloc[0].tz
+
+    for annotator in annotators:
+        for label in labels:
+            filenames = df[(df["annotator"] == annotator) & (df["annotation"] == label)]["filename"].drop_duplicates().tolist()
+            for f in filenames:
+                test = df[(df["filename"] == f) & (df["annotation"] == label)]["is_box"]
+                if test.any():
+                    start_datetime = strptime_from_text(text=f, datetime_template=datetime_format).tz_localize(tz)
+                    end_datetime = start_datetime + pd.Timedelta(max_time, unit="s")
+                    new_line = [
+                        dataset_id,
+                        f,
+                        0,
+                        max_time,
+                        0,
+                        max_freq,
+                        label,
+                        annotator,
+                        start_datetime,
+                        end_datetime,
+                        0,
+                    ]
+                    df.loc[len(df.index)] = new_line
+
+    return df.sort_values("start_datetime").reset_index(drop=True)

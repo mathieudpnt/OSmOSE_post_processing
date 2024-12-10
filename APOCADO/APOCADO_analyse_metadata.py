@@ -2,7 +2,6 @@ import os
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
-import datetime as dt
 from tqdm import tqdm
 import numpy as np
 from collections import Counter
@@ -16,8 +15,8 @@ from cycler import cycler
 import pytz
 import re
 
-from def_func import sorting_detections, get_season
-from utils.APOCADO_stat import stats_diel_pattern
+from def_func import load_detections, get_season
+from APOCADO.APOCADO_stat import stats_diel_pattern
 
 mpl.rcdefaults()
 mpl.style.use("seaborn-v0_8-paper")
@@ -135,7 +134,7 @@ for net in net_type:
 # if 2 ST are present on the net, the duration is divided by 2
 net_length = sorted(list(set(deploy["net length"])))
 net_length_str = [str(elem) for elem in net_length]
-net_length_distrib = [
+net_length_distribution = [
     (
         deploy[deploy["net length"] == L]["duration"]
         / deploy[deploy["net length"] == L]["recorder number"]
@@ -146,16 +145,16 @@ net_length_distrib = [
     for L in net_length
 ]
 print("\n# Duration per net length #")
-for length, yi in zip(net_length, net_length_distrib):
+for length, yi in zip(net_length, net_length_distribution):
     print(f"{length}m: {round(yi)}h")
 
 # distribution of deployment durations
-duration_distrib = [t.total_seconds() / 3600 for t in deploy["duration"]]
+duration_distribution = [t.total_seconds() / 3600 for t in deploy["duration"]]
 
 fig, axs = plt.subplots(1, 2, gridspec_kw={"width_ratios": [4, 3]})
 axs[0].hist(
-    duration_distrib,
-    bins=range(0, int(1.05 * max(duration_distrib)), 2),
+    duration_distribution,
+    bins=range(0, int(1.05 * max(duration_distribution)), 2),
     edgecolor="black",
     linewidth=0.5,
     zorder=2,
@@ -165,7 +164,7 @@ axs[0].set_ylabel("Deployment number")
 axs[0].set_title("Distribution of deployment durations")
 axs[0].grid(axis="y", linestyle="--", alpha=0.5, zorder=1)
 axs[1].set_title("Distribution of net lengths")
-axs[1].bar(net_length_str, net_length_distrib, edgecolor="black", linewidth=1, zorder=2)
+axs[1].bar(net_length_str, net_length_distribution, edgecolor="black", linewidth=1, zorder=2)
 axs[1].set_ylabel("Data collected [hours]")
 axs[1].set_xlabel("Net length [m]")
 axs[1].grid(axis="y", linestyle="--", alpha=0.5, zorder=1)
@@ -202,6 +201,7 @@ plt.xlabel("Species")
 plt.ylabel("Deployment number")
 plt.title("Distribution of deployment species")
 plt.grid(axis="y", linestyle="--", alpha=0.5, zorder=1)
+plt.tight_layout()
 plt.show()
 
 # %% Load all metadata
@@ -255,22 +255,22 @@ match data_load:
                 .reset_index(drop=True)["timestamp"]
             )
 
-            df_detections_file1, _ = sorting_detections(
+            df_detections_file1 = load_detections(
                 file=f1,
-                tz=tz,
                 timebin_new=timebin,
-                timestamp=ts,
-                date_begin=data["datetime deployment"][i],
-                date_end=data["datetime recovery"][i],
+                timestamp_file=data["path segment timestamp"][i],
+                datetime_begin=data["datetime deployment"][i],
+                datetime_end=data["datetime recovery"][i],
             )
-            df_detections_file2, _ = sorting_detections(
+
+            df_detections_file2 = load_detections(
                 file=f2,
-                tz=tz,
                 timebin_new=timebin,
-                timestamp=ts,
-                date_begin=data["datetime deployment"][i],
-                date_end=data["datetime recovery"][i],
+                timestamp_file=data["path segment timestamp"][i],
+                datetime_begin=data["datetime deployment"][i],
+                datetime_end=data["datetime recovery"][i],
             )
+
             df_detections_pamguard.append(df_detections_file1)
             df_detections_thalassa.append(df_detections_file2)
 
@@ -426,6 +426,48 @@ plt.show()
 #                                        (df_hourly_all['thalassa hourly detection rate'] >= lim_low ) &
 #                                        (df_hourly_all['thalassa coverage'] == 1)].sample(n=10).sort_values(by='start_datetime')
 # print(f"\nSelection for double check : \n\n{double_check_selection['ID']}")
+# %%export pour mathilde
+
+from def_func import suntime_hour
+test = data.iloc[0:1].explode('hourly detection rate')
+
+data_hourly_all = pd.DataFrame()
+for i in tqdm(range(len(data))):
+    data_hourly = data.iloc[i]['hourly detection rate']
+
+
+    criterion = ['project', 'campaign', 'deployment', 'recorder', 'recorder number', 'latitude', 'longitude', 'datetime deployment', 'datetime recovery', 'duration', 'vessel', 'port', 'net', 'net length', 'species', 'platform', 'season', 'year', 'detection rate pamguard', 'detection rate thalassa']
+    for c in criterion:
+        data_hourly[c] = [data.iloc[i][c]] * len(data_hourly)
+
+    day_period = ['dawn', 'day', 'dusk', 'night']
+    day_period_hourly = []
+    for j in range(len(data_hourly)):
+
+        lat = 48 if np.isnan(data_hourly.iloc[j]['latitude']) else data_hourly.iloc[j]['latitude']
+        lon = -4.7 if np.isnan(data_hourly.iloc[j]['longitude']) else data_hourly.iloc[j]['longitude']
+        day_period_hour = sorted(suntime_hour(start=data_hourly.iloc[j].name,
+                            stop=data_hourly.iloc[j].name + pd.Timedelta(hours=1),
+                            lat=lat,
+                            lon=lon,
+                            )[2:])
+
+        day_period_hour = [d[0] for d in day_period_hour]
+
+        # index = np.argmin(np.abs([data_hourly.iloc[j].name - period[0] for period in day_period_hour]))
+
+        from bisect import bisect_left
+        index = bisect_left(day_period_hour, data_hourly.iloc[j].name) - 1
+
+
+        day_period_hourly.append(day_period[index])
+    data_hourly['day period'] = day_period_hourly
+    data_hourly_all = pd.concat([data_hourly_all, data_hourly])
+
+data_hourly_all.to_csv(path_or_buf=r"L:\acoustock\Bioacoustique\DATASETS\APOCADO\PECHEURS_2022_PECHDAUPHIR_APOCADO\data_hourly.csv", header=True, sep=';', index=False, encoding='latin')
+
+
+
 
 # %% filtering data for following analysis
 """
@@ -736,6 +778,7 @@ for d in detector:
             # plt.ylim(0, 19)
             plt.show()
 
+data.to_csv(path_or_buf=r"L:\acoustock\Bioacoustique\DATASETS\APOCADO\PECHEURS_2022_PECHDAUPHIR_APOCADO\data.csv", header=True, sep=';', index=False, encoding='latin')
 
 # %% statistics on diel plots
 """
@@ -1000,7 +1043,7 @@ for d in detector:
 
     res_min = 10  # minute
     delta, start_vec, end_vec = (
-        dt.timedelta(seconds=60 * res_min),
+        pd.Timedelta(seconds=60 * res_min),
         deploy_dt[0],
         deploy_dt[1],
     )

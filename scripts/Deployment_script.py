@@ -5,7 +5,7 @@ from tqdm import tqdm
 
 # from scripts.soundscape import deployment
 from utils.Deployment import Deployment
-from deployment_utils import get_agreement, plot_single, get_perf
+from utils.deployment_utils import get_agreement, plot_single, get_perf
 
 path_acoustock = [
     r"L:\acoustock\Bioacoustique\DATASETS\APOCADO\PECHEURS_2022_PECHDAUPHIR_APOCADO",
@@ -50,7 +50,7 @@ deployment_names = [d.name for d in deploy]
 #     path_thalassa=path_test6,
 #     path_aplose=path_test7,
 # )
-print(deploy[37])
+print(deploy[30])
 
 
 # %%
@@ -63,9 +63,9 @@ get_agreement(
 )
 # %%
 plot_single(
-    data=deploy[37],
-    file="aplose",
-    timebin=10,
+    data=deploy[30],
+    file="pamguard",
+    timebin=60,
 )
 # %%
 get_perf(

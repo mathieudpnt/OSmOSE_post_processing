@@ -10,7 +10,7 @@ import seaborn as sns
 from scipy import stats
 import matplotlib.dates as mdates
 from utils.Deployment import Deployment
-from def_func import reshape_timebin2, t_rounder
+from utils.def_func import reshape_timebin, t_rounder
 
 mpl.style.use("seaborn-v0_8-paper")
 mpl.rcParams["figure.dpi"] = 200
@@ -72,7 +72,7 @@ def plot_single(
     elif isinstance(annotator, str):
         annot_ref = annotator
 
-    df_reshaped = reshape_timebin2(df=df, timebin_new=timebin, timestamp=timestamp2)
+    df_reshaped = reshape_timebin(df=df, timebin_new=timebin, timestamp=timestamp2)
 
     # list of the labels corresponding to the selected user
     if isinstance(annotation, str):
@@ -105,7 +105,7 @@ def plot_single(
         & (df_reshaped["annotation"] == label_ref)
     ]
 
-    fig, ax = plt.subplots(1, 1, dpi=200, figsize=(10, 4))
+    fig, ax = plt.subplots(1, 1)
     ax.hist(df_1annot_1label["start_datetime"], bins=time_vector, edgecolor="black")
     bars = range(0, 101, 10)  # from 0 to 100 step 10
     y_pos = np.linspace(0, n_annot_max, num=len(bars))
@@ -113,7 +113,7 @@ def plot_single(
     ax.tick_params(axis="x", rotation=60)
     ax.set_ylabel(f"positive detection rate\n{timebin}s window per {res_min}min bin")
     ax.tick_params(axis="y")
-    fig.suptitle(f"{data.name}\n[{annot_ref}/{label_ref}]", y=1.02)
+    fig.suptitle(f"{data.name}\n[{annot_ref}/{label_ref}]")
 
     if data.duration < pd.Timedelta(12, "hour"):
         t_inter = 1
@@ -197,7 +197,7 @@ def get_agreement(
     annot_ref1 = annotator[0]
     annot_ref2 = annotator[1]
 
-    df_reshaped = reshape_timebin2(
+    df_reshaped = reshape_timebin(
         df=df, timebin_new=timebin, timestamp=timestamp2, reshape_method="timestamp"
     )
 
@@ -417,7 +417,7 @@ def get_perf(
         selected_label2 = annotation2
 
     # df1 - REFERENCE
-    df1_reshaped = reshape_timebin2(
+    df1_reshaped = reshape_timebin(
         df=df1, timebin_new=timebin, reshape_method="timebin", timestamp=timestamp
     )
 
@@ -452,7 +452,7 @@ def get_perf(
     vec1[np.isin(range(len(time_vector)), ranks)] = 1
 
     # df2
-    df2_reshaped = reshape_timebin2(
+    df2_reshaped = reshape_timebin(
         df=df2, timebin_new=timebin, reshape_method="timebin", timestamp=timestamp
     )
 
