@@ -1,7 +1,7 @@
 from pathlib import Path
 import matplotlib as mpl
 
-from utils.def_func import get_coordinates, reshape_timebin
+from utils.def_func import get_coordinates
 
 from premiers_resultats_utils import (
     load_parameters_from_yaml,

@@ -24,7 +24,7 @@ import def_func
 
 
 def load_parameters_from_yaml(
-    file: Path = Path(r".\scripts\premiers_resultats_parameters.yaml"),
+    file: Path,
 ) -> (
     pd.DataFrame,
     list[int],
@@ -36,6 +36,10 @@ def load_parameters_from_yaml(
     list[datetime.timezone],
 ):
     """Loads parameters from yaml
+
+    Parameters
+    ----------
+    file: Path to yaml file
 
     Returns
     -------

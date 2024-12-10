@@ -5,36 +5,10 @@
 #Note:
 #  - Several csv files can be loaded at once, to perform this copy the template and paste it at the end of the present file.
 
-
-### TEMPLATE ###
-
-'L:\acoustock\Bioacoustique\DATASETS\OHASISBIO\Stage Salomé\double_check\2020-2021\Dcalls\Dcalls_ELAN20_MM_clean.csv':
-  # timebin
-  'timebin_new': 3600
-  # begin datetime
-  'datetime_begin': null
-  # end datetime
-  'datetime_end': null
-  # annotator
-  'annotator': null
-  # annotation
-  'annotation': null
-  # box
-  'box': False
-  # timestamp file
-  'timestamp_file': null
-  # user selection
-  'user_sel': all
-  # f_min filter
-  'fmin_filter': null
-  # f_max filter
-  'fmax_filter': null
-
 #########################################
-
-'L:\acoustock\Bioacoustique\DATASETS\OHASISBIO\Stage Salomé\double_check\2020-2021\Dcalls\Dcalls_ELAN20_MT_clean.csv':
+'path\to\csv\file':
   # timebin
-  'timebin_new': 3600
+  'timebin_new': null
   # begin datetime
   'datetime_begin': null
   # end datetime
@@ -53,7 +27,4 @@
   'fmin_filter': null
   # f_max filter
   'fmax_filter': null
-
-##########################################
-
-
+#########################################
