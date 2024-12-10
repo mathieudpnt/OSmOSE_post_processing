@@ -26,7 +26,11 @@ def normalize_audio(file: Path, output_folder: Path = None):
 
     data_norm = np.transpose(np.array([(data / np.max(np.abs(data)))]))[:, 0]
 
-    new_fn = file.stem + ".wav" if output_folder != file.parent else file.stem + "_normalized.wav"
+    new_fn = (
+        file.stem + ".wav"
+        if output_folder != file.parent
+        else file.stem + "_normalized.wav"
+    )
     new_path = output_folder / new_fn
     sf.write(
         file=new_path,

@@ -284,7 +284,11 @@ def load_detections(
         if len(df_no_box) == 0 or timebin_new is not None:
 
             if timestamp_file:
-                timestamp = pd.read_csv(timestamp_file, parse_dates=["timestamp"]).drop_duplicates().reset_index(drop=True)["timestamp"]
+                timestamp = (
+                    pd.read_csv(timestamp_file, parse_dates=["timestamp"])
+                    .drop_duplicates()
+                    .reset_index(drop=True)["timestamp"]
+                )
             else:
                 timestamp = None
 
@@ -305,9 +309,9 @@ def load_detections(
 def intersection_or_union(df: pd.DataFrame, user_sel: str) -> pd.DataFrame:
     annotators = df["annotator"].drop_duplicates().to_list()
     if not len(annotators) > 1:
-        raise ValueError('Not enough annotators detected')
+        raise ValueError("Not enough annotators detected")
 
-    if user_sel not in ['intersection', 'union']:
+    if user_sel not in ["intersection", "union"]:
         raise ValueError("'user_sel' must be either 'intersection' or 'union'")
 
     labels = df["annotation"].drop_duplicates().to_list()
@@ -340,11 +344,11 @@ def intersection_or_union(df: pd.DataFrame, user_sel: str) -> pd.DataFrame:
         df_diff = pd.concat([df_diff, df_label_diff]).reset_index(drop=True)
 
     if user_sel == "intersection":
-        df_inter['annotator'] = [" ∩ ".join(annotators)] * len(df_inter)
+        df_inter["annotator"] = [" ∩ ".join(annotators)] * len(df_inter)
         return df_inter.sort_values("start_datetime").reset_index(drop=True)
     elif user_sel == "union":
         df_union = pd.concat([df_diff, df_inter]).reset_index(drop=True)
-        df_union['annotator'] = [" ∪ ".join(annotators)] * len(df_union)
+        df_union["annotator"] = [" ∪ ".join(annotators)] * len(df_union)
         return df_union.sort_values("start_datetime").reset_index(drop=True)
 
 
@@ -976,7 +980,9 @@ def stats_diel_pattern(
 
     # Compute sunrise and sunset decimal hour at the dataset location
     # Seems to only work with UTC data ?
-    [_, _, dt_dusk, dt_dawn, dt_day, dt_night] = suntime_hour(begin_date, end_date, lat, lon)
+    [_, _, dt_dusk, dt_dawn, dt_day, dt_night] = suntime_hour(
+        begin_date, end_date, lat, lon
+    )
 
     # List of days in the dataset
     list_days = [d.date() for d in dt_day]
@@ -1006,17 +1012,23 @@ def stats_diel_pattern(
             # If the detection occurred during 'day'
             if d == day:
                 if (
-                        dt_dawn[idx_day] < df_detections["start_datetime"][idx_det] < dt_day[idx_day]
+                    dt_dawn[idx_day]
+                    < df_detections["start_datetime"][idx_det]
+                    < dt_day[idx_day]
                 ):
                     lr = 2
                     light_regime.append(lr)
                 elif (
-                        dt_day[idx_day] < df_detections["start_datetime"][idx_det] < dt_night[idx_day]
+                    dt_day[idx_day]
+                    < df_detections["start_datetime"][idx_det]
+                    < dt_night[idx_day]
                 ):
                     lr = 3
                     light_regime.append(lr)
                 elif (
-                        dt_night[idx_day] < df_detections["start_datetime"][idx_det] < dt_dusk[idx_day]
+                    dt_night[idx_day]
+                    < df_detections["start_datetime"][idx_det]
+                    < dt_dusk[idx_day]
                 ):
                     lr = 4
                     light_regime.append(lr)
@@ -1105,7 +1117,9 @@ def stat_box_day(
     hour_list = ["{:02d}:00".format(i) for i in range(24)]
     hour_list.append("00:00")
 
-    df_detections["date"] = [date.strftime("%d/%m/%Y") for date in df_detections["start_datetime"]]
+    df_detections["date"] = [
+        date.strftime("%d/%m/%Y") for date in df_detections["start_datetime"]
+    ]
     df_detections["season"] = [get_season(i) for i in df_detections["start_datetime"]]
     df_detections["dataset"] = [i.replace("_", " ") for i in df_detections["dataset"]]
 
@@ -1152,9 +1166,11 @@ def stat_box_day(
             #     dt.datetime.fromtimestamp(i)
             #     for i in list(range(deploy_beg_ts, deploy_end_ts, 3600))
             # ]
-            list_present_h = pd.date_range(start=pd.to_datetime(deploy_beg_ts, unit='s'),
-                                           end=pd.to_datetime(deploy_end_ts, unit='s'),
-                                           freq='H').tolist()
+            list_present_h = pd.date_range(
+                start=pd.to_datetime(deploy_beg_ts, unit="s"),
+                end=pd.to_datetime(deploy_end_ts, unit="s"),
+                freq="H",
+            ).tolist()
             list_present_h2 = [
                 list_present_h[i].strftime("%d/%m/%Y %H")
                 for i in range(len(list_present_h))
@@ -1173,9 +1189,11 @@ def stat_box_day(
             #     )
             # )
             list_deploy_d = sorted(
-                pd.date_range(start=pd.to_datetime(deploy_beg_ts, unit='s'),
-                              end=pd.to_datetime(deploy_end_ts, unit='s'),
-                              freq='H')
+                pd.date_range(
+                    start=pd.to_datetime(deploy_beg_ts, unit="s"),
+                    end=pd.to_datetime(deploy_end_ts, unit="s"),
+                    freq="H",
+                )
                 .strftime("%d/%m/%Y")
                 .unique()
                 .tolist()
@@ -1311,7 +1329,9 @@ def print_spectro_from_npz(file: Path, ax: bool = True):
     return
 
 
-def add_weak_detection(file: Path, datetime_format: str=TIMESTAMP_FORMAT_AUDIO_FILE) -> pd.DataFrame:
+def add_weak_detection(
+    file: Path, datetime_format: str = TIMESTAMP_FORMAT_AUDIO_FILE
+) -> pd.DataFrame:
     """Adds weak detection lines to APLOSE formatted DataFrame with only strong detections.
 
     Parameters
@@ -1331,11 +1351,19 @@ def add_weak_detection(file: Path, datetime_format: str=TIMESTAMP_FORMAT_AUDIO_F
 
     for annotator in annotators:
         for label in labels:
-            filenames = df[(df["annotator"] == annotator) & (df["annotation"] == label)]["filename"].drop_duplicates().tolist()
+            filenames = (
+                df[(df["annotator"] == annotator) & (df["annotation"] == label)][
+                    "filename"
+                ]
+                .drop_duplicates()
+                .tolist()
+            )
             for f in filenames:
                 test = df[(df["filename"] == f) & (df["annotation"] == label)]["is_box"]
                 if test.any():
-                    start_datetime = strptime_from_text(text=f, datetime_template=datetime_format).tz_localize(tz)
+                    start_datetime = strptime_from_text(
+                        text=f, datetime_template=datetime_format
+                    ).tz_localize(tz)
                     end_datetime = start_datetime + pd.Timedelta(max_time, unit="s")
                     new_line = [
                         dataset_id,

@@ -164,7 +164,9 @@ axs[0].set_ylabel("Deployment number")
 axs[0].set_title("Distribution of deployment durations")
 axs[0].grid(axis="y", linestyle="--", alpha=0.5, zorder=1)
 axs[1].set_title("Distribution of net lengths")
-axs[1].bar(net_length_str, net_length_distribution, edgecolor="black", linewidth=1, zorder=2)
+axs[1].bar(
+    net_length_str, net_length_distribution, edgecolor="black", linewidth=1, zorder=2
+)
 axs[1].set_ylabel("Data collected [hours]")
 axs[1].set_xlabel("Net length [m]")
 axs[1].grid(axis="y", linestyle="--", alpha=0.5, zorder=1)
@@ -429,44 +431,80 @@ plt.show()
 # %%export pour mathilde
 
 from def_func import suntime_hour
-test = data.iloc[0:1].explode('hourly detection rate')
+
+test = data.iloc[0:1].explode("hourly detection rate")
 
 data_hourly_all = pd.DataFrame()
 for i in tqdm(range(len(data))):
-    data_hourly = data.iloc[i]['hourly detection rate']
+    data_hourly = data.iloc[i]["hourly detection rate"]
 
-
-    criterion = ['project', 'campaign', 'deployment', 'recorder', 'recorder number', 'latitude', 'longitude', 'datetime deployment', 'datetime recovery', 'duration', 'vessel', 'port', 'net', 'net length', 'species', 'platform', 'season', 'year', 'detection rate pamguard', 'detection rate thalassa']
+    criterion = [
+        "project",
+        "campaign",
+        "deployment",
+        "recorder",
+        "recorder number",
+        "latitude",
+        "longitude",
+        "datetime deployment",
+        "datetime recovery",
+        "duration",
+        "vessel",
+        "port",
+        "net",
+        "net length",
+        "species",
+        "platform",
+        "season",
+        "year",
+        "detection rate pamguard",
+        "detection rate thalassa",
+    ]
     for c in criterion:
         data_hourly[c] = [data.iloc[i][c]] * len(data_hourly)
 
-    day_period = ['dawn', 'day', 'dusk', 'night']
+    day_period = ["dawn", "day", "dusk", "night"]
     day_period_hourly = []
     for j in range(len(data_hourly)):
 
-        lat = 48 if np.isnan(data_hourly.iloc[j]['latitude']) else data_hourly.iloc[j]['latitude']
-        lon = -4.7 if np.isnan(data_hourly.iloc[j]['longitude']) else data_hourly.iloc[j]['longitude']
-        day_period_hour = sorted(suntime_hour(start=data_hourly.iloc[j].name,
-                            stop=data_hourly.iloc[j].name + pd.Timedelta(hours=1),
-                            lat=lat,
-                            lon=lon,
-                            )[2:])
+        lat = (
+            48
+            if np.isnan(data_hourly.iloc[j]["latitude"])
+            else data_hourly.iloc[j]["latitude"]
+        )
+        lon = (
+            -4.7
+            if np.isnan(data_hourly.iloc[j]["longitude"])
+            else data_hourly.iloc[j]["longitude"]
+        )
+        day_period_hour = sorted(
+            suntime_hour(
+                start=data_hourly.iloc[j].name,
+                stop=data_hourly.iloc[j].name + pd.Timedelta(hours=1),
+                lat=lat,
+                lon=lon,
+            )[2:]
+        )
 
         day_period_hour = [d[0] for d in day_period_hour]
 
         # index = np.argmin(np.abs([data_hourly.iloc[j].name - period[0] for period in day_period_hour]))
 
         from bisect import bisect_left
+
         index = bisect_left(day_period_hour, data_hourly.iloc[j].name) - 1
 
-
         day_period_hourly.append(day_period[index])
-    data_hourly['day period'] = day_period_hourly
+    data_hourly["day period"] = day_period_hourly
     data_hourly_all = pd.concat([data_hourly_all, data_hourly])
 
-data_hourly_all.to_csv(path_or_buf=r"L:\acoustock\Bioacoustique\DATASETS\APOCADO\PECHEURS_2022_PECHDAUPHIR_APOCADO\data_hourly.csv", header=True, sep=';', index=False, encoding='latin')
-
-
+data_hourly_all.to_csv(
+    path_or_buf=r"L:\acoustock\Bioacoustique\DATASETS\APOCADO\PECHEURS_2022_PECHDAUPHIR_APOCADO\data_hourly.csv",
+    header=True,
+    sep=";",
+    index=False,
+    encoding="latin",
+)
 
 
 # %% filtering data for following analysis
@@ -778,7 +816,13 @@ for d in detector:
             # plt.ylim(0, 19)
             plt.show()
 
-data.to_csv(path_or_buf=r"L:\acoustock\Bioacoustique\DATASETS\APOCADO\PECHEURS_2022_PECHDAUPHIR_APOCADO\data.csv", header=True, sep=';', index=False, encoding='latin')
+data.to_csv(
+    path_or_buf=r"L:\acoustock\Bioacoustique\DATASETS\APOCADO\PECHEURS_2022_PECHDAUPHIR_APOCADO\data.csv",
+    header=True,
+    sep=";",
+    index=False,
+    encoding="latin",
+)
 
 # %% statistics on diel plots
 """

@@ -43,4 +43,4 @@ multilabel_plot(df_detections)
 
 # %% Multi-user plot
 get_detection_perf(df=df_detections, annotators=annotators, annotations=labels)
-multiuser_plot(df_detections[df_detections['annotator']!='PAMGuard'])
+multiuser_plot(df_detections[df_detections["annotator"] != "PAMGuard"])

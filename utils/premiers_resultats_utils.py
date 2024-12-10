@@ -60,10 +60,19 @@ def load_parameters_from_yaml(
     labels = sorted(list(set(df["annotation"])))
 
     if len(list(set([dt.tz for dt in df["start_datetime"]]))) > 1:
-        df["start_datetime"] = [dt.tz_convert('UTC') for dt in df["start_datetime"]]
-        df["end_datetime"] = [dt.tz_convert('UTC') for dt in df["end_datetime"]]
+        df["start_datetime"] = [dt.tz_convert("UTC") for dt in df["start_datetime"]]
+        df["end_datetime"] = [dt.tz_convert("UTC") for dt in df["end_datetime"]]
 
-    return df.sort_values(by="start_datetime"), time_bin, annotators, labels, fmax, df["start_datetime"].iloc[0], df["end_datetime"].iloc[-1], df["start_datetime"].iloc[0].tz
+    return (
+        df.sort_values(by="start_datetime"),
+        time_bin,
+        annotators,
+        labels,
+        fmax,
+        df["start_datetime"].iloc[0],
+        df["end_datetime"].iloc[-1],
+        df["start_datetime"].iloc[0].tz,
+    )
 
 
 def select_tick_resolution(
@@ -147,7 +156,9 @@ def set_plot_resolution(
 
     resolution_bin_str = _get_resolution_str(resolution_bin)
     time_bin_str = _get_resolution_str(time_bin)
-    y_axis_plot_legend = f"Detections\n(resolution: {time_bin_str} - bin size: {resolution_bin_str})"
+    y_axis_plot_legend = (
+        f"Detections\n(resolution: {time_bin_str} - bin size: {resolution_bin_str})"
+    )
 
     return (
         datetime_index,
@@ -205,7 +216,9 @@ def set_y_axis(ax: mpl.axes, max_annotation_number: int):
 
     # set y-axis limit
     if isinstance(ax, Iterable):
-        y_max = [max([patch.get_height() for patch in ax[i].patches]) for i in range(len(ax))]
+        y_max = [
+            max([patch.get_height() for patch in ax[i].patches]) for i in range(len(ax))
+        ]
         [a.set_ylim([0, min(int(1.4 * max(y_max)), max_annotation_number)]) for a in ax]
     else:
         y_max = max([patch.get_height() for patch in ax.patches])
@@ -427,7 +440,8 @@ def single_plot(df: pd.DataFrame):
 
     # set plot resolution
     time_vector, y_label_legend, n_annot_max, date_locator = set_plot_resolution(
-        time_bin=time_bin_ref, start=datetime_begin, stop=datetime_end)
+        time_bin=time_bin_ref, start=datetime_begin, stop=datetime_end
+    )
 
     df_1annot_1label = df[
         (df["annotator"] == annot_ref) & (df["annotation"] == label_ref)
@@ -445,7 +459,9 @@ def single_plot(df: pd.DataFrame):
 
     # axes settings
     ax.xaxis.set_major_locator(date_locator)
-    date_formatter = mdates.DateFormatter(fmt=get_datetime_format(), tz=datetime_begin.tz)
+    date_formatter = mdates.DateFormatter(
+        fmt=get_datetime_format(), tz=datetime_begin.tz
+    )
     ax.xaxis.set_major_formatter(date_formatter)
     plt.xlim(time_vector[0], time_vector[-1])
     ax.grid(linestyle="--", linewidth=0.2, axis="both")
@@ -480,14 +496,18 @@ def multilabel_plot(df: pd.DataFrame):
         )
 
     time_vector, y_label_legend, n_annot_max, date_locator = set_plot_resolution(
-        time_bin=time_bin_ref, start=datetime_begin, stop=datetime_end,
+        time_bin=time_bin_ref,
+        start=datetime_begin,
+        stop=datetime_end,
     )
 
     fig, ax = plt.subplots(
         nrows=len(list_labels),
     )
     y_max = []
-    date_formatter = mdates.DateFormatter(fmt=get_datetime_format(), tz=datetime_begin.tz)
+    date_formatter = mdates.DateFormatter(
+        fmt=get_datetime_format(), tz=datetime_begin.tz
+    )
     for i, label in enumerate(list_labels):
 
         df_1annot_1label = df[
@@ -503,10 +523,10 @@ def multilabel_plot(df: pd.DataFrame):
         ax[i].set_title(label)
         if type(date_locator) == int:
             ax[i].xaxis.set_major_locator(mdates.SecondLocator(interval=date_locator))
-        elif date_locator.base == 'MS':
+        elif date_locator.base == "MS":
             ax[i].xaxis.set_major_locator(mdates.MonthLocator(interval=date_locator.n))
         else:
-            raise ValueError('date locator not supported')
+            raise ValueError("date locator not supported")
 
         ax[i].xaxis.set_major_formatter(date_formatter)
         ax[i].set_xlim(time_vector[0], time_vector[-1])
@@ -593,12 +613,14 @@ def multiuser_plot(df: pd.DataFrame):
     # axes settings
     if type(date_locator) == int:
         ax[0].xaxis.set_major_locator(mdates.SecondLocator(interval=date_locator))
-    elif date_locator.base == 'MS':
+    elif date_locator.base == "MS":
         ax[0].xaxis.set_major_locator(mdates.MonthLocator(interval=date_locator.n))
     else:
-        raise ValueError('date locator not supported')
+        raise ValueError("date locator not supported")
 
-    date_formatter = mdates.DateFormatter(fmt=get_datetime_format(), tz=datetime_begin.tz)
+    date_formatter = mdates.DateFormatter(
+        fmt=get_datetime_format(), tz=datetime_begin.tz
+    )
     ax[0].xaxis.set_major_formatter(date_formatter)
     ax[0].set_xlim(time_vector[0], time_vector[-1])
     ax[0].grid(linestyle="--", linewidth=0.2, axis="both")
@@ -688,6 +710,7 @@ def plot_detection_timeline(df: pd.DataFrame):
 
     return
 
+
 def _map_datetimes_to_vector(df: pd.DataFrame, timestamps: [int]):
     """Maps datetime ranges to a binary vector based on overlap with timestamp intervals.
 
@@ -702,18 +725,14 @@ def _map_datetimes_to_vector(df: pd.DataFrame, timestamps: [int]):
     -------
 
     """
-    times_beg = sorted(
-        list(set(x.timestamp() for x in df["start_datetime"]))
-    )
-    times_end = sorted(
-        list(set(y.timestamp() for y in df["end_datetime"]))
-    )
+    times_beg = sorted(list(set(x.timestamp() for x in df["start_datetime"])))
+    times_end = sorted(list(set(y.timestamp() for y in df["end_datetime"])))
 
     vec, ranks, k = np.zeros(len(timestamps), dtype=int), [], 0
     for i in range(len(times_beg)):
         for j in range(k, len(timestamps) - 1):
             if int(times_beg[i] * 1e7) in range(
-                    int(timestamps[j] * 1e7), int(timestamps[j + 1] * 1e7)
+                int(timestamps[j] * 1e7), int(timestamps[j + 1] * 1e7)
             ) or int(times_end[i] * 1e7) in range(
                 int(timestamps[j] * 1e7), int(timestamps[j + 1] * 1e7)
             ):
@@ -727,7 +746,14 @@ def _map_datetimes_to_vector(df: pd.DataFrame, timestamps: [int]):
 
     return vec
 
-def get_detection_perf(df: pd.DataFrame, annotators: Iterable, annotations: Iterable, start: pd.Timestamp = None, stop: pd.Timestamp = None):
+
+def get_detection_perf(
+    df: pd.DataFrame,
+    annotators: Iterable,
+    annotations: Iterable,
+    start: pd.Timestamp = None,
+    stop: pd.Timestamp = None,
+):
     """Computes the detection performances of a reference annotator in comparison with a second annotator/detector
 
     Parameters
@@ -743,14 +769,19 @@ def get_detection_perf(df: pd.DataFrame, annotators: Iterable, annotations: Iter
     stop: pd.Timestamp
         end datetime, optional
     """
-    datetime_begin = df['start_datetime'].min()
-    datetime_end = df['start_datetime'].max()
-    df_freq = str(df['end_time'].max()) + "s"
+    datetime_begin = df["start_datetime"].min()
+    datetime_end = df["start_datetime"].max()
+    df_freq = str(df["end_time"].max()) + "s"
 
-    timestamps = [ts.timestamp() for ts in pd.date_range(start=datetime_begin, end=datetime_end, freq=df_freq)]
+    timestamps = [
+        ts.timestamp()
+        for ts in pd.date_range(start=datetime_begin, end=datetime_end, freq=df_freq)
+    ]
     if start and stop:
         if start > stop:
-            raise ValueError(f"Start timestamp {start} must be smaller than stop timestamp {stop}")
+            raise ValueError(
+                f"Start timestamp {start} must be smaller than stop timestamp {stop}"
+            )
     if start:
         timestamps = [t for t in timestamps if t >= start.timestamp()]
         if not timestamps:
@@ -760,25 +791,23 @@ def get_detection_perf(df: pd.DataFrame, annotators: Iterable, annotations: Iter
         if not timestamps:
             raise ValueError(f"No annotation anterior than stop timestamp {stop}")
 
-
     # df1 - REFERENCE
-    selected_annotator1 = select_reference(annotators, 'annotator')
+    selected_annotator1 = select_reference(annotators, "annotator")
     selected_label1 = select_reference(annotations)
     selected_annotations1 = df[
-        (df["annotator"] == selected_annotator1)
-        & (df["annotation"] == selected_label1)
-        ]
+        (df["annotator"] == selected_annotator1) & (df["annotation"] == selected_label1)
+    ]
     vec1 = _map_datetimes_to_vector(df=selected_annotations1, timestamps=timestamps)
 
     # df2
-    selected_annotator2 = select_reference([annot for annot in annotators if annot != selected_annotator1])
+    selected_annotator2 = select_reference(
+        [annot for annot in annotators if annot != selected_annotator1]
+    )
     selected_label2 = select_reference(annotations)
     selected_annotations2 = df[
-        (df["annotator"] == selected_annotator2)
-        & (df["annotation"] == selected_label2)
-        ]
+        (df["annotator"] == selected_annotator2) & (df["annotation"] == selected_label2)
+    ]
     vec2 = _map_datetimes_to_vector(selected_annotations2, timestamps)
-
 
     # DETECTION PERFORMANCES
     true_pos, false_pos, true_neg, false_neg, error = 0, 0, 0, 0, 0
@@ -811,9 +840,9 @@ def get_detection_perf(df: pd.DataFrame, annotators: Iterable, annotations: Iter
 
     # f-score : 2*(precision*recall)/(precision+recall)
     f_score = (
-            2
-            * ((true_pos / (true_pos + false_pos)) * (true_pos / (false_neg + true_pos)))
-            / ((true_pos / (true_pos + false_pos)) + (true_pos / (false_neg + true_pos)))
+        2
+        * ((true_pos / (true_pos + false_pos)) * (true_pos / (false_neg + true_pos)))
+        / ((true_pos / (true_pos + false_pos)) + (true_pos / (false_neg + true_pos)))
     )
     print(f"F-SCORE : {f_score:.2f}")
 
@@ -821,8 +850,8 @@ def get_detection_perf(df: pd.DataFrame, annotators: Iterable, annotations: Iter
         f"File 1 : {selected_annotator1}/{selected_label1} \nFile 2 : {selected_annotator2}/{selected_label2}"
     )
 
-
     return
+
 
 def _get_resolution_str(bin: int):
     """From a resolution in seconds to corresponding string in day/hour/minute/second resolution
