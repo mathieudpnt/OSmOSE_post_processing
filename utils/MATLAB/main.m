@@ -1,9 +1,9 @@
 clear;clc
-cd('C:\Users\dupontma2\Documents\Git\OSmOSE\OSmOSE_post_processing')
-addpath('utils')
-addpath('utils\pgmatlab')
-addpath('utils\MATLAB')
-addpath(genpath(fullfile(fileparts(fileparts(pwd)), 'utils')))
+addpath(genpath(fileparts(pwd)))
+
+% add path to PAMGuard folder here
+% repository available on https://github.com/PAMGuard/PAMGuardMatlab
+addpath(genpath('path/to/folder'))
 
 % user inputs
 info_deploy.annotator = 'PAMGuard';
