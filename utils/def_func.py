@@ -1,4 +1,3 @@
-import pytz
 import pandas as pd
 import numpy as np
 import bisect
@@ -61,7 +60,6 @@ def reshape_timebin(
     df_new_timebin = pd.DataFrame()
     for annotator in annotators:
         for label in labels:
-
             df_1annot_1label = df[
                 (df["annotator"] == annotator) & (df["annotation"] == label)
             ]
@@ -70,8 +68,6 @@ def reshape_timebin(
                 continue
 
             if timestamp is not None:
-                # timestamp_csv = pd.read_csv(timestamp_file, parse_dates=['timestamp'])
-                # timestamp_range = timestamp_csv['timestamp'].to_list()
                 origin_timebin = (timestamp[1] - timestamp[0]).total_seconds()
                 time_vector = [
                     ts.timestamp()
@@ -281,7 +277,6 @@ def load_detections(
 
     if not box:
         if len(df_no_box) == 0 or timebin_new is not None:
-
             if timestamp_file:
                 timestamp = (
                     pd.read_csv(timestamp_file, parse_dates=["timestamp"])
@@ -369,7 +364,6 @@ def read_yaml(file: Path) -> dict:
         parameters = yaml.safe_load(yaml_file)
 
     for filename in parameters.keys():
-
         if not Path(filename).exists():
             raise FileNotFoundError(f"'{filename}' does not exist")
         else:
@@ -543,130 +537,6 @@ def t_rounder(t: pd.Timestamp, res: int):
     return t
 
 
-def export2raven(
-    df,
-    tuple_info,
-    timebin_new,
-    bin_height,
-    selection_vec: bool = False,
-    offset: bool = False,
-) -> pd.DataFrame:
-    """Export a given vector to Raven formatted table
-
-    Parameters
-    ----------
-    offset
-    df : dataframe of the detections
-    timebin_new : int, duration of the detection boxes to export, if set to 0, the original detections are exported
-    bin_height : the maximum frequency of the exported time bins
-    tuple_info : tuple containing info such as the filenames of the wav files, their durations and datetimes
-    selection_vec : if it is set to False, all the time bins are exported, else the selection_vec is used to select the wanted time bins to export, for instance it corresponds to all the positives time bins, containing detections
-    """
-    file_list = list(tuple_info[0])
-    file_datetimes = tuple_info[1]
-    dur = list(tuple_info[2])
-
-    offsets = [
-        (file_datetimes[i] + pd.Timedelta(seconds=dur[i])).timestamp()
-        - (file_datetimes[i + 1]).timestamp()
-        for i in range(len(file_datetimes) - 1)
-    ]
-    offsets_cumsum = list(np.cumsum([offsets[i] for i in range(len(offsets))]))
-    offsets_cumsum.insert(0, 0)
-    idx_wav_df = [file_list.index(df["filename"][i]) for i in range(len(df))]
-
-    if timebin_new > 0:
-        time_vec = np.arange(
-            t_rounder(file_datetimes[0], res=timebin_new).timestamp(),
-            file_datetimes[-1].timestamp() + dur[-1],
-            timebin_new,
-        ).astype(int)
-
-        if selection_vec is True:
-            times_det_beg = [
-                df["start_datetime"][i].timestamp()
-                + offsets_cumsum[idx_wav_df[i]]
-                + 1e-8 * timebin_new
-                for i in range(len(df))
-            ]
-            times_det_end = [
-                df["end_datetime"][i].timestamp()
-                + offsets_cumsum[idx_wav_df[i]]
-                - 1e-8 * timebin_new
-                - 1e-8 * timebin_new
-                for i in range(len(df))
-            ]
-
-            det_vec, ranks, k = np.zeros(len(time_vec) - 1, dtype=int), [], 0
-            for i in range(len(times_det_beg)):
-                for j in range(k, len(time_vec) - 0):
-                    if int(times_det_beg[i] * 1e8) in range(
-                        int(time_vec[j] * 1e8), int(time_vec[j + 1] * 1e8)
-                    ) or int(times_det_end[i] * 1e8) in range(
-                        int(time_vec[j] * 1e7), int(time_vec[j + 1] * 1e7)
-                    ):
-                        ranks.append(j)
-                        k = j
-                        break
-                    else:
-                        continue
-            ranks = sorted(list(set(ranks)))
-            det_vec[np.isin(range(len(time_vec) - 1), ranks)] = 1
-
-        else:
-            det_vec = [1] * (len(time_vec) - 1)
-
-        start_time = [
-            int(time_vec[i] - file_datetimes[0].timestamp())
-            for i in range(0, len(time_vec) - 1)
-        ]
-        end_time = [
-            int(time_vec[i] - file_datetimes[0].timestamp())
-            for i in range(1, len(time_vec))
-        ]
-        delta = [end_time[i] - start_time[i] for i in range(len(start_time))]
-        df_time = pd.DataFrame(
-            {"start": start_time, "end": end_time, "d": delta, "vec": det_vec}
-        )
-        df_time_sorted = df_time[
-            (df_time["d"] == timebin_new) & (df_time["vec"] == 1)
-        ].reset_index(drop=True)
-
-        df_pg2raven = pd.DataFrame()
-        df_pg2raven["Selection"] = np.arange(1, len(df_time_sorted) + 1)
-        df_pg2raven["View"], df_pg2raven["Channel"] = [1] * len(df_time_sorted), [
-            1
-        ] * len(df_time_sorted)
-        df_pg2raven["Begin Time (s)"] = df_time_sorted["start"]
-        df_pg2raven["End Time (s)"] = df_time_sorted["end"]
-        df_pg2raven["Low Freq (Hz)"] = [0] * len(df_time_sorted)
-        df_pg2raven["High Freq (Hz)"] = [bin_height] * len(df_time_sorted)
-
-    else:
-        start_time = [
-            df["start_time"][i] + offsets_cumsum[idx_wav_df[i]] for i in range(len(df))
-        ]
-        end_time = [
-            df["end_time"][i] + offsets_cumsum[idx_wav_df[i]] for i in range(len(df))
-        ]
-
-        df_pg2raven = pd.DataFrame()
-        df_pg2raven["Selection"] = np.arange(1, len(df) + 1)
-        df_pg2raven["View"], df_pg2raven["Channel"] = [1] * len(df), [1] * len(df)
-        df_pg2raven["Begin Time (s)"] = start_time
-        df_pg2raven["End Time (s)"] = end_time
-        df_pg2raven["Low Freq (Hz)"] = df["start_frequency"]
-        df_pg2raven["High Freq (Hz)"] = df["end_frequency"]
-
-    if offset is True:
-        df_offset = pd.DataFrame(
-            {"filename": file_list, "offset_cumsum": offsets_cumsum}
-        )
-        return df_pg2raven, df_offset
-    else:
-        return df_pg2raven, None
-
-
 def get_season(ts: pd.Timestamp) -> str:
     """'day of year' ranges for the northern hemisphere
 
@@ -703,52 +573,6 @@ def get_season(ts: pd.Timestamp) -> str:
         raise ValueError("Invalid timestamp")
 
     return season
-
-
-def input_date(msg):
-    """Based on selection_type, ask the user a folder and yields all the wav files inside it or ask the user multiple wav files
-    Parameters :
-        msg : Message to tell the user what date they have to enter (begin, end...)
-    Returns :
-        date_dt : aware datetime entered by the user
-    """
-
-    title = "Date"
-    field_names = [
-        "Year [YYYY]",
-        "Month [m]",
-        "Day [d]",
-        "Hour [H]",
-        "Minute [M]",
-        "Second [S]",
-        "Timezone [+/-HHMM]",
-    ]
-    field_values = []  # Initialize with empty values
-
-    while True:
-        field_values = easygui.multenterbox(msg, title, field_names, field_values)
-
-        if field_values is None:
-            # User canceled the input
-            return None
-
-        errmsg = ""
-        for i in range(len(field_names)):
-            if field_values[i].strip() == "":
-                errmsg += f"'{field_names[i]}' is a required field.\n"
-
-        if errmsg == "":
-            break  # No validation errors
-
-        easygui.msgbox(errmsg, title)
-
-    year, month, day, hour, minute, second = map(int, field_values[:-1])
-    hours_offset = int(field_values[-1][:3])
-    minutes_offset = int(field_values[-1][3:])
-    tz = pytz.FixedOffset(hours_offset * 60 + minutes_offset)
-
-    date_dt = pd.Timestamp(year, month, day, hour, minute, second, tzinfo=tz)
-    return date_dt
 
 
 def suntime_hour(start: pd.Timestamp, stop: pd.Timestamp, lat: float, lon: float):
@@ -792,7 +616,6 @@ def suntime_hour(start: pd.Timestamp, stop: pd.Timestamp, lat: float, lon: float
     for date in [
         ts.date() for ts in pd.date_range(start.normalize(), stop.normalize(), freq="D")
     ]:
-
         # nautical twilight = 12, see def here : https://www.timeanddate.com/astronomy/nautical-twilight.html
         suntime = sun(gps.observer, date=date, dawn_dusk_depression=12)
         dawn, day, _, dusk, night = [
@@ -867,6 +690,7 @@ def get_duration(
     Offset aliases are to be used,
     e.g.: '5D' => 432_000s
     '2h' => 7_200s
+    '3BMS' => <3*Months>
     See https://pandas.pydata.org/docs/user_guide/timeseries.html#timeseries-offset-aliases
     Parameters
     ----------
@@ -877,8 +701,7 @@ def get_duration(
         For instance, "10min" => '<Minute>'
     Returns
     -------
-    The total number of seconds of the entered time alias.
-    The smallest duration is 1s.
+    The total number of seconds of the entered time alias or the time alias if not transposable to duration (<N*Months>)
     """
     value = easygui.enterbox(
         msg=f"{msg}", title=f"{title}", default=f"{default}", strip=True
@@ -947,282 +770,6 @@ def get_datetime_format(
         fmt = easygui.enterbox(msg=errmsg, title=f"{title}", strip=True)
 
     return fmt
-
-
-def stats_diel_pattern(
-    df_detections: pd.DataFrame,
-    begin_date: pd.Timestamp,
-    end_date: pd.Timestamp,
-    lat: float = None,
-    lon: float = None,
-):
-    """Plots detection proportions for each light regime (night/dawn/day/dawn)
-
-    Parameters
-    ----------
-        df_detections: pd.DataFrame
-            An APLOSE result DataFrame
-        begin_date: pd.Timestamp
-            A beginning datetime of data to analyse
-        end_date: pd.Timestamp
-            An end datetime of data to analyse
-        lat: float
-            A latitude in Decimal Degrees
-        lon: float
-            A longitude in Decimal Degrees
-
-    Returns
-    -------
-        lr: pd.DataFrame
-            df used to plot the detections
-        box_name: list
-            A list of light regimes
-    """
-    if not isinstance(lat, float) and not isinstance(lat, int) and lat is not None:
-        raise ValueError("Invalid latitude")
-    elif not isinstance(lon, float) and not isinstance(lon, int) and lon is not None:
-        raise ValueError("Invalid longitude")
-    else:
-        lat, lon = get_coordinates()
-
-    # Compute sunrise and sunset decimal hour at the dataset location
-    # Seems to only work with UTC data ?
-    [_, _, dt_dusk, dt_dawn, dt_day, dt_night] = suntime_hour(
-        begin_date, end_date, lat, lon
-    )
-
-    # List of days in the dataset
-    list_days = [d.date() for d in dt_day]
-
-    # Compute dusk_duration, dawn_duration, day_duration, night_duration
-    dawn_duration = [b - a for a, b in zip(dt_dawn, dt_day)]
-    day_duration = [b - a for a, b in zip(dt_day, dt_night)]
-    dusk_duration = [b - a for a, b in zip(dt_night, dt_dusk)]
-    night_duration = [
-        pd.Timedelta(hours=24) - dawn - day - dusk
-        for dawn, day, dusk in zip(dawn_duration, day_duration, dusk_duration)
-    ]
-    # Convert to decimal
-    dawn_duration_dec = [dawn_d.total_seconds() / 3600 for dawn_d in dawn_duration]
-    day_duration_dec = [day_d.total_seconds() / 3600 for day_d in day_duration]
-    dusk_duration_dec = [dusk_d.total_seconds() / 3600 for dusk_d in dusk_duration]
-    night_duration_dec = [night_d.total_seconds() / 3600 for night_d in night_duration]
-
-    # Assign a light regime to each detection
-    # : 1 = night ; 2 = dawn ; 3 = day ; 4 = dusk
-    day_det = [
-        start_datetime.date() for start_datetime in df_detections["start_datetime"]
-    ]
-    light_regime = []
-    for idx_day, day in enumerate(list_days):
-        for idx_det, d in enumerate(day_det):
-            # If the detection occurred during 'day'
-            if d == day:
-                if (
-                    dt_dawn[idx_day]
-                    < df_detections["start_datetime"][idx_det]
-                    < dt_day[idx_day]
-                ):
-                    lr = 2
-                    light_regime.append(lr)
-                elif (
-                    dt_day[idx_day]
-                    < df_detections["start_datetime"][idx_det]
-                    < dt_night[idx_day]
-                ):
-                    lr = 3
-                    light_regime.append(lr)
-                elif (
-                    dt_night[idx_day]
-                    < df_detections["start_datetime"][idx_det]
-                    < dt_dusk[idx_day]
-                ):
-                    lr = 4
-                    light_regime.append(lr)
-                else:
-                    lr = 1
-                    light_regime.append(lr)
-
-    # For each day, count the number of detection per light regime
-    nb_det_night = []
-    nb_det_dawn = []
-    nb_det_day = []
-    nb_det_dusk = []
-    for idx_day, day in enumerate(list_days):
-        # Find index of detections that occurred during 'day'
-        idx_det = [idx for idx, det in enumerate(day_det) if det == day]
-        if not idx_det:
-            lr = 0
-            nb_det_night.append(lr)
-            nb_det_dawn.append(lr)
-            nb_det_day.append(lr)
-            nb_det_dusk.append(lr)
-        else:
-            nb_det_night.append(light_regime[idx_det[0] : idx_det[-1]].count(1))
-            nb_det_dawn.append(light_regime[idx_det[0] : idx_det[-1]].count(2))
-            nb_det_day.append(light_regime[idx_det[0] : idx_det[-1]].count(3))
-            nb_det_dusk.append(light_regime[idx_det[0] : idx_det[-1]].count(4))
-
-    # For each day :  compute number of detection per light regime corrected by light regime duration
-    nb_det_night_corr = [(nb / d) for nb, d in zip(nb_det_night, night_duration_dec)]
-    nb_det_dawn_corr = [(nb / d) for nb, d in zip(nb_det_dawn, dawn_duration_dec)]
-    nb_det_day_corr = [(nb / d) for nb, d in zip(nb_det_day, day_duration_dec)]
-    nb_det_dusk_corr = [(nb / d) for nb, d in zip(nb_det_dusk, dusk_duration_dec)]
-
-    # Normalize by daily average number of detection per hour
-    av_daily_nb_det = []
-    nb_det_night_corr_norm = []
-    nb_det_dawn_corr_norm = []
-    nb_det_day_corr_norm = []
-    nb_det_dusk_corr_norm = []
-
-    for idx_day, day in enumerate(list_days):
-        # Find index of detections that occurred during 'day'
-        idx_det = [idx for idx, det in enumerate(day_det) if det == day]
-        # Compute daily average number of detections per hour
-        a = len(idx_det) / 24
-        av_daily_nb_det.append(a)
-        if a == 0:
-            nb_det_night_corr_norm.append(0)
-            nb_det_dawn_corr_norm.append(0)
-            nb_det_day_corr_norm.append(0)
-            nb_det_dusk_corr_norm.append(0)
-        else:
-            nb_det_night_corr_norm.append(nb_det_night_corr[idx_day] - a)
-            nb_det_dawn_corr_norm.append(nb_det_dawn_corr[idx_day] - a)
-            nb_det_day_corr_norm.append(nb_det_day_corr[idx_day] - a)
-            nb_det_dusk_corr_norm.append(nb_det_dusk_corr[idx_day] - a)
-
-    light_regime = [
-        nb_det_night_corr_norm,
-        nb_det_dawn_corr_norm,
-        nb_det_day_corr_norm,
-        nb_det_dusk_corr_norm,
-    ]
-    box_name = ["Night", "Dawn", "Day", "Dusk"]
-
-    lr = pd.DataFrame(light_regime, index=box_name).transpose()
-
-    return lr, box_name
-
-
-def stat_box_day(
-    data_test: pd.DataFrame, df_detections: pd.DataFrame, detector: str
-) -> pd.DataFrame:
-    """Plot detection proportions for each hour of the day
-
-    Parameters
-    ----------
-        data_test: df with data infos
-        df_detections: APLOSE formatted df of the detections
-        detector: name of the automatic detector to use
-
-    Returns
-    -------
-        result: df used to plot the detections
-    """
-    hour_list = ["{:02d}:00".format(i) for i in range(24)]
-    hour_list.append("00:00")
-
-    df_detections["date"] = [
-        date.strftime("%d/%m/%Y") for date in df_detections["start_datetime"]
-    ]
-    df_detections["season"] = [get_season(i) for i in df_detections["start_datetime"]]
-    df_detections["dataset"] = [i.replace("_", " ") for i in df_detections["dataset"]]
-
-    vec1 = [
-        [data_test["datetime deployment"][i]] * len(data_test[f"df {detector}"][i])
-        for i in data_test.index
-    ]
-    vec2 = [
-        [data_test["datetime recovery"][i]] * len(data_test[f"df {detector}"][i])
-        for i in data_test.index
-    ]
-    start_deploy, end_deploy = [], []
-    [start_deploy.extend(inner_list) for inner_list in vec1]
-    [end_deploy.extend(inner_list) for inner_list in vec2]
-    df_detections["start_deploy"] = [pd.to_datetime(d) for d in start_deploy]
-    df_detections["end_deploy"] = [pd.to_datetime(d) for d in end_deploy]
-
-    result = {}
-    list_dates = sorted(list(set(df_detections["date"])))  # list of dates
-    for date in list_dates:
-        detection_by_date = df_detections[
-            df_detections["date"] == date
-        ]  # sub-dataframe : per date
-        list_datasets = sorted(
-            list(set(detection_by_date["dataset"]))
-        )  # dataset list for date=date
-
-        for dataset in list_datasets:
-            df = detection_by_date[detection_by_date["dataset"] == dataset].set_index(
-                "start_datetime"
-            )  # sub-dataframe : per date & per dataset
-
-            # number of detections per hour of the day at date and at dataset
-            detection_per_dataset = [
-                len(df.between_time(hour_list[j], hour_list[j + 1], inclusive="left"))
-                for j in (range(len(hour_list) - 1))
-            ]
-
-            deploy_beg_ts, deploy_end_ts = int(df["start_deploy"][0].timestamp()), int(
-                df["end_deploy"][0].timestamp()
-            )
-
-            # list_present_h = [
-            #     dt.datetime.fromtimestamp(i)
-            #     for i in list(range(deploy_beg_ts, deploy_end_ts, 3600))
-            # ]
-            list_present_h = pd.date_range(
-                start=pd.to_datetime(deploy_beg_ts, unit="s"),
-                end=pd.to_datetime(deploy_end_ts, unit="s"),
-                freq="H",
-            ).tolist()
-            list_present_h2 = [
-                list_present_h[i].strftime("%d/%m/%Y %H")
-                for i in range(len(list_present_h))
-            ]
-
-            # list_deploy_d = sorted(
-            #     list(
-            #         set(
-            #             [
-            #                 dt.datetime.strftime(
-            #                     dt.datetime.fromtimestamp(i), "%d/%m/%Y"
-            #                 )
-            #                 for i in list(range(deploy_beg_ts, deploy_end_ts, 3600))
-            #             ]
-            #         )
-            #     )
-            # )
-            list_deploy_d = sorted(
-                pd.date_range(
-                    start=pd.to_datetime(deploy_beg_ts, unit="s"),
-                    end=pd.to_datetime(deploy_end_ts, unit="s"),
-                    freq="H",
-                )
-                .strftime("%d/%m/%Y")
-                .unique()
-                .tolist()
-            )
-            list_deploy_d2 = [d for i, d in enumerate(list_deploy_d) if d in date][0]
-
-            list_present_h3 = []
-            for item in list_present_h2:
-                if item.startswith(list_deploy_d2):
-                    list_present_h3.append(item)
-
-            list_deploy = [
-                df["date"][0] + " " + n for n in [f"{i:02}" for i in range(0, 24)]
-            ]
-
-            for i, h in enumerate(list_deploy):
-                if h not in list_present_h3:
-                    detection_per_dataset[i] = np.nan
-
-            result[dataset, date] = detection_per_dataset
-
-    return pd.DataFrame(result).T
 
 
 def print_spectro_from_audio(

@@ -4,10 +4,8 @@ import math
 
 
 class TrajectoryFda:
-
     # constructeur de la classe
     def __init__(self, epsilon=0.001):
-
         self.timestamp = np.empty([1, 0])
         self.latitude = np.empty([1, 0])
         self.longitude = np.empty([1, 0])
@@ -24,7 +22,6 @@ class TrajectoryFda:
 
     # fonction a appeler pour ajouter des donnnées AIS
     def setNewData(self, timestamp, latitude, longitude):
-
         if timestamp == self.timestamp[-1]:
             return
 
@@ -211,7 +208,6 @@ class TrajectoryFda:
                 self.majLastLatitudeFunction(tdeb, tfin, f, nbPointsMaj)
             # si on a des erreurs, on se calle sur la version initiale
             else:
-
                 # on part à la recherche du nouveau tronçon
                 tdeb, tfin2, f, nbPoints = self.processFunctionResearch(
                     self.timestamp, self.latitude, self.epsilon, tfin, 1
@@ -287,7 +283,6 @@ class TrajectoryFda:
     # cette fonction a pour rôle de réduire la taille des valeurs d'entrée, une fois qu'on a validé des
     # les tronçons et qu'elles sont devenues inutiles à stocker
     def vidangeBuffer(self):
-
         sizeLat = len(self.longitudeResultArray)
         sizeLon = len(self.longitudeResultArray)
 
@@ -311,7 +306,6 @@ class TrajectoryFda:
     def processFunctionResearchMaj(
         self, input_time, input_position, epsilon_position, timestampDebut, degree
     ):
-
         ideb = np.where(input_time >= timestampDebut)
 
         f = np.polyfit(
