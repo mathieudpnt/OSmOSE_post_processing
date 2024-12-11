@@ -18,7 +18,6 @@ mpl.rcdefaults()
 mpl.style.use("seaborn-v0_8-paper")
 mpl.rcParams["figure.dpi"] = 100
 mpl.rcParams["figure.figsize"] = [10, 6]
-test = "hihi"
 
 # %% load parameters from the YAML file
 yaml_file = Path(r".\scripts\yaml_example.yaml")
