@@ -186,15 +186,20 @@ def _set_yaxis(ax: mpl.axes, max_annotation_number: int):
     )
 
     if isinstance(ax, Iterable):
-        y_max = int(max([
-            max([patch.get_height() for patch in ax[i].patches]) for i in range(len(ax))
-        ]))
+        y_max = int(
+            max(
+                [
+                    max([patch.get_height() for patch in ax[i].patches])
+                    for i in range(len(ax))
+                ]
+            )
+        )
     else:
         y_max = int(max([patch.get_height() for patch in ax.patches]))
 
     resolution = easygui.integerbox(
         msg=f"Select a y-ticks resolution\n"
-            f"(mode='{choice_percentage}' - highest_bin/max={y_max}/{max_annotation_number})",
+        f"(mode='{choice_percentage}' - highest_bin/max={y_max}/{max_annotation_number})",
         title="Plot resolution",
         default=10,
         lowerbound=1,
@@ -211,9 +216,9 @@ def _set_yaxis(ax: mpl.axes, max_annotation_number: int):
             [a.set_ylabel("") for a in ax]
         else:
             ax.set_yticks(y_pos, bars)
-            current_label = ax.get_ylabel().split('\n')
-            current_label[0] = current_label[0] + ' (%)'
-            new_label = '\n'.join(current_label)
+            current_label = ax.get_ylabel().split("\n")
+            current_label[0] = current_label[0] + " (%)"
+            new_label = "\n".join(current_label)
             ax.set_ylabel(new_label)
     else:
         if isinstance(ax, Iterable):
@@ -226,9 +231,9 @@ def _set_yaxis(ax: mpl.axes, max_annotation_number: int):
             [a.set_ylabel("") for a in ax]
         else:
             ax.set_yticks(np.arange(0, max_annotation_number + resolution, resolution))
-            current_label = ax.get_ylabel().split('\n')
-            current_label[0] = current_label[0] + ' (N)'
-            new_label = '\n'.join(current_label)
+            current_label = ax.get_ylabel().split("\n")
+            current_label[0] = current_label[0] + " (N)"
+            new_label = "\n".join(current_label)
             ax.set_ylabel(new_label)
 
     # set y-axis limit
@@ -567,12 +572,16 @@ def multilabel_plot(df: pd.DataFrame):
         ax[i].grid(linestyle="--", linewidth=0.2, axis="both")
 
     choice = _set_yaxis(ax=ax, max_annotation_number=n_annot_max)
-    current_label = y_label_legend.split('\n')
-    current_label[0] = current_label[0] + ' (%)' if choice == 'percentage' else current_label[0] + '(N)'
-    new_label = '\n'.join(current_label)
+    current_label = y_label_legend.split("\n")
+    current_label[0] = (
+        current_label[0] + " (%)"
+        if choice == "percentage"
+        else current_label[0] + "(N)"
+    )
+    new_label = "\n".join(current_label)
 
     fig.suptitle(f"Annotator : {annot_ref}")
-    fig.supylabel(new_label, ha='center')
+    fig.supylabel(new_label, ha="center")
     plt.tight_layout()
     plt.show()
 
@@ -799,8 +808,8 @@ def get_detection_perf(
     datetime_begin = df["start_datetime"].min()
     datetime_end = df["start_datetime"].max()
     df_freq = str(df["end_time"].max()) + "s"
-    annotations = df['annotation'].unique().tolist()
-    annotators = df['annotator'].unique().tolist()
+    annotations = df["annotation"].unique().tolist()
+    annotators = df["annotator"].unique().tolist()
     if len(annotators) < 2:
         raise ValueError("At least 2 annotators needed")
 
