@@ -11,7 +11,7 @@ from scipy.stats import linregress
 import pickle
 import matplotlib as mpl
 
-from def_func import t_rounder, get_season, sort_detections
+from def_func import t_rounder, get_season, load_detections
 
 mpl.style.use("seaborn-v0_8-paper")
 mpl.rcParams["figure.dpi"] = 200
@@ -70,7 +70,7 @@ match data_load:
                 + data["datetime deployment"][i][-2:]
             )
             ts = data["segment timestamp file"][i]
-            df_detections_file1, _ = sort_detections(
+            df_detections_file1, _ = load_detections(
                 file=f1,
                 tz=tz,
                 timebin_new=timebin1,
@@ -78,7 +78,7 @@ match data_load:
                 date_begin=data["datetime deployment"][i],
                 date_end=data["datetime recovery"][i],
             )
-            df_detections_file2, _ = sorting_detections(
+            df_detections_file2, _ = load_detections(
                 file=f2,
                 tz=tz,
                 timebin_new=timebin1,
@@ -123,7 +123,6 @@ data["deployment ID"] = data["platform"] + " ST" + data["recorder"]
 data1 = data[(data["recorder number"] == 2)].reset_index(drop=True)
 
 for d in detector:
-
     if d == "thalassa":
         net_category = []
         for i in range(len(data1)):
@@ -192,7 +191,7 @@ for d in detector:
 
                 res_min = timebin2
 
-                delta = dt.timedelta(seconds=60 * res_min)
+                delta = pd.timedelta(seconds=60 * res_min)
                 start_vec = t_rounder(
                     pd.Timestamp(min(sub_data2["datetime deployment"])), res=60
                 )

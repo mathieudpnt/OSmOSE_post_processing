@@ -11,11 +11,9 @@ from scipy.stats import norm, shapiro, mannwhitneyu, ttest_ind
 import seaborn as sns
 import pickle
 import matplotlib as mpl
-from cycler import cycler
-import pytz
 import re
 
-from def_func import load_detections, get_season
+from def_func import load_detections, get_season, suntime_hour
 from APOCADO.APOCADO_stat import stats_diel_pattern
 
 mpl.rcdefaults()
@@ -209,7 +207,6 @@ plt.show()
 # %% Load all metadata
 
 match data_load:
-
     case "pickle":
         with open(
             r"L:\acoustock\Bioacoustique\DATASETS\APOCADO\PECHEURS_2022_PECHDAUPHIR_APOCADO\data_timebin60s.pkl",
@@ -330,7 +327,6 @@ with open(
 
 hourly_detection_rate = []
 for i in tqdm(range(len(data))):
-
     timestamp_range_begin = data["datetime deployment"][i].replace(
         minute=0, second=0, microsecond=0
     )
@@ -430,7 +426,6 @@ plt.show()
 # print(f"\nSelection for double check : \n\n{double_check_selection['ID']}")
 # %%export pour mathilde
 
-from def_func import suntime_hour
 
 test = data.iloc[0:1].explode("hourly detection rate")
 
@@ -466,7 +461,6 @@ for i in tqdm(range(len(data))):
     day_period = ["dawn", "day", "dusk", "night"]
     day_period_hourly = []
     for j in range(len(data_hourly)):
-
         lat = (
             48
             if np.isnan(data_hourly.iloc[j]["latitude"])
@@ -522,7 +516,6 @@ filtered_df_1 = data[(data["recorder number"] == 1)]  # data with 1 ST
 filtered_data = {}
 
 for d in detector:
-
     if d == "thalassa":
         colorplot = "teal"
         filtered_df_2 = data[
@@ -555,7 +548,6 @@ for d in detector:
 # %% distribution of deployement detection rates
 
 for d in detector:
-
     mean_filter_df = filtered_data[f"{d}"][f"detection rate {d}"].mean()
     std_filter_df = filtered_data[f"{d}"][f"detection rate {d}"].std()
     max_filter_df = filtered_data[f"{d}"][f"detection rate {d}"].max()
@@ -589,7 +581,6 @@ for d in detector:
 
     arg = "season"
     for i in list(dict.fromkeys(filtered_data[f"{d}"][f"{arg}"])):
-
         # for i in unique_species_list:
 
         if i == "spring":
@@ -674,7 +665,6 @@ detector = ["thalassa"]
 arg = ["all"]
 
 for d in detector:
-
     # data2 = filtered_data[f'{d}'][(filtered_data[f'{d}']['duration'] >= pd.Timedelta(hours=17)) & (filtered_data[f'{d}']['duration'] <= pd.Timedelta(hours=28))].reset_index(drop=True)
     data2 = filtered_data[f"{d}"]
     print(

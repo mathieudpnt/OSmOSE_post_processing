@@ -9,7 +9,7 @@ import pytz
 import json
 from tqdm import tqdm
 from pathlib import Path
-from SoundTrap import *
+from SoundTrap import RECORDER_GAIN
 import matplotlib.image as mpimg
 
 # %% Load data
@@ -68,7 +68,6 @@ time_resolution_LTAS, frequency_resolution_LTAS = [], []
 begin_LTAS, campaign_LTAS, recorder_LTAS = [], [], []
 
 for i in tqdm(range(len(list_signal))):
-
     with open(list_ltas[i], "r", errors="ignore") as file:
         for line in file:
             clean_line = line.strip()
@@ -123,7 +122,7 @@ data_LTAS = pd.DataFrame(
 (
     name,
     campaign,
-    deployement,
+    deployment,
     recorder,
     gain,
     begin_date,
@@ -136,10 +135,9 @@ data_LTAS = pd.DataFrame(
     output_folder,
 ) = ([], [], [], [], [], [], [], [], [], [], [], [], [])
 for i, d in enumerate(data):
-
     name.append(d.name)
     campaign.append(d.campaign)
-    deployement.append(d.deployment)
+    deployment.append(d.deployment)
     recorder.append(d.recorder)
     deployment.append(d.datetime_deployment)
     recovery.append(d.datetime_recovery)
@@ -164,7 +162,7 @@ for i, d in enumerate(data):
     time_resolution.append(LTAS_file["time_resolution_LTAS"])
     frequency_resolution.append(LTAS_file["frequency_resolution_LTAS"])
 
-    gain.append(recorder_gain[d.recorder])
+    gain.append(RECORDER_GAIN[d.recorder])
 
 if not all(check_LTAS):
     raise ValueError("Error check Raven")
@@ -174,7 +172,7 @@ df = pd.DataFrame(
         zip(
             name,
             campaign,
-            deployement,
+            deployment,
             recorder,
             gain,
             begin_date,
@@ -301,14 +299,14 @@ for i in filter_img:
         ],
     )
 
-fig, ax = plt.subplots()
-plt.plot(LTAS_load.freq[:-1], PSD[0], label="C4D7 ST336363566")
-plt.plot(LTAS_load.freq[:-1], PSD[1], label="C1D2 ST336363566")
-
-plt.grid(True, which="both", color="gainsboro")
-ax.set_ylabel("Amplitude (dB ref 1µPa²/Hz)")
-ax.set_xlabel("Fréquence (Hz)")
-ax.set_xscale("log")
-ax.legend(loc="upper right")
-plt.ylim(20, 140)
-plt.title("PSD")
+# fig, ax = plt.subplots()
+# plt.plot(LTAS_load.freq[:-1], PSD[0], label="C4D7 ST336363566")
+# plt.plot(LTAS_load.freq[:-1], PSD[1], label="C1D2 ST336363566")
+#
+# plt.grid(True, which="both", color="gainsboro")
+# ax.set_ylabel("Amplitude (dB ref 1µPa²/Hz)")
+# ax.set_xlabel("Fréquence (Hz)")
+# ax.set_xscale("log")
+# ax.legend(loc="upper right")
+# plt.ylim(20, 140)
+# plt.title("PSD")

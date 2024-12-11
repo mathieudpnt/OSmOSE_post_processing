@@ -29,12 +29,11 @@ def suntime_hour(begin_deploy, end_deploy, lat, lon):
     # List of days during when the data were recorded
     list_day = pd.date_range(begin_deploy, end_deploy).date
 
-    h_sunrise, h_sunset, dt_dusk, dt_dawn, dt_day, dt_night = [], [], [], [], [], []
+    _h_sunrise, _h_sunset, dt_dusk, dt_dawn, dt_day, dt_night = [], [], [], [], [], []
     astral.Depression = 12  # nautical twilight see def here : https://www.timeanddate.com/astronomy/nautical-twilight.html
 
     # For each day : find time of sunset, sun rise, begin dawn and dusk
     for day in list_day:
-
         suntime = sun(gps.observer, date=day, dawn_dusk_depression=astral.Depression)
 
         dawn_dt = pd.to_datetime(suntime["dawn"]).tz_convert(timeZ)

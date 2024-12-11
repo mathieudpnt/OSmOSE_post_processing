@@ -1,21 +1,15 @@
 from tqdm import tqdm
 import os
-import sys
 import numpy as np
-import time
 import datetime as dt
-import pandas as pd
 import pytz
 from utilities.def_func import (
-    input_date,
-    get_tz,
     read_header,
     get_timestamps,
     sorting_detections,
     get_csv_file,
     extract_datetime,
     t_rounder,
-    pick_datetimes,
     export2Raven,
     n_random_hour,
 )

@@ -36,7 +36,6 @@ class LTAS:
         sensitivity: float = None,
         duty_cycle: int = 100,
     ):
-
         if matrix is not None:
             assert np.issubdtype(
                 matrix.dtype, np.number
@@ -196,7 +195,6 @@ class LTAS:
         return ltas_concat
 
     def plot_LTAS(self, output_path=None, output_name=None, dyn_min=-120, dyn_max=0):
-
         # fig, ax = plt.subplots()
         # X, Y = np.meshgrid(self.time, self.freq)
         # p = plt.pcolormesh(
@@ -370,7 +368,6 @@ class LTAS:
         dt_maree = df2_maree["# Date"]
         hauteur = df2_maree["Valeur"]
         # hauteur2 = pd.Series(savgol_filter(hauteur, 301, 4)) #filtering
-        h_max = max(hauteur)
         # return (dt_maree, hauteur2, h_max)
 
         ax[1].plot(dt_maree, hauteur)
@@ -384,9 +381,9 @@ class LTAS:
 
         psd_med = signal.welch(med, fs=Fs, scaling="spectrum")
         psd_q5 = signal.welch(q5, fs=Fs, scaling="spectrum")
-        psd_q25 = signal.welch(q25, fs=Fs, scaling="spectrum")
-        psd_q75 = signal.welch(q75, fs=Fs, scaling="spectrum")
-        psd_q95 = signal.welch(q95, fs=Fs, scaling="spectrum")
+        # psd_q25 = signal.welch(q25, fs=Fs, scaling="spectrum")
+        # psd_q75 = signal.welch(q75, fs=Fs, scaling="spectrum")
+        # psd_q95 = signal.welch(q95, fs=Fs, scaling="spectrum")
         # plt.plot(psd_med[0], psd_med[1])
         # plt.plot(psd_q5[0], psd_q5[1])
         # # plt.legend(loc='upper right')
@@ -555,7 +552,6 @@ class LTAS:
         plt.show()
 
     def diel_PSD(self, lat, lon):
-
         # Define colors and names of light regimes
         list_color = {
             "label": ["Night", "Dawn", "Day", "Dusk"],

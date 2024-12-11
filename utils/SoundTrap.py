@@ -1,4 +1,4 @@
-recorder_gain = {
+RECORDER_GAIN = {
     "335556632": -176.4,
     "336363566": -177.2,
     "7178": -174.9,
@@ -14,4 +14,4 @@ recorder_gain = {
 }
 
 # Specify what should be imported when using 'from SoundTrap import *'
-__all__ = ["recorder_gain"]
+__all__ = ["RECORDER_GAIN"]

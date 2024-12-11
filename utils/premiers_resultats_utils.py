@@ -306,7 +306,6 @@ def plot_hourly_detection_rate(
     """
     datetime_begin = df["start_datetime"].iloc[0]
     datetime_end = df["end_datetime"].iloc[-1]
-    tz = datetime_begin.tz
 
     bin = select_reference(df["end_time"], "time bin")
 
@@ -358,7 +357,7 @@ def plot_hourly_detection_rate(
         msg="Enter the x-axis tick resolution", default="2h"
     )
 
-    if type(resolution_x_ticks) == int:
+    if type(resolution_x_ticks) is int:
         ax.xaxis.set_major_locator(mdates.SecondLocator(interval=resolution_x_ticks))
     elif resolution_x_ticks.base == "MS":
         ax.xaxis.set_major_locator(mdates.MonthLocator(interval=resolution_x_ticks.n))
@@ -426,7 +425,7 @@ def scatter_detections(
         msg="Enter the x-axis tick resolution", default="2h"
     )
 
-    if type(resolution_x_ticks) == int:
+    if type(resolution_x_ticks) is int:
         ax.xaxis.set_major_locator(mdates.SecondLocator(interval=resolution_x_ticks))
     elif resolution_x_ticks.base == "MS":
         ax.xaxis.set_major_locator(mdates.MonthLocator(interval=resolution_x_ticks.n))
@@ -491,7 +490,7 @@ def single_plot(df: pd.DataFrame):
     plt.title(f"annotator: {annot_ref}\nlabel: {label_ref}")
 
     # axes settings
-    if type(date_locator) == int:
+    if type(date_locator) is int:
         ax.xaxis.set_major_locator(mdates.SecondLocator(interval=date_locator))
     elif date_locator.name in ["MS", "ME", "BME", "BMS"]:
         ax.xaxis.set_major_locator(mdates.MonthLocator(interval=date_locator.n))
@@ -548,7 +547,6 @@ def multilabel_plot(df: pd.DataFrame):
         fmt=get_datetime_format(), tz=datetime_begin.tz
     )
     for i, label in enumerate(list_labels):
-
         df_1annot_1label = df[
             (df["annotator"] == annot_ref) & (df["annotation"] == label)
         ]
@@ -560,7 +558,7 @@ def multilabel_plot(df: pd.DataFrame):
         )
 
         ax[i].set_title(label)
-        if type(date_locator) == int:
+        if type(date_locator) is int:
             ax[i].xaxis.set_major_locator(mdates.SecondLocator(interval=date_locator))
         elif date_locator.name in ["MS", "ME", "BME", "BMS"]:
             ax[i].xaxis.set_major_locator(mdates.MonthLocator(interval=date_locator.n))
@@ -589,7 +587,6 @@ def multilabel_plot(df: pd.DataFrame):
 
 
 def multiuser_plot(df: pd.DataFrame):
-
     df = df.sort_values(by="start_datetime")
     datetime_begin = df["start_datetime"].iloc[0]
     datetime_end = df["end_datetime"].iloc[-1]
@@ -656,7 +653,7 @@ def multiuser_plot(df: pd.DataFrame):
     # fig.supylabel(y_label_legend)
 
     # axes settings
-    if type(date_locator) == int:
+    if type(date_locator) is int:
         ax[0].xaxis.set_major_locator(mdates.SecondLocator(interval=date_locator))
     elif date_locator.name in ["MS", "ME", "BME", "BMS"]:
         ax[0].xaxis.set_major_locator(mdates.MonthLocator(interval=date_locator.n))
@@ -873,7 +870,7 @@ def get_detection_perf(
     print(f"False negative : {false_neg}")
 
     if true_pos + false_pos == 0 or false_neg + true_pos == 0:
-        raise ValueError(f"Precision/Recall computation impossible")
+        raise ValueError("Precision/Recall computation impossible")
 
     print(f"\nPRECISION : {true_pos / (true_pos + false_pos):.2f}")
     print(f"RECALL : {true_pos / (false_neg + true_pos):.2f}")
