@@ -7,7 +7,6 @@ import easygui
 import matplotlib as mpl
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
-from matplotlib.dates import MonthLocator
 
 from def_func import (
     t_rounder,
@@ -172,26 +171,34 @@ def set_plot_resolution(
     )
 
 
-def set_y_axis(ax: mpl.axes, max_annotation_number: int):
+def _set_yaxis(ax: mpl.axes, max_annotation_number: int):
     """Changes ax properties whether the plot is visualized in percentage or in raw values
 
     Parameters
     ----------
     ax
     max_annotation_number
-    resolution
     """
     choice_percentage = easygui.buttonbox(
         msg="Do you want your scripts plot in percentage or in raw values ?",
         choices=["percentage", "raw values"],
+        default_choice="percentage",
     )
 
+    if isinstance(ax, Iterable):
+        y_max = int(max([
+            max([patch.get_height() for patch in ax[i].patches]) for i in range(len(ax))
+        ]))
+    else:
+        y_max = int(max([patch.get_height() for patch in ax.patches]))
+
     resolution = easygui.integerbox(
-        msg=f"Select a y-ticks resolution\n(mode='{choice_percentage}' / max_annotation_number={max_annotation_number})",
+        msg=f"Select a y-ticks resolution\n"
+            f"(mode='{choice_percentage}' - highest_bin/max={y_max}/{max_annotation_number})",
         title="Plot resolution",
         default=10,
         lowerbound=1,
-        upperbound=1440,
+        upperbound=int(1e6),
     )
 
     # change the y scale
@@ -201,10 +208,13 @@ def set_y_axis(ax: mpl.axes, max_annotation_number: int):
 
         if isinstance(ax, Iterable):
             [a.set_yticks(y_pos, bars) for a in ax]
-            [a.set_ylabel("%") for a in ax]
+            [a.set_ylabel("") for a in ax]
         else:
             ax.set_yticks(y_pos, bars)
-            ax.set_ylabel("%")
+            current_label = ax.get_ylabel().split('\n')
+            current_label[0] = current_label[0] + ' (%)'
+            new_label = '\n'.join(current_label)
+            ax.set_ylabel(new_label)
     else:
         if isinstance(ax, Iterable):
             [
@@ -213,19 +223,18 @@ def set_y_axis(ax: mpl.axes, max_annotation_number: int):
                 )
                 for a in ax
             ]
-            [a.set_ylabel("N") for a in ax]
+            [a.set_ylabel("") for a in ax]
         else:
             ax.set_yticks(np.arange(0, max_annotation_number + resolution, resolution))
-            ax.set_ylabel("N")
+            current_label = ax.get_ylabel().split('\n')
+            current_label[0] = current_label[0] + ' (N)'
+            new_label = '\n'.join(current_label)
+            ax.set_ylabel(new_label)
 
     # set y-axis limit
     if isinstance(ax, Iterable):
-        y_max = [
-            max([patch.get_height() for patch in ax[i].patches]) for i in range(len(ax))
-        ]
-        [a.set_ylim([0, min(int(1.4 * max(y_max)), max_annotation_number)]) for a in ax]
+        [a.set_ylim([0, min(int(1.4 * y_max), max_annotation_number)]) for a in ax]
     else:
-        y_max = max([patch.get_height() for patch in ax.patches])
         ax.set_ylim([0, min(int(1.4 * y_max), max_annotation_number)])
 
     return choice_percentage
@@ -279,7 +288,6 @@ def plot_hourly_detection_rate(
     df: pd.DataFrame,
     lat: float,
     lon: float,
-    date_format: str = "%H:%M",
     show_rise_set: bool = True,
 ):
     """Computes the hourly detection rate for an APLOSE formatted result DataFrame
@@ -289,7 +297,6 @@ def plot_hourly_detection_rate(
     df : pd.DataFrame, APLOSE formatted result DataFrame with detections and associated timestamps
     lat: float, latitude
     lon: float, longitude
-    date_format: str, default '%H:%M'
     show_rise_set : bool, default True, display the sunrise and sunset lines
     """
     datetime_begin = df["start_datetime"].iloc[0]
@@ -345,8 +352,18 @@ def plot_hourly_detection_rate(
     resolution_x_ticks = get_duration(
         msg="Enter the x-axis tick resolution", default="2h"
     )
-    ax.xaxis.set_major_locator(mdates.SecondLocator(interval=resolution_x_ticks))
-    ax.xaxis.set_major_formatter(mdates.DateFormatter(fmt=date_format, tz=tz))
+
+    if type(resolution_x_ticks) == int:
+        ax.xaxis.set_major_locator(mdates.SecondLocator(interval=resolution_x_ticks))
+    elif resolution_x_ticks.base == "MS":
+        ax.xaxis.set_major_locator(mdates.MonthLocator(interval=resolution_x_ticks.n))
+    else:
+        raise ValueError("date locator not supported")
+
+    date_formatter = mdates.DateFormatter(
+        fmt=get_datetime_format(), tz=datetime_begin.tz
+    )
+    ax.xaxis.set_major_formatter(date_formatter)
     ax.set_ylabel("Hour")
     ax.set_xlabel("Date")
     plt.xlim(datetime_begin, datetime_end)
@@ -360,7 +377,6 @@ def scatter_detections(
     df: pd.DataFrame,
     lat: float,
     lon: float,
-    date_format: str = "%H:%M",
     show_rise_set: bool = True,
 ):
     """Plot scatter of the detections from an APLOSE formatted DataFrame.
@@ -371,12 +387,10 @@ def scatter_detections(
     df : pd.DataFrame, APLOSE formatted result DataFrame with detections and associated timestamps
     lat : float, latitude
     lon : float, longitude
-    date_format : string template, default '%H:%M'
     show_rise_set : bool, default True, display the sunrise and sunset lines
     """
     datetime_begin = df["start_datetime"].iloc[0]
     datetime_end = df["end_datetime"].iloc[-1]
-    tz = datetime_begin.tz
 
     # compute sunrise and sunset decimal hour at the dataset location
     hour_sunrise, hour_sunset, _, _, _, _ = suntime_hour(
@@ -406,8 +420,18 @@ def scatter_detections(
     resolution_x_ticks = get_duration(
         msg="Enter the x-axis tick resolution", default="2h"
     )
-    ax.xaxis.set_major_locator(mdates.SecondLocator(interval=resolution_x_ticks))
-    ax.xaxis.set_major_formatter(mdates.DateFormatter(fmt=date_format, tz=tz))
+
+    if type(resolution_x_ticks) == int:
+        ax.xaxis.set_major_locator(mdates.SecondLocator(interval=resolution_x_ticks))
+    elif resolution_x_ticks.base == "MS":
+        ax.xaxis.set_major_locator(mdates.MonthLocator(interval=resolution_x_ticks.n))
+    else:
+        raise ValueError("date locator not supported")
+
+    date_formatter = mdates.DateFormatter(
+        fmt=get_datetime_format(), tz=datetime_begin.tz
+    )
+    ax.xaxis.set_major_formatter(date_formatter)
     ax.grid(color="k", linestyle="-", linewidth=0.2)
     ax.set_ylabel("Hour")
     ax.set_xlabel("Date")
@@ -462,7 +486,13 @@ def single_plot(df: pd.DataFrame):
     plt.title(f"annotator: {annot_ref}\nlabel: {label_ref}")
 
     # axes settings
-    ax.xaxis.set_major_locator(date_locator)
+    if type(date_locator) == int:
+        ax.xaxis.set_major_locator(mdates.SecondLocator(interval=date_locator))
+    elif date_locator.name in ["MS", "ME", "BME", "BMS"]:
+        ax.xaxis.set_major_locator(mdates.MonthLocator(interval=date_locator.n))
+    else:
+        raise ValueError("date locator not supported")
+
     date_formatter = mdates.DateFormatter(
         fmt=get_datetime_format(), tz=datetime_begin.tz
     )
@@ -470,7 +500,7 @@ def single_plot(df: pd.DataFrame):
     plt.xlim(time_vector[0], time_vector[-1])
     ax.grid(linestyle="--", linewidth=0.2, axis="both")
     ax.set_ylabel(y_label_legend)
-    set_y_axis(ax, n_annot_max)
+    _set_yaxis(ax, n_annot_max)
 
     plt.tight_layout()
     plt.show()
@@ -508,7 +538,7 @@ def multilabel_plot(df: pd.DataFrame):
     fig, ax = plt.subplots(
         nrows=len(list_labels),
     )
-    y_max = []
+
     date_formatter = mdates.DateFormatter(
         fmt=get_datetime_format(), tz=datetime_begin.tz
     )
@@ -527,7 +557,7 @@ def multilabel_plot(df: pd.DataFrame):
         ax[i].set_title(label)
         if type(date_locator) == int:
             ax[i].xaxis.set_major_locator(mdates.SecondLocator(interval=date_locator))
-        elif date_locator.base == "MS":
+        elif date_locator.name in ["MS", "ME", "BME", "BMS"]:
             ax[i].xaxis.set_major_locator(mdates.MonthLocator(interval=date_locator.n))
         else:
             raise ValueError("date locator not supported")
@@ -536,10 +566,13 @@ def multilabel_plot(df: pd.DataFrame):
         ax[i].set_xlim(time_vector[0], time_vector[-1])
         ax[i].grid(linestyle="--", linewidth=0.2, axis="both")
 
-    set_y_axis(ax, n_annot_max)
+    choice = _set_yaxis(ax=ax, max_annotation_number=n_annot_max)
+    current_label = y_label_legend.split('\n')
+    current_label[0] = current_label[0] + ' (%)' if choice == 'percentage' else current_label[0] + '(N)'
+    new_label = '\n'.join(current_label)
 
     fig.suptitle(f"Annotator : {annot_ref}")
-    fig.supylabel(y_label_legend)
+    fig.supylabel(new_label, ha='center')
     plt.tight_layout()
     plt.show()
 
@@ -608,16 +641,15 @@ def multiuser_plot(df: pd.DataFrame):
         label=[annot_ref1, annot_ref2],
         lw=10,
     )
-    primary_legend = ax[0].legend(loc="best")
-    ax[0].add_artist(primary_legend)
+    ax[0].legend(loc="best")
 
     fig.suptitle(f"[{annot_ref1}/{label_ref1}] VS [{annot_ref2}/{label_ref2}]")
-    fig.supylabel(y_label_legend)
+    # fig.supylabel(y_label_legend)
 
     # axes settings
     if type(date_locator) == int:
         ax[0].xaxis.set_major_locator(mdates.SecondLocator(interval=date_locator))
-    elif date_locator.base == "MS":
+    elif date_locator.name in ["MS", "ME", "BME", "BMS"]:
         ax[0].xaxis.set_major_locator(mdates.MonthLocator(interval=date_locator.n))
     else:
         raise ValueError("date locator not supported")
@@ -629,8 +661,7 @@ def multiuser_plot(df: pd.DataFrame):
     ax[0].set_xlim(time_vector[0], time_vector[-1])
     ax[0].grid(linestyle="--", linewidth=0.2, axis="both")
     ax[0].set_ylabel(y_label_legend)
-    set_y_axis(ax[0], n_annot_max)
-    ax[0].set_ylim(0, min(int(1.2 * hist_plot[0].max()), 100))
+    _set_yaxis(ax=ax[0], max_annotation_number=n_annot_max)
     ax[0].grid(linestyle="--", linewidth=0.2, axis="both")
 
     # accord inter-annot
@@ -658,8 +689,6 @@ def multiuser_plot(df: pd.DataFrame):
 
     ax[1].set_xlabel(f"{annot_ref1}\n{label_ref1}")
     ax[1].set_ylabel(f"{annot_ref2}\n{label_ref2}")
-    # ax[1].set_xlim(0, 1)
-    # ax[1].set_ylim(0, 1)
     ax[1].grid(linestyle="-", linewidth=0.2, axis="both")
 
     r, p = pearsonr(df_corr[annot_ref1], df_corr[annot_ref2])
@@ -753,8 +782,6 @@ def _map_datetimes_to_vector(df: pd.DataFrame, timestamps: [int]):
 
 def get_detection_perf(
     df: pd.DataFrame,
-    annotators: Iterable,
-    annotations: Iterable,
     start: pd.Timestamp = None,
     stop: pd.Timestamp = None,
 ):
@@ -764,10 +791,6 @@ def get_detection_perf(
     ----------
     df: pd.DataFrame
         APLOSE formatted detection/annotation DataFrame
-    annotators: Iterable
-        list of annotators
-    annotations: Iterable
-        list of annotations
     start: pd.Timestamp
         begin datetime, optional
     stop: pd.Timestamp
@@ -776,6 +799,10 @@ def get_detection_perf(
     datetime_begin = df["start_datetime"].min()
     datetime_end = df["start_datetime"].max()
     df_freq = str(df["end_time"].max()) + "s"
+    annotations = df['annotation'].unique().tolist()
+    annotators = df['annotator'].unique().tolist()
+    if len(annotators) < 2:
+        raise ValueError("At least 2 annotators needed")
 
     timestamps = [
         ts.timestamp()

@@ -5,7 +5,6 @@ import bisect
 import astral
 from astral.sun import sun
 import csv
-import yaml
 import easygui
 from pathlib import Path
 from pandas.tseries.frequencies import to_offset
@@ -15,7 +14,7 @@ import matplotlib.pyplot as plt
 import yaml
 
 from OSmOSE.utils.audio_utils import is_supported_audio_format
-from OSmOSE.utils.timestamp_utils import is_datetime_template_valid, strptime_from_text
+from OSmOSE.utils.timestamp_utils import strptime_from_text
 from OSmOSE.config import TIMESTAMP_FORMAT_AUDIO_FILE
 
 
@@ -772,6 +771,14 @@ def suntime_hour(start: pd.Timestamp, stop: pd.Timestamp, lat: float, lon: float
             A list of float with sunrise decimal hours for each day between date_beg and date_end
         hour_sunset: list
             A List of float with sunset decimal hours for each day between date_beg and date_end
+        dt_dusk: pd.Timestamp
+            dusk datetime
+        dt_day: pd.Timestamp
+            day datetime
+        dt_dawn: pd.Timestamp
+            dawn datetime
+        dt_night: pd.Timestamp
+            night datetime
     """
     tz = start.tz
 

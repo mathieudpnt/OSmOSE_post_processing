@@ -16,7 +16,7 @@ from premiers_resultats_utils import (
 
 mpl.rcdefaults()
 mpl.style.use("seaborn-v0_8-paper")
-mpl.rcParams["figure.dpi"] = 200
+mpl.rcParams["figure.dpi"] = 100
 mpl.rcParams["figure.figsize"] = [10, 6]
 
 # %% load parameters from the YAML file
@@ -26,21 +26,21 @@ df_detections, time_bin, annotators, labels, fmax, datetime_begin, datetime_end,
 )
 
 # %% Overview plots
-overview_plot(df_detections)
+overview_plot(df=df_detections)
 
 # %% Single seasonality plot
-single_plot(df_detections)
+single_plot(df=df_detections)
 
 # %% Single diel pattern plot (scatter raw detections)
 lat, lon = get_coordinates()
-scatter_detections(df=df_detections, lat=lat, lon=lon, date_format="%d/%m")
+scatter_detections(df=df_detections, lat=lat, lon=lon)
 
 # %% Single diel pattern plot (Hourly detection rate)
-plot_hourly_detection_rate(df=df_detections, lat=lat, lon=lon, date_format="%d/%m")
+plot_hourly_detection_rate(df=df_detections, lat=lat, lon=lon)
 
 # %% Multilabel plot
-multilabel_plot(df_detections)
+multilabel_plot(df=df_detections)
 
 # %% Multi-user plot
-get_detection_perf(df=df_detections, annotators=annotators, annotations=labels)
-multiuser_plot(df_detections[df_detections["annotator"] != "PAMGuard"])
+get_detection_perf(df=df_detections)
+multiuser_plot(df=df_detections)
