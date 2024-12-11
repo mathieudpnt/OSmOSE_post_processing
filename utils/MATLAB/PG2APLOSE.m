@@ -25,19 +25,19 @@ while true
     if isempty(deployment1_str)  % check if user cancels
         return;
     end
-    
+
     % prompt user for recovery date and time
     deployment2_str = inputdlg('Date & time of recovery (dd MM yyyy HH mm ss):', prompt_title);
     if isempty(deployment2_str)  % check if user cancels
         return;
     end
-    
+
     % convert input strings to datetime
     deployment1 = datetime(string(deployment1_str), 'InputFormat', 'dd MM yyyy HH mm ss', ...
         'Format', 'yyyy-MM-dd''T''HH:mm:ss.SSSZ', 'TimeZone', info_deployment.timezone);
     deployment2 = datetime(string(deployment2_str), 'InputFormat', 'dd MM yyyy HH mm ss', ...
         'Format', 'yyyy-MM-dd''T''HH:mm:ss.SSSZ', 'TimeZone', info_deployment.timezone);
-    
+
     % validate inputs
     if isempty(deployment1) || isempty(deployment2)
         errordlg('Please enter valid date and time values', 'Invalid Input', 'modal');

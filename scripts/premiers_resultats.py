@@ -3,7 +3,7 @@ import matplotlib as mpl
 
 from utils.def_func import get_coordinates
 
-from premiers_resultats_utils import (
+from utils.premiers_resultats_utils import (
     load_parameters_from_yaml,
     scatter_detections,
     plot_hourly_detection_rate,
@@ -18,6 +18,7 @@ mpl.rcdefaults()
 mpl.style.use("seaborn-v0_8-paper")
 mpl.rcParams["figure.dpi"] = 100
 mpl.rcParams["figure.figsize"] = [10, 6]
+test = "hihi"
 
 # %% load parameters from the YAML file
 yaml_file = Path(r".\scripts\yaml_example.yaml")

@@ -6,13 +6,13 @@ Fs = wav_struct.wavinfo(1).SampleRate;
 
 % pgdf info
 % binary_info.struct = dir(fullfile(binary_path, '/**/*.pgdf'));
-% 
+%
 % binary_info.filename = extractfield(binary_info.struct, 'name')';
-% 
+%
 % binary_info.datetime = datetime(cell2mat(cellfun(@(x) extractBefore(extractAfter(x, numel(x) - 20), '.pgdf'), ...
 %                         binary_info.filename, 'UniformOutput', false)), ...
 %                         'InputFormat', 'yyyyMMdd_HHmmss', 'Format', 'yyyy-MM-dd''T''HH:mm:ss.SSSZ');
-% 
+%
 % binary_info.datetime.TimeZone = info_deploy.timezone;
 
 % load data
@@ -41,7 +41,7 @@ Beg_sec(idx_to_delete) = [];
 End_sec(idx_to_delete) = [];
 
 % min and max frequencies of each detection
-freqs = cell2mat({data(1:end).freqLimits}'); 
+freqs = cell2mat({data(1:end).freqLimits}');
 freq_low = freqs(:,1);
 freq_high = freqs(:,2);
 
