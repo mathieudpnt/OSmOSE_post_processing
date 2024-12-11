@@ -1,9 +1,8 @@
 clear;clc
+% keep in mind that PAMGuard's MATLAB function must be located in the
+% current working directory.
+% It is available on https://github.com/PAMGuard/PAMGuardMatlab
 addpath(genpath(fileparts(pwd)))
-
-% add path to PAMGuard folder here
-% repository available on https://github.com/PAMGuard/PAMGuardMatlab
-addpath(genpath('path/to/folder'))
 
 % user inputs
 info_deploy.annotator = 'PAMGuard';
