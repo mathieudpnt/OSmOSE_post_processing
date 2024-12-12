@@ -241,19 +241,36 @@ def load_detections(
             )
 
     if annotator:
-        if annotator not in list_annotators:
-            raise ValueError(
-                f"Annotator '{annotator}' is not present in result file annotators, upload aborted"
-            )
-        df = df.loc[(df["annotator"] == annotator)]
-        list_annotators = [annotator]
+        if isinstance(annotator, list):
+            invalid_annotators = [a for a in annotator if a not in list_annotators]
+            if invalid_annotators:
+                raise ValueError(
+                    f"Annotators {invalid_annotators} are not present in result file annotators, upload aborted"
+                )
+            df = df.loc[df["annotator"].isin(annotator)]
+            list_annotators = annotator
+        else:
+            if annotator not in list_annotators:
+                raise ValueError(
+                    f"Annotator '{annotator}' is not present in result file annotators, upload aborted"
+                )
+            df = df.loc[df["annotator"] == annotator]
+            list_annotators = [annotator]
 
     if annotation:
-        if annotation not in list_labels:
-            raise ValueError(
-                f"Annotation '{annotation}' is not present in result file labels, upload aborted"
-            )
-        df = df.loc[(df["annotation"] == annotation)]
+        if isinstance(annotation, list):
+            invalid_annotations = [a for a in annotation if a not in list_labels]
+            if invalid_annotations:
+                raise ValueError(
+                    f"Annotations {invalid_annotations} are not present in result file labels, upload aborted"
+                )
+            df = df.loc[df["annotation"].isin(annotation)]
+        else:
+            if annotation not in list_labels:
+                raise ValueError(
+                    f"Annotation '{annotation}' is not present in result file labels, upload aborted"
+                )
+            df = df.loc[df["annotation"] == annotation]
 
     if fmin_filter:
         df = df[df["start_frequency"] >= fmin_filter]
@@ -424,8 +441,14 @@ def read_yaml(file: Path) -> dict:
                 f'{parameters[filename]["datetime_begin"]} >= {parameters[filename]["datetime_end"]}'
             )
 
-        if parameters[filename]["annotator"] and not isinstance(
-            parameters[filename]["annotator"], str
+        if parameters[filename]["annotator"] and not (
+            isinstance(parameters[filename]["annotator"], str)
+            or (
+                isinstance(parameters[filename]["annotator"], list)
+                and all(
+                    isinstance(item, str) for item in parameters[filename]["annotator"]
+                )
+            )
         ):
             raise ValueError(
                 f"A string must be passed to 'annotator', '{parameters[filename]['annotator']}' not a valid value."
