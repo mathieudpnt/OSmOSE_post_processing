@@ -5,11 +5,12 @@ clear;clc
 addpath(genpath(fileparts(pwd)))
 
 % user inputs
-info_deploy.annotator = 'PAMGuard';
-info_deploy.annotation = 'Whistle and moan detector';
-info_deploy.dataset = 'C3D10_ST335556632';
-info_deploy.timezone = '+02:00';
-info_deploy.dt_format = 'yyMMddHHmmss'; % APOCADO filename format
+info_deploy.annotator = 'ANNOTATOR_NAME';
+info_deploy.annotation = 'ANNOTATION_NAME';
+info_deploy.dataset = 'DATASET_NAME';
+info_deploy.timezone = '+00:00';
+info_deploy.dt_format = 'yyyyMMdd''T''HHmmss'; % MIRACETI filename format
+% info_deploy.dt_format = 'yyyyMMddHHmmss'; % APOCADO filename format
 % info_deploy.dt_format = 'yyyy-MM-dd_HH-mm-ss'; % CETIROISE filename format
 
 % get wav files

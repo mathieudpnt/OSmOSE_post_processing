@@ -8,6 +8,7 @@ date_pattern = regexprep(date_pattern, 'dd', '\\d{2}');
 date_pattern = regexprep(date_pattern, 'HH', '\\d{2}');
 date_pattern = regexprep(date_pattern, 'mm', '\\d{2}');
 date_pattern = regexprep(date_pattern, 'ss', '\\d{2}');
+date_pattern = regexprep(date_pattern, '''T''', '\\T');
 
 [~, datetime_str, ext] = fileparts(str);
 match = regexp(datetime_str, date_pattern, 'match');
