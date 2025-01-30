@@ -67,7 +67,7 @@ def load_parameters_from_yaml(
         df["end_datetime"] = [dt.tz_convert("UTC") for dt in df["end_datetime"]]
 
     return (
-        df.sort_values(by="start_datetime"),
+        df.sort_values(by="start_datetime").reset_index(drop=True),
         time_bin,
         annotators,
         labels,
@@ -466,8 +466,17 @@ def single_plot(df: pd.DataFrame):
     label_ref = select_reference(
         df[df["annotator"] == annot_ref]["annotation"], "label"
     )
-    time_bin_ref = select_reference(
-        df[df["annotator"] == annot_ref]["end_time"], "time bin"
+
+    if df[(df["start_time"] == 0) & (df["end_time"] == max(df["end_time"]))].empty:
+        raise ValueError(
+            "DataFrame contains no weak detection, consider reshaping it first"
+        )
+
+    time_bin_ref = int(
+        select_reference(
+            df[(df["annotator"] == annot_ref) & (df["is_box"] == 0)]["end_time"],
+            "time bin",
+        )
     )
 
     # set plot resolution
@@ -484,6 +493,8 @@ def single_plot(df: pd.DataFrame):
     [hist_y, hist_x, _] = ax.hist(
         df_1annot_1label["start_datetime"],
         bins=time_vector,
+        edgecolor="black",
+        zorder=2,
     )
 
     # title
@@ -502,9 +513,9 @@ def single_plot(df: pd.DataFrame):
     )
     ax.xaxis.set_major_formatter(date_formatter)
     plt.xlim(time_vector[0], time_vector[-1])
-    ax.grid(linestyle="--", linewidth=0.2, axis="both")
+    ax.grid(linestyle="--", linewidth=0.2, axis="both", zorder=1)
     ax.set_ylabel(y_label_legend)
-    _set_yaxis(ax, n_annot_max)
+    _set_yaxis(ax=ax, max_annotation_number=n_annot_max)
 
     plt.tight_layout()
     plt.show()

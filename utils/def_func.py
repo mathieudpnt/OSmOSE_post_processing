@@ -46,14 +46,10 @@ def reshape_timebin(
     tz_data = df["start_datetime"][0].tz
 
     if not timebin_new:
-        frequency = (
-            str(
-                get_duration(
-                    title="Get duration", msg="Enter a new time bin", default="1min"
-                )
-            )
-            + "s"
+        timebin_new = get_duration(
+            title="Get duration", msg="Enter a new time bin", default="1min"
         )
+        frequency = str(timebin_new) + "s"
     else:
         frequency = str(timebin_new) + "s"
 
@@ -158,6 +154,7 @@ def reshape_timebin(
             df_1annot_1label_new_timebin["end_datetime"] = end_datetime
 
             df_new_timebin = pd.concat([df_new_timebin, df_1annot_1label_new_timebin])
+            df_new_timebin["is_box"] = [0] * len(df_new_timebin)
 
     return df_new_timebin.sort_values(by=["start_datetime"])
 
@@ -211,6 +208,7 @@ def load_detections(
     result_df: pd.DataFrame
         A DataFrame corresponding to the selected filters and containing all the corresponding detections
     """
+    pd.read_csv(file)
     delimiter = find_delimiter(file)
 
     df = (
@@ -535,7 +533,11 @@ def t_rounder(t: pd.Timestamp, res: int):
     elif res == 10:  # 10s
         second = t.second
         second = round(second / 10) * 10
-        t = t.replace(second=second, microsecond=0)
+        if second < 60:
+            t = t.replace(second=second, microsecond=0)
+        else:
+            t = t + pd.Timedelta(minutes=1)
+            t = t.replace(second=0, microsecond=0)
     elif res == 60:  # 1min
         second = round(t.second / 10) * 10
         if second < 60:
