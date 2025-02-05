@@ -48,8 +48,8 @@ def get_loc_from_time(
 
     """
     latitude, longitude, timestamp = [], [], []
-    for ts in time_vector:
-        if min(time_vector) <= ts <= max(time_vector):
+    for ts in tqdm(time_vector):
+        if min(traj.timestamp) <= ts <= max(traj.timestamp):
             lat, lon = traj.getPosition(timestamp=ts)
             latitude.append(lat)
             longitude.append(lon)
@@ -57,7 +57,7 @@ def get_loc_from_time(
     return latitude, longitude, timestamp
 
 
-def plot_detection_with_nav_data(
+def plot_detections_with_nav_data_single_label(
     df: pd.DataFrame, nav: pd.DataFrame, criterion: str, annotation: str
 ):
     """Plot detections of one annotation type according to a navigation data criterion
@@ -69,7 +69,7 @@ def plot_detection_with_nav_data(
     criterion: user selected navigation parameter from nav (latitude, longitude, depth...)
     annotation: user selected annotation from df
     """
-    df_1label = df[df["annotation"] == annotation]
+    df_1label = df[(df["annotation"] == annotation) & (df["is_box"] == 0)]
 
     glider_timestamps_numeric = [int(ts.timestamp()) for ts in nav["Timestamp"]]
     detections_timestamps_numeric = [
@@ -108,6 +108,71 @@ def plot_detection_with_nav_data(
 
     plt.ylabel(criterion)
     plt.title(f"'{annotation}' detections")
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_detections_with_nav_data_all_labels(
+    df: pd.DataFrame, nav: pd.DataFrame, criterion: str
+):
+    """Plot detections of all annotation types according to a navigation data criterion
+
+    Parameters
+    ----------
+    df: pd.DataFrame, APLOSE formatted detection file
+    nav: pd.DataFrame, navigation data comprised of criteria (latitude, longitude, depth...) and associated datetimes
+    criterion: user selected navigation parameter from nav (latitude, longitude, depth...)
+    """
+    fig, ax = plt.subplots()
+    labels = df["annotation"].unique()
+
+    for annotation in labels:
+        df_1label = df[(df["annotation"] == annotation) & (df["is_box"] == 0)]
+
+        glider_timestamps_numeric = [int(ts.timestamp()) for ts in nav["Timestamp"]]
+        detections_timestamps_numeric = [
+            int(ts.timestamp()) for ts in df_1label["start_datetime"]
+        ]
+        matching_depths = np.interp(
+            detections_timestamps_numeric,
+            glider_timestamps_numeric,
+            nav[criterion].astype("float"),
+        )
+
+        plt.scatter(
+            df_1label["start_datetime"],
+            matching_depths,
+            label=annotation,
+            zorder=2,
+            s=8,
+        )
+
+    ax.legend(loc="upper left", bbox_to_anchor=(1.01, 1))
+
+    plt.plot(
+        nav["Timestamp"],
+        nav[criterion],
+        label=criterion,
+        zorder=1,
+        linewidth=0.5,
+        color="tab:blue",
+    )
+
+    xtick_resolution = def_func.get_duration(
+        msg="Enter x-tick resolution", default="1d"
+    )
+    locator = mdates.SecondLocator(interval=xtick_resolution)
+    ax.xaxis.set_major_locator(locator)
+
+    datetime_format = def_func.get_datetime_format(
+        msg="Enter x-tick format", default="%d/%m"
+    )
+    formatter = mdates.DateFormatter(datetime_format)
+    ax.xaxis.set_major_formatter(formatter)
+
+    plt.grid(color="k", linestyle="--", linewidth=0.2, zorder=0)
+    plt.xlim(nav["Timestamp"].iloc[0], nav["Timestamp"].iloc[-1])
+    plt.ylabel(criterion)
     plt.tight_layout()
     plt.show()
 
@@ -270,7 +335,7 @@ def compute_acoustic_diversity(
     )
 
     lat_time_vector, lon_time_vector, ts_time_vector = get_loc_from_time(
-        trajectory, time_vector
+        traj=trajectory, time_vector=time_vector
     )
 
     # delete duplicate detection in case several users annotated the same segment
@@ -280,9 +345,13 @@ def compute_acoustic_diversity(
     time_det_unix = [ts.timestamp() for ts in det["start_datetime"]]
 
     acoustic_diversity = np.zeros(len(time_vector))
-    for i, ts in enumerate(time_vector[:-1]):
+    for i, ts in enumerate(time_vector[: -(len(time_vector) - len(ts_time_vector))]):
         for ts_det in time_det_unix:
-            if ts <= ts_det <= ts + 1:
+            # if ts <= ts_det <= ts + 1:
+            if (
+                ts <= ts_det <= ts + 1
+                and trajectory.timestamp.min() <= ts_det <= trajectory.timestamp.max()
+            ):
                 acoustic_diversity[i] += 1
 
         new_row = pd.DataFrame(

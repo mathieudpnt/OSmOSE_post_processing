@@ -9,20 +9,6 @@ from dataclasses import dataclass
 class Deployment:
     """
     A class to represent and manage metadata for a deployment.
-
-    Attributes:
-        path_json (Path, str): Path to the JSON file containing metadata.
-        campaign (str, int): Campaign identifier.
-        deployment (str, int): Deployment identifier.
-        recorder (str, int): Recorder identifier.
-        path_metadata (Path, str): Path to the file containing file metadata.
-        path_origin_metadata (Path, str): Path to the file containing origin metadata.
-        path_origin_timestamp (Path, str): Path to the file containing origin timestamps.
-        path_segment_metadata (Path, str): Path to the file containing segment metadata.
-        path_segment_timestamp (Path, str): Path to the file containing segment timestamps.
-        path_pamguard (Path, str): Path to the PAMGuard annotations file.
-        path_thalassa (Path, str): Path to the Thalassa annotations file.
-        path_aplose (Path, str): Path to the APLOSE annotations file.
     """
 
     def __init__(
@@ -40,7 +26,22 @@ class Deployment:
         path_thalassa: Path | str = None,
         path_aplose: Path | str = None,
     ) -> None:
-
+        """
+        Parameters
+        ----------
+        path_json (Path, str): Path to the JSON file containing metadata.
+        campaign (str, int): Campaign identifier.
+        deployment (str, int): Deployment identifier.
+        recorder (str, int): Recorder identifier.
+        path_metadata (Path, str): Path to the file containing file metadata.
+        path_origin_metadata (Path, str): Path to the file containing origin metadata.
+        path_origin_timestamp (Path, str): Path to the file containing origin timestamps.
+        path_segment_metadata (Path, str): Path to the file containing segment metadata.
+        path_segment_timestamp (Path, str): Path to the file containing segment timestamps.
+        path_pamguard (Path, str): Path to the PAMGuard annotations file.
+        path_thalassa (Path, str): Path to the Thalassa annotations file.
+        path_aplose (Path, str): Path to the APLOSE annotations file.
+        """
         argument = [
             campaign,
             deployment,
@@ -288,7 +289,7 @@ class Deployment:
 
         return
 
-    def __str__(self):
+    def __repr__(self):
         """Return a string representation of the deployment metadata."""
         result = f"Metadata of deployment {self.name}:\n"
 

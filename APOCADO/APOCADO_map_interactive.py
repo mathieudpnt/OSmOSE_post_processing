@@ -5,23 +5,23 @@ import matplotlib
 
 # Chargement des données
 data = pd.read_excel(
-    "X:/Bioacoustique/DATASETS/APOCADO/PECHEURS_2022_PECHDAUPHIR_APOCADO/APOCADO - Suivi déploiements.xlsx",
+    r"L:\acoustock\Bioacoustique\DATASETS\APOCADO\PECHEURS_2022_PECHDAUPHIR_APOCADO\APOCADO - Suivi déploiements.xlsm",
     skiprows=[0],
 )
-data = data[(data["N° campagne"] != 1)]  # deleting 1st campaign
-data = data[(data["Latitude"].notnull())]  # deleting
+data = data[(data["campaign"] != 1)]  # deleting 1st campaign
+data = data[(data["latitude"].notnull())]  # deleting
 
 data = data.reset_index(drop=True)
-lon = list(data.Longitude)
-lat = list(data.Latitude)
-site = list(data.ID)
+lon = list(data["longitude"])
+lat = list(data["latitude"])
+site = list(data["ID platform"])
 
-campagne = list(data["N° campagne"].unique())
+campagne = list(data["campaign"].unique())
 colors = matplotlib.cm.Dark2(range(len(campagne)))
 color_map = dict(zip(campagne, colors))
 
-sw = data[["Latitude", "Longitude"]].min().values.tolist()
-ne = data[["Latitude", "Longitude"]].max().values.tolist()
+sw = data[["latitude", "longitude"]].min().values.tolist()
+ne = data[["latitude", "longitude"]].max().values.tolist()
 
 m = folium.Map(zoom_start=0, location=(48, -4.5))
 m.fit_bounds([sw, ne])
@@ -44,9 +44,8 @@ folium.TileLayer(
 
 # Ajout d'un marqueur pour chaque site avec le nom au dessus + une fenêtre pop-up qui s'ouvre avec les infos
 for i in range(len(site)):
-
     # Get the color based on 'Campagne' value
-    campagne_value = data.loc[i, "N° campagne"]
+    campagne_value = data.loc[i, "campaign"]
     marker_color = color_map[campagne_value]
 
     icon = folium.CircleMarker(

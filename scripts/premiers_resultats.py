@@ -16,7 +16,7 @@ from utils.premiers_resultats_utils import (
 
 mpl.rcdefaults()
 mpl.style.use("seaborn-v0_8-paper")
-mpl.rcParams["figure.dpi"] = 100
+mpl.rcParams["figure.dpi"] = 150
 mpl.rcParams["figure.figsize"] = [10, 6]
 
 # %% load parameters from the YAML file

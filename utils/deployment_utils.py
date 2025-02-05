@@ -26,7 +26,6 @@ def plot_single(
     fmin_filter: int = None,
     fmax_filter: int = None,
 ) -> None:
-
     assert isinstance(data, Deployment), "not a Deployment class"
     assert hasattr(data, "df_" + file), f"{file} results not available"
     if fmin_filter is not None:
@@ -68,7 +67,7 @@ def plot_single(
     tz = pytz.FixedOffset(begin_date.utcoffset().total_seconds() // 60)
 
     if len(annotator) > 1 and not isinstance(annotator, str):
-        annot_ref = easygui.buttonbox("Select annotator", "Signle plot", annotator)
+        annot_ref = easygui.buttonbox("Select annotator", "Single plot", annotator)
     elif isinstance(annotator, str):
         annot_ref = annotator
 
@@ -90,16 +89,16 @@ def plot_single(
         upperbound=86400,
     )
     delta, start_vec, end_vec = (
-        dt.timedelta(seconds=60 * res_min),
+        pd.Timedelta(seconds=60 * res_min),
         t_rounder(begin_date, res=600),
-        t_rounder(end_date + dt.timedelta(seconds=timebin), res=600),
+        t_rounder(end_date + pd.Timedelta(seconds=timebin), res=600),
     )
     time_vector = [
         start_vec + i * delta for i in range(int((end_vec - start_vec) / delta) + 1)
     ]
     n_annot_max = (
         res_min * 60
-    ) / timebin  # max nb of annoted time_bin max per res_min slice
+    ) / timebin  # max nb of annotated time_bin max per res_min slice
     df_1annot_1label = df_reshaped[
         (df_reshaped["annotator"] == annot_ref)
         & (df_reshaped["annotation"] == label_ref)
@@ -148,7 +147,6 @@ def get_agreement(
     fmin_filter: int = None,
     fmax_filter: int = None,
 ) -> None:
-
     assert isinstance(data, Deployment), "not a Deployment class"
     assert hasattr(data, "df_" + file), f"{file} results not available"
     if fmin_filter is not None:
@@ -197,9 +195,7 @@ def get_agreement(
     annot_ref1 = annotator[0]
     annot_ref2 = annotator[1]
 
-    df_reshaped = reshape_timebin(
-        df=df, timebin_new=timebin, timestamp=timestamp2, reshape_method="timestamp"
-    )
+    df_reshaped = reshape_timebin(df=df, timebin_new=timebin, timestamp=timestamp2)
 
     # list of the labels corresponding to the selected user
     if not isinstance(annotation, str):
@@ -237,9 +233,7 @@ def get_agreement(
         & (df_reshaped["annotation"] == label_ref)
     ]
 
-    fig, axs = plt.subplots(
-        1, 2, dpi=200, figsize=(10, 4), gridspec_kw={"width_ratios": [8, 2]}
-    )
+    fig, axs = plt.subplots(1, 2, gridspec_kw={"width_ratios": [8, 2]})
 
     hist_plot = axs[0].hist(
         [df1_1annot_1label["start_datetime"], df2_1annot_1label["start_datetime"]],
@@ -257,7 +251,7 @@ def get_agreement(
         f"positive detection rate\n{timebin}s window per {res_min}min bin"
     )
     axs[0].tick_params(axis="y")
-    fig.suptitle(f"[{annot_ref1}/{label_ref}] VS [{annot_ref2}/{label_ref}]", y=1.02)
+    fig.suptitle(f"[{annot_ref1}/{label_ref}] VS [{annot_ref2}/{label_ref}]")
 
     axs[0].xaxis.set_major_locator(mdates.HourLocator(interval=4))
     axs[0].xaxis.set_major_formatter(mdates.DateFormatter("%H:%M", tz=tz))
@@ -311,7 +305,6 @@ def get_perf(
     fmin_filter: List[int] = None,
     fmax_filter: List[int] = None,
 ) -> None:
-
     assert isinstance(data, Deployment), "data arg is not a Deployment class"
     assert isinstance(file, List), "file arg is not a list"
     assert len(file) == 2, f"{len(file)} arg were passed instead of 2 for file arg"
@@ -417,9 +410,7 @@ def get_perf(
         selected_label2 = annotation2
 
     # df1 - REFERENCE
-    df1_reshaped = reshape_timebin(
-        df=df1, timebin_new=timebin, reshape_method="timebin", timestamp=timestamp
-    )
+    df1_reshaped = reshape_timebin(df=df1, timebin_new=timebin, timestamp=timestamp)
 
     selected_annotations1 = df1_reshaped[
         (df1_reshaped["annotator"] == selected_annotator1)
@@ -452,9 +443,7 @@ def get_perf(
     vec1[np.isin(range(len(time_vector)), ranks)] = 1
 
     # df2
-    df2_reshaped = reshape_timebin(
-        df=df2, timebin_new=timebin, reshape_method="timebin", timestamp=timestamp
-    )
+    df2_reshaped = reshape_timebin(df=df2, timebin_new=timebin, timestamp=timestamp)
 
     selected_annotations2 = df2_reshaped[
         (df2_reshaped["annotator"] == selected_annotator2)
@@ -554,8 +543,7 @@ def get_perf(
     ax.set_ylabel(f"positive detection rate\n({timebin}s window per {res_min}min bin)")
     ax.tick_params(axis="y")
     fig.suptitle(
-        f"[{selected_annotator1}/{selected_label1}] VS [{selected_annotator2}/{selected_label2}]",
-        y=1.02,
+        f"[{selected_annotator1}/{selected_label1}] VS [{selected_annotator2}/{selected_label2}]"
     )
 
     ax.xaxis.set_major_locator(mdates.HourLocator(interval=1))

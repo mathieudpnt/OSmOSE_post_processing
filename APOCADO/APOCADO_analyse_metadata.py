@@ -22,7 +22,7 @@ mpl.rcParams["figure.dpi"] = 200
 mpl.rcParams["figure.figsize"] = [10, 4]
 
 # %%
-data_load = "pickle"  # manual or pickle
+data_load = "manual"  # manual or pickle
 detector = ["pamguard", "thalassa"]
 arg = ["season", "net", "all"]
 timebin = 60  # seconds
@@ -194,9 +194,34 @@ for i in range(len(deploy)):
 
 species_result = pd.DataFrame(species_result, columns=unique_species_list)
 
-species_result.sum().plot(
-    kind="bar", zorder=2, edgecolor="black", linewidth=1, figsize=(6, 2)
-)
+species_result.sum().plot(kind="bar", zorder=2, edgecolor="black", linewidth=1)
+plt.xlabel("Species")
+plt.ylabel("Deployment number")
+plt.title("Distribution of deployment species")
+plt.grid(axis="y", linestyle="--", alpha=0.5, zorder=1)
+plt.tight_layout()
+plt.show()
+
+# distribution of deployments per species and per net
+test = pd.DataFrame()
+for t in net_type:
+    deploy_net = (
+        deploy[deploy["net"] == t].dropna(subset="species").reset_index(drop=True)
+    )
+    species_per_net_result = []
+    for i in range(len(deploy_net)):
+        line = []
+        [
+            line.append(1) if u in deploy_net["species"][i] else line.append(0)
+            for u in unique_species_list
+        ]
+        species_per_net_result.append(line)
+    species_per_net_result = pd.DataFrame(
+        species_per_net_result, columns=unique_species_list
+    ).sum()
+    test[t] = species_per_net_result
+
+ax = test.plot.bar(stacked=True, zorder=2, edgecolor="black", linewidth=1)
 plt.xlabel("Species")
 plt.ylabel("Deployment number")
 plt.title("Distribution of deployment species")
@@ -236,7 +261,7 @@ match data_load:
             r_file.close()
         data = pd.DataFrame.from_dict(data)
 
-        df_detections_pamguard, df_detections_thalassa = [], []
+        df_detections_pamguard, df_detections_thalassa, df_detections_all = [], [], []
         for i in tqdm(range(len(data)), desc="DataFrame creation"):
             f1 = data["path pamguard"][i]
             f2 = data["path thalassa"][i]
@@ -273,8 +298,20 @@ match data_load:
             df_detections_pamguard.append(df_detections_file1)
             df_detections_thalassa.append(df_detections_file2)
 
+            df_detections_presence = pd.concat(
+                [df_detections_file1, df_detections_file2]
+            )
+            df_detections_presence["annotation"] = "acoustic presence"
+            df_detections_presence = (
+                df_detections_presence.sort_values("start_datetime")
+                .drop_duplicates(subset="start_datetime")
+                .reset_index(drop=True)
+            )
+            df_detections_all.append(df_detections_presence)
+
         data["df pamguard"] = df_detections_pamguard
         data["df thalassa"] = df_detections_thalassa
+        data["df presence"] = df_detections_all
 
         data["platform"] = [
             "C" + str(c) + "D" + str(d)
@@ -300,11 +337,8 @@ match data_load:
 
         for d in detector:
             data[f"detection rate {d}"] = [
-                (
-                    len(data[f"df {d}"][i])
-                    / (data["duration"][i].total_seconds() / 86400)
-                )
-                / (86400 / timebin)
+                len(data[f"df {d}"][i])
+                / (data["duration"][i].total_seconds() / timebin)
                 for i in range(len(data))
             ]
 
@@ -312,16 +346,16 @@ match data_load:
 data = data.loc[data["deployment"].isin(deploy["ID deployment"])].reset_index(drop=True)
 
 # %% Save data
-
-# save the DataFrame to a pickle file
-with open(
-    os.path.join(
-        r"L:\acoustock\Bioacoustique\DATASETS\APOCADO\PECHEURS_2022_PECHDAUPHIR_APOCADO",
-        f"data_timebin{timebin}s.pkl",
-    ),
-    "wb",
-) as f:
-    pickle.dump(data, f)
+if data_load == "manual":
+    # save the DataFrame to a pickle file
+    with open(
+        os.path.join(
+            r"L:\acoustock\Bioacoustique\DATASETS\APOCADO\PECHEURS_2022_PECHDAUPHIR_APOCADO",
+            f"data_timebin{timebin}s.pkl",
+        ),
+        "wb",
+    ) as f:
+        pickle.dump(data, f)
 
 # %% hourly detection rate and double check selection
 
@@ -348,16 +382,15 @@ for i in tqdm(range(len(data))):
         start=timestamp_range_begin, end=timestamp_range_end, freq="1h"
     ).tolist()
 
-    test = pd.read_csv(data["path segment timestamp"][i], parse_dates=["timestamp"])
-    timestamp_range2 = test["timestamp"][::360]
-
     df_hourly = pd.DataFrame()
     for d in detector:
         start_series = pd.Series(data[f"df {d}"][i]["start_datetime"])
+
         count_per_interval = start_series.groupby(
             pd.cut(start_series, timestamp_range, include_lowest=True, right=False),
             observed=True,
         ).count()
+
         coef_norm_begin = (
             1
             - ((data["datetime deployment"][i] - timestamp_range_begin).seconds // 60)
@@ -367,6 +400,7 @@ for i in tqdm(range(len(data))):
             1
             - ((timestamp_range_end - data["datetime recovery"][i]).seconds // 60) / 60
         )
+
         count_per_interval.iloc[0] = (
             round(count_per_interval.iloc[0] / coef_norm_begin)
             if count_per_interval.iloc[0] / coef_norm_begin < 60
@@ -377,6 +411,7 @@ for i in tqdm(range(len(data))):
             if count_per_interval.iloc[-1] / coef_norm_end < 60
             else 60
         )
+
         count_per_interval = count_per_interval.reindex(
             timestamp_range[:-1], fill_value=0
         ).to_frame()
@@ -424,7 +459,7 @@ plt.show()
 #                                        (df_hourly_all['thalassa hourly detection rate'] >= lim_low ) &
 #                                        (df_hourly_all['thalassa coverage'] == 1)].sample(n=10).sort_values(by='start_datetime')
 # print(f"\nSelection for double check : \n\n{double_check_selection['ID']}")
-# %%export pour mathilde
+# %% export pour mathilde
 
 
 test = data.iloc[0:1].explode("hourly detection rate")
@@ -454,6 +489,7 @@ for i in tqdm(range(len(data))):
         "year",
         "detection rate pamguard",
         "detection rate thalassa",
+        "detection rate presence",
     ]
     for c in criterion:
         data_hourly[c] = [data.iloc[i][c]] * len(data_hourly)
@@ -504,9 +540,9 @@ data_hourly_all.to_csv(
 # %% filtering data for following analysis
 """
 here the data is treated differently according to which detector is used i.e. which signal are studied
-for whistles, appaired recorders are trated separately if the length on the net  is >500m
-for clicks, appaired recorders are trated separately if the length on the net  is >200m
-In the other case, only one of the appaired recorder is considered
+for whistles, paired recorders are treated separately if the length on the net  is >500m
+for clicks, paired recorders are treated separately if the length on the net  is >200m
+In the other case, only one of the paired recorder is considered
 """
 
 detector = ["pamguard", "thalassa"]
@@ -545,7 +581,7 @@ for d in detector:
         filtered_data[f"{d}"] = pd.concat(
             [filtered_df_1, sub_df_2, filtered_df_3]
         ).reset_index(drop=True)
-# %% distribution of deployement detection rates
+# %% distribution of deployment detection rates
 
 for d in detector:
     mean_filter_df = filtered_data[f"{d}"][f"detection rate {d}"].mean()
@@ -579,7 +615,7 @@ for d in detector:
     plt.title(f"Distribution of deployment detection rate\ndetector: {d}")
     plt.show()
 
-    arg = "season"
+    arg = "species"
     for i in list(dict.fromkeys(filtered_data[f"{d}"][f"{arg}"])):
         # for i in unique_species_list:
 
@@ -1268,3 +1304,5 @@ out_folder = r"L:\acoustock\Bioacoustique\DATASETS\APOCADO\Code\carto"
 deploy_out.to_csv(
     os.path.join(out_folder, out_filename), index=False, encoding="latin1"
 )
+
+# %% net type repartition per species
