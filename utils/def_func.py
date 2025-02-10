@@ -647,7 +647,7 @@ def suntime_hour(start: pd.Timestamp, stop: pd.Timestamp, lat: float, lon: float
             pd.Timestamp(suntime[period]).tz_convert(tz) for period in suntime
         ]
 
-        for lst, period in zip([h_sunrise, h_sunset], [day, night]):
+        for lst, period in zip([h_sunrise, h_sunset], [day, dusk]):
             lst.append(period.hour + period.minute / 60 + period.second / 3600)
 
         for lst, period in zip(
