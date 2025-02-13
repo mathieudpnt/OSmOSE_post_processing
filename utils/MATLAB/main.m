@@ -10,8 +10,9 @@ info_deploy.annotation = 'ANNOTATION_NAME';
 info_deploy.dataset = 'DATASET_NAME';
 info_deploy.timezone = '+00:00';
 % info_deploy.dt_format = 'yyyyMMdd''T''HHmmss'; % MIRACETI filename format
-% info_deploy.dt_format = 'yyyyMMddHHmmss'; % APOCADO filename format
-info_deploy.dt_format = 'yyyy-MM-dd_HH-mm-ss'; % CETIROISE filename format
+% info_deploy.dt_format = 'yyyyMMddHHmmss'; % SoundTrap filename format
+% info_deploy.dt_format = 'yyyy-MM-dd_HH-mm-ss'; % Sylence filename format
+info_deploy.dt_format = 'yyyy''y''MM''m''dd''d''_HH''h''mm''m''ss''s'''; % DORI filename format
 
 % get wav files
 %%% mode 'folder': the wav files are located on different folders

@@ -9,6 +9,11 @@ date_pattern = regexprep(date_pattern, 'HH', '\\d{2}');
 date_pattern = regexprep(date_pattern, 'mm', '\\d{2}');
 date_pattern = regexprep(date_pattern, 'ss', '\\d{2}');
 date_pattern = regexprep(date_pattern, '''T''', '\\T');
+date_pattern = regexprep(date_pattern, '''y''', '\y');
+date_pattern = regexprep(date_pattern, '''d''', '\d');
+date_pattern = regexprep(date_pattern, '''h''', '\h');
+date_pattern = regexprep(date_pattern, '''m''', '\m');
+date_pattern = regexprep(date_pattern, '''s''', '\s');
 
 [~, datetime_str, ext] = fileparts(str);
 match = regexp(datetime_str, date_pattern, 'match');
