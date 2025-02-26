@@ -109,7 +109,6 @@ def plot_detections_with_nav_data_single_label(
     plt.ylabel(criterion)
     plt.title(f"'{annotation}' detections")
     plt.tight_layout()
-    plt.show()
 
 
 def plot_detections_with_nav_data_all_labels(
@@ -174,7 +173,6 @@ def plot_detections_with_nav_data_all_labels(
     plt.xlim(nav["Timestamp"].iloc[0], nav["Timestamp"].iloc[-1])
     plt.ylabel(criterion)
     plt.tight_layout()
-    plt.show()
 
 
 def load_glider_nav(directory: Path):
@@ -303,7 +301,6 @@ def plot_nav_state(df: pd.DataFrame, npz: NpzFile):
     ax2.set_ylabel("Navigation state")
 
     plt.tight_layout()
-    plt.show()
 
 
 def compute_acoustic_diversity(
