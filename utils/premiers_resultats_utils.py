@@ -284,7 +284,6 @@ def overview_plot(df: pd.DataFrame):
     ax[1].set_title("Number of annotations per annotator")
 
     plt.tight_layout()
-    plt.show()
 
     return
 
@@ -372,7 +371,6 @@ def plot_hourly_detection_rate(
     ax.set_xlabel("Date")
     plt.xlim(datetime_begin, datetime_end)
     plt.tight_layout()
-    plt.show()
 
     return
 
@@ -446,7 +444,6 @@ def scatter_detections(
     )
 
     plt.tight_layout()
-    plt.show()
 
     return
 
@@ -518,7 +515,6 @@ def single_plot(df: pd.DataFrame):
     _set_yaxis(ax=ax, max_annotation_number=n_annot_max)
 
     plt.tight_layout()
-    plt.show()
 
     return
 
@@ -592,7 +588,6 @@ def multilabel_plot(df: pd.DataFrame):
     fig.suptitle(f"Annotator : {annot_ref}")
     fig.supylabel(new_label, ha="center")
     plt.tight_layout()
-    plt.show()
 
     return
 
@@ -712,7 +707,6 @@ def multiuser_plot(df: pd.DataFrame):
     ax[1].text(0.05, 0.9, f"R²={r * r:.2f}", transform=ax[1].transAxes)
 
     plt.tight_layout()
-    plt.show()
 
     return
 
@@ -756,7 +750,6 @@ def plot_detection_timeline(df: pd.DataFrame):
     )
 
     plt.tight_layout()
-    plt.show()
 
     return
 

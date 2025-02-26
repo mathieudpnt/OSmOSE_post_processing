@@ -841,7 +841,8 @@ def print_spectro_from_audio(
         dpi=my_dpi,
     )
 
-    plt.pcolormesh(times, frequencies, 10 * np.log10(sxx), vmin=20, vmax=100)
+    # plt.pcolormesh(times, frequencies, 10 * np.log10(sxx), vmin=20, vmax=100)
+    plt.pcolormesh(times, frequencies, 10 * np.log10(sxx))
 
     if not ax:
         plt.axis("off")
@@ -850,8 +851,6 @@ def print_spectro_from_audio(
         )  # delete white borders
     else:
         plt.tight_layout()
-
-    plt.show()
 
     ech = len(data)
     size_x = (ech - window_size) / overlap_samples
@@ -902,8 +901,6 @@ def print_spectro_from_npz(file: Path, ax: bool = True):
         plt.subplots_adjust(top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
     else:
         plt.tight_layout()
-
-    plt.show()
 
     return
 
