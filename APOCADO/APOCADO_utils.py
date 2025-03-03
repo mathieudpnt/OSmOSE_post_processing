@@ -5,7 +5,8 @@ from shutil import copytree
 
 
 def sort_ST_file(master_folder: Path):
-    """Sort SoundTrap data into folders corresponding to the file extensions.
+    """
+    Sorts SoundTrap data into folders corresponding to the file extensions.
 
     Parameters
     ----------
@@ -18,7 +19,6 @@ def sort_ST_file(master_folder: Path):
             folders.append(Path(root))
 
     for folder in folders:
-
         files = list(folder.glob("**/*.*"))
 
         sorted_files = {}
@@ -31,7 +31,6 @@ def sort_ST_file(master_folder: Path):
             sorted_files[ext].append(file)
 
         if len(extensions) > 1:
-
             for ext in extensions:
                 Path.mkdir(folder / ext, parents=True, exist_ok=True)
 
@@ -48,8 +47,9 @@ def sort_ST_file(master_folder: Path):
 
 
 def copy_sud_files(folder: Path, destination_folder: Path):
-    """Copy all sud files and associated log files from base folder to a
-    specified folder and preserving the folder and subfolders architecture
+    """
+    Copies all sud files and associated log files from base folder to a
+    specified folder and preserving the folder and subfolders architecture.
 
     Parameters
     ----------

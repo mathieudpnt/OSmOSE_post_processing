@@ -6,9 +6,38 @@ from def_func import suntime_hour
 
 
 def stats_diel_pattern(deployment: pd.Series, detector: str):
-    """Plot detection proportions for each light regime (night/dawn/day/dawn)
-    Parameters :
-    Returns :
+    """
+    Computes and returns the diel pattern of detections for a given deployment.
+
+    This function analyzes detections recorded by a specified detector and
+    categorizes them based on different light regimes (night, dawn, day, dusk).
+    The detection rates are corrected by the duration of each light regime
+    and normalized by the daily average number of detections per hour.
+
+    Parameters
+    ----------
+    deployment : pd.Series
+        A pandas Series containing deployment metadata and detection data.
+        It must include the following keys:
+        - "datetime deployment" (pd.Timestamp): Start time of the deployment.
+        - "datetime recovery" (pd.Timestamp): End time of the deployment.
+        - f"df {detector}" (pd.DataFrame): A DataFrame containing detections
+          with a "start_datetime" column.
+        - "latitude" (float): Deployment latitude.
+        - "longitude" (float): Deployment longitude.
+
+    detector : str
+        The name of the detector used to retrieve the corresponding detection
+        data from the deployment Series.
+
+    Returns
+    -------
+    pd.DataFrame
+        A DataFrame containing normalized detection rates for each light regime.
+        The rows represent individual days in the deployment period, and the
+        columns correspond to the different light regimes:
+        - "Night"
+        - "Day"
     """
     assert isinstance(deployment, pd.Series), "Not a Series passed"
     assert "datetime deployment" in deployment.index and isinstance(
