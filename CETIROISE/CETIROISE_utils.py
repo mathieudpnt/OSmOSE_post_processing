@@ -4,13 +4,23 @@ import pytz
 
 
 def clean_pamguard_false_detection(df: pd.DataFrame) -> pd.DataFrame:
-    """Cleans PAMGuard whistle and moan detector first detection of each audio file (might be very specific to Sylence data).
-    This is because the first detection on each audio file corresponds to the detection of an electronic buzz made by the recorder
+    """
+    Cleans PAMGuard whistle and moan detector first detection of each audio file (might be very specific to Sylence data).
+    This is because the first detection on each audio file corresponds to the detection of an electronic buzz made by the recorder.
+
+    The first detection in each audio file seem to be caused by an electronic buzz produced
+    by the recorder. This function identifies and removes these false detections
+    by checking if a detection occurs within the first five seconds of the corresponding audio file.
 
     Parameters
     ----------
     df: pd.DataFrame
-        An APLOSE formatted result file (presumably from PAMGuard)
+        An APLOSE formatted DataFrame (presumably from PAMGuard)
+
+    Returns
+    -------
+    pd.DataFrame
+        A cleaned DataFrame with false detections removed.
     """
     filenames = df["filename"]
     tz_data = df["start_datetime"][0].tz
@@ -39,7 +49,8 @@ def fpod2aplose(
     annotation: str,
     bin_size: int = 60,
 ) -> pd.DataFrame:
-    """From FPOD.xls result files to APLOSE csv results file
+    """
+    From FPOD result DataFrame to APLOSE formatted DataFrame.
 
     Parameters
     ----------
@@ -53,6 +64,11 @@ def fpod2aplose(
         annotation name
     bin_size: int
         Duration of the detections in seconds
+
+     Returns
+    -------
+    pd.DataFrame
+        An APLOSE formatted DataFrame
     """
 
     fpod_start_dt = sorted(

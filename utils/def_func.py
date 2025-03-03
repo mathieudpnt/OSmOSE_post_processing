@@ -22,7 +22,8 @@ def reshape_timebin(
     timebin_new: int = None,
     timestamp: list[pd.Timestamp] = None,
 ) -> pd.DataFrame:
-    """Reshapes an APLOSE result DataFrame according to a new time bin
+    """
+    Reshapes an APLOSE result DataFrame according to a new time bin.
 
     Parameters
     ----------
@@ -172,7 +173,8 @@ def load_detections(
     fmin_filter: int = None,
     fmax_filter: int = None,
 ) -> pd.DataFrame:
-    """Loads and filters an Aplose formatted detection file according to user specified filters
+    """
+    Loads and filters an APLOSE formatted detection file according to user specified filters.
 
     Parameters
     ----------
@@ -316,6 +318,35 @@ def load_detections(
 
 
 def intersection_or_union(df: pd.DataFrame, user_sel: str) -> pd.DataFrame:
+    """
+    Computes the intersection or union of annotations from multiple annotators.
+
+    This function identifies common and differing annotations based on the
+    "start_datetime" values in the dataset. The intersection consists of
+    annotations that appear in the data for all annotators, while the union
+    includes all annotations regardless of overlap.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        An APLOSE result DataFrame
+
+    user_sel : str
+        Specifies whether to return the "intersection" (annotations shared
+        by all annotators) or the "union" (all annotations from all annotators).
+        Accepted values are:
+        - "intersection": Returns only annotations that appear in all annotators' data.
+        - "union": Returns all annotations, including both shared and unique ones.
+
+    Returns
+    -------
+    pd.DataFrame
+        An APLOSE formatted DataFrame containing the selected annotations:
+        - If "intersection" is chosen, the output includes only annotations
+          present in all annotators' data, with the annotator column merged as "annotator1 ∩ annotator2".
+        - If "union" is chosen, the output includes all annotations,
+          with the annotator column merged as "annotator1 ∪ annotator2".
+    """
     annotators = df["annotator"].drop_duplicates().to_list()
     if not len(annotators) > 1:
         raise ValueError("Not enough annotators detected")
@@ -362,7 +393,8 @@ def intersection_or_union(df: pd.DataFrame, user_sel: str) -> pd.DataFrame:
 
 
 def read_yaml(file: Path) -> dict:
-    """Reads yaml file to extract detection parameters. The extracted parameters
+    """
+    Reads yaml file to extract detection parameters. The extracted parameters
     are then used to import detections using 'sorting_detection'.
 
     Parameters
@@ -487,7 +519,8 @@ def read_yaml(file: Path) -> dict:
 
 
 def find_delimiter(file: str | Path) -> str:
-    """Finds the proper delimiter for a csv file
+    """
+    Finds the proper delimiter for a csv file.
 
     Parameters
     ----------
@@ -510,11 +543,18 @@ def find_delimiter(file: str | Path) -> str:
 
 
 def t_rounder(t: pd.Timestamp, res: int):
-    """Rounds a Timestamp according to the user specified resolution : 10s / 1min / 10 min / 1h / 24h
-    Parameter :
-        t: Timestamp to round
-        res: integer corresponding to the new resolution in seconds
-    Returns :
+    """
+    Rounds a Timestamp according to the user specified resolution : 10s / 1min / 10 min / 1h / 24h
+
+    Parameters
+    ----------
+        t: pd.Timestamp
+            Datetime to round
+        res: integer
+            The new resolution in seconds
+
+    Returns
+    -------
         t: rounded Timestamp
     """
     if res == 600:  # 10min
@@ -563,7 +603,9 @@ def t_rounder(t: pd.Timestamp, res: int):
 
 
 def get_season(ts: pd.Timestamp) -> str:
-    """'day of year' ranges for the northern hemisphere
+    """
+    Determines the meteorological season for a given timestamp in the Northern Hemisphere.
+    Winter is defined as timestamps from December to February, spring from March to May and so on.
 
     Parameter
     ---------
@@ -571,13 +613,11 @@ def get_season(ts: pd.Timestamp) -> str:
 
     Returns
     -------
-        season: string
-            The season and year of ts
+        The season and year of ts
 
     Example
     -------
     get_season(pd.Timestamp("01/01/2023"))
-    >>> 'winter 2022'
     """
     winter = [1, 2, 12]
     spring = [3, 4, 5]
@@ -601,7 +641,8 @@ def get_season(ts: pd.Timestamp) -> str:
 
 
 def suntime_hour(start: pd.Timestamp, stop: pd.Timestamp, lat: float, lon: float):
-    """Fetch sunrise and sunset hours for dates between date_beg and date_end
+    """
+    Fetches sunrise and sunset hours for dates between start and stop.
 
     Parameters
     ----------
@@ -659,12 +700,14 @@ def suntime_hour(start: pd.Timestamp, stop: pd.Timestamp, lat: float, lon: float
 
 
 def get_coordinates():
-    """Ask user input to get GPS coordinates.
+    """
+    Asks for user input to get GPS coordinates.
 
     Returns
     -------
-    latitude : float
-    longitude : float
+    latitude: float
+
+    longitude: float
     """
     title = "Coordinates in degree° minute'"
     msg = "latitude (N/S) and longitude (E/W)"
@@ -711,12 +754,14 @@ def get_duration(
     default: str = "10min",
     base: bool = False,
 ):
-    """Ask user input to get time duration.
+    """
+    Asks user input to get time duration.
     Offset aliases are to be used,
     e.g.: '5D' => 432_000s
     '2h' => 7_200s
     '3BMS' => <3*Months>
     See https://pandas.pydata.org/docs/user_guide/timeseries.html#timeseries-offset-aliases
+
     Parameters
     ----------
     title : str
@@ -724,6 +769,7 @@ def get_duration(
     default : '10min' => 600s
     base : bool, optional, default False, if True, return the base of the value.
         For instance, "10min" => '<Minute>'
+
     Returns
     -------
     The total number of seconds of the entered time alias or the time alias if not transposable to duration (<N*Months>)
@@ -765,9 +811,11 @@ def get_datetime_format(
     msg: str = "Enter a datetime format code",
     default: str = "%d/%m/%Y\n%H:%M",
 ) -> str:
-    """Ask user input to get datetime format.
+    """
+    Asks user input to get datetime format.
     Datetime format codes are to be used,
     See https://docs.python.org/fr/3/library/datetime.html
+
     Parameters
     ----------
     title : str
@@ -804,7 +852,8 @@ def print_spectro_from_audio(
     overlap: int = 20,
     ax: bool = True,
 ):
-    """Computes and prints a spectrogram from an audio file.
+    """
+    Computes and prints a spectrogram from an audio file.
 
     Parameters
     ----------
@@ -861,7 +910,8 @@ def print_spectro_from_audio(
 
 
 def print_spectro_from_npz(file: Path, ax: bool = True):
-    """Computes and prints a spectrogram from a npz file.
+    """
+    Computes and prints a spectrogram from a npz file.
 
     Parameters
     ----------
@@ -908,7 +958,8 @@ def print_spectro_from_npz(file: Path, ax: bool = True):
 def add_weak_detection(
     file: Path, datetime_format: str = TIMESTAMP_FORMAT_AUDIO_FILE
 ) -> pd.DataFrame:
-    """Adds weak detection lines to APLOSE formatted DataFrame with only strong detections.
+    """
+    Adds weak detection lines to APLOSE formatted DataFrame with only strong detections.
 
     Parameters
     ----------
