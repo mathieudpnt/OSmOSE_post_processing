@@ -70,7 +70,6 @@ def fpod2aplose(
     pd.DataFrame
         An APLOSE formatted DataFrame
     """
-
     fpod_start_dt = sorted(
         [
             tz.localize(strptime_from_text(entry, "%d/%m/%Y %H:%M"))
