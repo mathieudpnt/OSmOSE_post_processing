@@ -1044,7 +1044,6 @@ for d in detector:
         colors=["#59D955", "#F2E205", "#F28B66", "#4694A6"],
     )
     plt.title(f"{d}")
-    plt.show()
 
 # %% Pie plots - distribution of detection over seasons
 
@@ -1091,7 +1090,6 @@ for d in detector:
         colors=["#59D955", "#F2E205", "#F28B66", "#4694A6"],
     )
     plt.title(f"{d}")
-    plt.show()
 
 # %% cumulated histogram of detections for a single detection file
 

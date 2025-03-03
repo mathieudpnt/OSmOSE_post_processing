@@ -1,56 +1,8 @@
 import pytz
 import pandas as pd
 import datetime as dt
-from astral.sun import sun
-import astral
 import numpy as np
-
-
-def suntime_hour(begin_deploy, end_deploy, lat, lon):
-    """Fetch sunrise and sunset hours for dates between date_beg and date_end
-    Parameters :
-        date_beg : str Date in format 'YYYY-mm-dd'. Start date of when to fetch sun hour
-        date_end : str Date in format 'YYYY-mm-dd'. End date of when to fetch sun hour
-        lat : str latitude in Decimal Degrees
-        lon : str longitude in Decimal Degrees
-    Returns :
-        hour_sunrise : list of float with sunrise decimal hours for each day between date_beg and date_end
-        hour_sunset : list of float with sunset decimal hours for each day between date_beg and date_end
-    """
-    timeZ = pytz.FixedOffset(begin_deploy.utcoffset().total_seconds() // 60)
-    # Infos sur la localisation
-    if np.isnan(lat):
-        lat = 48  # arbitrary location
-    if np.isnan(lon):
-        lon = -5  # arbitrary location
-
-    gps = astral.LocationInfo(timezone=timeZ, latitude=lat, longitude=lon)
-
-    # List of days during when the data were recorded
-    list_day = pd.date_range(begin_deploy, end_deploy).date
-
-    _h_sunrise, _h_sunset, dt_dusk, dt_dawn, dt_day, dt_night = [], [], [], [], [], []
-    astral.Depression = 12  # nautical twilight see def here : https://www.timeanddate.com/astronomy/nautical-twilight.html
-
-    # For each day : find time of sunset, sun rise, begin dawn and dusk
-    for day in list_day:
-        suntime = sun(gps.observer, date=day, dawn_dusk_depression=astral.Depression)
-
-        dawn_dt = pd.to_datetime(suntime["dawn"]).tz_convert(timeZ)
-        dusk_dt = pd.to_datetime(suntime["sunset"]).tz_convert(timeZ)
-        day_dt = pd.to_datetime(suntime["sunrise"]).tz_convert(timeZ)
-        night_dt = pd.to_datetime(suntime["dusk"]).tz_convert(timeZ)
-
-        # day_hour = day_dt.hour + day_dt.minute / 60
-        # night_hour = night_dt.hour + night_dt.minute / 60
-        # h_sunrise.append(day_hour)
-        # h_sunset.append(night_hour)
-
-        dt_dusk.append(dusk_dt)
-        dt_dawn.append(dawn_dt)
-        dt_day.append(day_dt)
-        dt_night.append(night_dt)
-    return dt_dusk, dt_dawn, dt_day, dt_night
+from def_func import suntime_hour
 
 
 def stats_diel_pattern(deployment: pd.Series, detector: str):
