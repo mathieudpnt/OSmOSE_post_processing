@@ -100,18 +100,11 @@ end
 % export data as APLOSE csv file
 writetable(PG_Annotation_Aplose, strcat(fileparts(binary_path), strcat('\PG_rawdata_', PG_title_datestr, '.csv')))
 
-% export data as raven txt file
-file_name = strcat(fileparts(binary_path), '\PG_rawdata_', PG_title_datestr , '.txt');
-selec_table = fopen(file_name, 'wt');
-fprintf(selec_table, '%s\t%s\t%s\t%s\t%s\t%s\t%s\n', 'Selection', 'View', 'Channel', 'Begin Time (s)', 'End Time (s)', 'Low Freq (Hz)', 'High Freq (Hz)');
-fprintf(selec_table, '%.0f\t%.0f\t%.0f\t%.9f\t%.9f\t%.1f\t%.1f\n', PG_Annotation_Raven);
-fclose('all');
-
 stop = datetime("now");
 elapsed_time = seconds(stop - start);
 
 clc
-disp(['raw data files exported in: ', fileparts(binary_path)])
+disp(['raw data file exported in: ', fileparts(binary_path)])
 fprintf('\n')
 disp(['elapsed time: ', num2str(uint64(elapsed_time)), ' s'])
 
