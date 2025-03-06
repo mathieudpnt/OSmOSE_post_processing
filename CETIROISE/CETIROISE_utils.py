@@ -95,3 +95,35 @@ def fpod2aplose(
     }
 
     return pd.DataFrame(data)
+
+def cpod2aplose(
+    df: pd.DataFrame,
+    tz: pytz.BaseTzInfo,
+    dataset_name: str,
+    annotation: str,
+    bin_size: int = 60,
+) -> pd.DataFrame:
+    """
+    From FPOD result DataFrame to APLOSE formatted DataFrame.
+
+    Parameters
+    ----------
+    df: pd.DataFrame
+        FPOD result dataframe
+    tz: pytz.BaseTzInfo
+        Timezone object to get non-naïve datetimes
+    dataset_name: str
+        dataset name
+    annotation: str
+        annotation name
+    bin_size: int
+        Duration of the detections in seconds
+
+     Returns
+    -------
+    pd.DataFrame
+        An APLOSE formatted DataFrame
+    """
+    data = fpod2aplose(df,tz,dataset_name,annotation,bin_size)
+    data['annotator'] = data.loc[data['annotator'] == 'FPOD'] = 'CPOD'
+    return pd.DataFrame(data)
