@@ -11,6 +11,7 @@ from scipy.io import wavfile
 from scipy.signal import spectrogram
 import matplotlib.pyplot as plt
 import yaml
+import json
 
 from OSmOSE.utils.audio_utils import is_supported_audio_format
 from OSmOSE.utils.timestamp_utils import strptime_from_text
@@ -569,7 +570,7 @@ def t_rounder(t: pd.Timestamp, res: int):
             else:
                 hour = 0
                 t += pd.Timedelta(days=1)
-        t = t.replace(hour=hour, minute=0, second=0, microsecond=0)
+                t = t.replace(hour=hour, minute=0, second=0, microsecond=0)
     elif res == 10:  # 10s
         second = t.second
         second = round(second / 10) * 10
@@ -1008,3 +1009,23 @@ def add_weak_detection(
                     df.loc[len(df.index)] = new_line
 
     return df.sort_values("start_datetime").reset_index(drop=True)
+
+
+def json2csv(json_path: Path):
+    """
+    Converts a json file into a csv.
+
+    Parameters
+    ----------
+    json_path: Path
+    """
+    with open(json_path, "r", encoding="utf-8") as f:
+        df = pd.json_normalize(json.load(f))
+        df.to_csv(
+            json_path.parent / f"{json_path.stem}.csv",
+            index=False,
+            encoding="utf-8",
+            sep=";",
+        )
+
+    return json_path.parent / f"{json_path.stem}.csv"

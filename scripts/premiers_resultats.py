@@ -1,7 +1,9 @@
 from pathlib import Path
 import matplotlib as mpl
+import matplotlib.pyplot as plt
+import pandas as pd
 
-from utils.def_func import get_coordinates
+from utils.def_func import get_coordinates, json2csv, get_season
 
 from utils.premiers_resultats_utils import (
     load_parameters_from_yaml,
@@ -25,11 +27,18 @@ df_detections, time_bin, annotators, labels, fmax, datetime_begin, datetime_end,
     load_parameters_from_yaml(file=yaml_file)
 )
 
+json = Path(r"\path\to\json")
+csv = json2csv(json_path=json)
+metadatax = pd.read_csv(
+    csv, delimiter=";", parse_dates=["deployment_date", "recovery_date"]
+)
+
 # %% Overview plots
 overview_plot(df=df_detections)
 
 # %% Single seasonality plot
-single_plot(df=df_detections)
+single_plot(df=df_detections, metadata=metadatax, season_bar=True)
+plt.show()
 
 # %% Single diel pattern plot (scatter raw detections)
 lat, lon = get_coordinates()
