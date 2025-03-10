@@ -1,3 +1,4 @@
+import matplotlib as mpl
 import pandas as pd
 import numpy as np
 import bisect
@@ -6,6 +7,9 @@ from astral.sun import sun
 import csv
 import easygui
 from pathlib import Path
+
+from matplotlib import pyplot as plt
+from pandas import date_range, Timestamp, DateOffset
 from pandas.tseries.frequencies import to_offset
 from scipy.io import wavfile
 from scipy.signal import spectrogram
@@ -1011,9 +1015,9 @@ def add_weak_detection(
     return df.sort_values("start_datetime").reset_index(drop=True)
 
 
-def json2csv(json_path: Path):
+def json2df(json_path: Path):
     """
-    Converts a json file into a csv.
+    Converts a metadatax json file into a DataFrame
 
     Parameters
     ----------
@@ -1021,11 +1025,114 @@ def json2csv(json_path: Path):
     """
     with open(json_path, "r", encoding="utf-8") as f:
         df = pd.json_normalize(json.load(f))
-        df.to_csv(
-            json_path.parent / f"{json_path.stem}.csv",
-            index=False,
-            encoding="utf-8",
-            sep=";",
+        df['deployment_date'] = pd.to_datetime(df['deployment_date'])
+        df['recovery_date'] = pd.to_datetime(df['recovery_date'])
+
+    return df
+
+
+def add_season_period(bar_height: int = 10):
+    """
+    Adds a bar at the top of the plot to seasons.
+
+    Parameters
+    ----------
+    bar_height: int
+        Bar height in pixels
+    """
+    ax = plt.gca()
+
+    if not ax.has_data():
+        raise ValueError("Axes have no data")
+
+    bins = date_range(
+        start=(Timestamp(ax.get_xlim()[0], unit="D").normalize() - DateOffset(months=1)).replace(day=1),
+        end=(Timestamp(ax.get_xlim()[1], unit="D").normalize() + DateOffset(months=1)).replace(day=1),
+        freq="MS",
+    )
+
+    season_colors = {
+        "winter": "#2ce5e3",
+        "spring": "#4fcf50",
+        "summer": "#ffcf50",
+        "autumn": "#fb9a67",
+    }
+
+    bin_centers = [(bins[i].timestamp() + bins[i + 1].timestamp()) / 2 for i in range(len(bins) - 1)]
+    bin_centers = [Timestamp(center, unit='s') for center in bin_centers]
+
+    bin_seasons = [get_season(bc).split()[0] for bc in bin_centers]
+    bar_height = set_bar_height(bar_height)
+    bar_bottom = ax.get_ylim()[1] + (0.2 * bar_height)
+
+    for i, season in enumerate(bin_seasons):
+        ax.bar(
+            bin_centers[i],
+            height=bar_height,
+            bottom=bar_bottom,
+            width=(bins[i + 1] - bins[i]),
+            color=season_colors[season],
+            align="center",
+            zorder=3,
+            alpha=0.6,
         )
 
-    return json_path.parent / f"{json_path.stem}.csv"
+    plt.ylim(ax.dataLim.ymin, ax.dataLim.ymax)
+
+    return
+
+
+def set_bar_height(pixel_height: int = 10):
+    """
+    Converts pixel height to data coordinates
+
+    Parameters
+    ----------
+    pixel_height: int
+        in pixel
+    """
+    ax = plt.gca()
+
+    if not ax.has_data():
+        raise ValueError("Axes have no data")
+
+    display_to_data = ax.transData.inverted().transform
+    _, data_bottom = display_to_data((0, 0))  # Bottom of the axis
+    _, data_top = display_to_data((0, pixel_height))  # Top of the bar
+
+    return data_top - data_bottom  # Convert pixel height to data scale
+
+
+def add_recording_period(df: pd.DataFrame, bar_height: int = 10):
+    """
+    Adds a bar at the bottom on plot to show recording periods.
+
+    Parameters
+    ----------
+    df: pd.DataFrame
+        Includes the recording campaign deployment and recovery dates (typically extracted from metadatax)
+
+    bar_height: int
+        Bar height in pixels
+    """
+    ax = plt.gca()
+
+    if not ax.has_data():
+        raise ValueError("Axes have no data")
+
+    recorder_intervals = [
+        (start, end - start)
+        for start, end in zip(df["deployment_date"], df["recovery_date"])
+    ]
+
+    bar_height = set_bar_height(bar_height)
+
+    ax.broken_barh(
+        recorder_intervals,
+        (ax.get_ylim()[0] - (1.2 * bar_height), bar_height),
+        facecolors="red",
+        alpha=0.6,
+    )
+    plt.ylim(ax.dataLim.ymin, ax.dataLim.ymax)
+
+    return

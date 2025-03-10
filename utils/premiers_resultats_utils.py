@@ -15,7 +15,7 @@ from def_func import (
     read_yaml,
     load_detections,
     get_datetime_format,
-    get_season,
+    add_season_period, add_recording_period,
 )
 from collections import Counter
 import seaborn as sns
@@ -382,15 +382,23 @@ def scatter_detections(
     lon: float,
     show_rise_set: bool = True,
 ):
-    """Plot scatter of the detections from an APLOSE formatted DataFrame.
+    """
+    Scatter plot of the detections from an APLOSE formatted DataFrame.
     Additionally, sunrise and sunset lines can be plotted if show_rise_set is set to True (default value)
 
     Parameters
     ----------
-    df : pd.DataFrame, APLOSE formatted result DataFrame with detections and associated timestamps
-    lat : float, latitude
-    lon : float, longitude
-    show_rise_set : bool, default True, display the sunrise and sunset lines
+    df : pd.DataFrame
+        APLOSE formatted result DataFrame with detections and associated timestamps
+
+    lat : float
+        latitude
+
+    lon : float
+        longitude
+
+    show_rise_set : bool, default True
+        display the sunrise and sunset lines
     """
     datetime_begin = df["start_datetime"].iloc[0]
     datetime_end = df["end_datetime"].iloc[-1]
@@ -449,9 +457,7 @@ def scatter_detections(
     return
 
 
-def single_plot(
-    df: pd.DataFrame, metadata: pd.DataFrame = None, season_bar: bool = False
-):
+def single_plot(df: pd.DataFrame):
     """
     Plots the detections of an APLOSE formatted DataFrame for a single label
 
@@ -523,12 +529,6 @@ def single_plot(
     _set_yaxis(ax=ax, max_annotation_number=n_annot_max)
 
     plt.tight_layout()
-
-    if metadata is not None:
-        _add_recording_period(ax=ax, df=metadata)
-
-    if season_bar:
-        _add_season_period(ax=ax, df=df_1annot_1label, bins=hist_x)
 
     return
 
@@ -927,104 +927,3 @@ def _get_resolution_str(bin: int):
         bin_str = str(bin) + "s"
 
     return bin_str
-
-
-def _add_recording_period(ax: mpl.axes, df: pd.DataFrame):
-    """
-    Adds a bar at the bottom on plot to show recording periods.
-
-    Parameters
-    ----------
-    ax: mpl.axes
-        Axis of the plot
-
-    df: pd.DataFrame
-        Includes the recording campaign (typically extracted from metadatax)
-    """
-    recorder_intervals = [
-        (start, end - start)
-        for start, end in zip(df["deployment_date"], df["recovery_date"])
-    ]
-
-    bar_height = _set_bar_height(ax, 10)
-
-    ax.broken_barh(
-        recorder_intervals,
-        (ax.get_ylim()[0] - bar_height, bar_height),
-        facecolors="red",
-        alpha=0.6,
-    )
-    plt.ylim(ax.dataLim.ymin, ax.dataLim.ymax)
-
-    return
-
-
-def _add_season_period(ax: mpl.axes, df: pd.DataFrame, bins: np.array):
-    """
-    Adds a bar at the top of the plot to seasons.
-
-    Parameters
-    ----------
-    ax: mpl.axes
-        Axis of the plot
-
-    df: pd.DataFrame
-        APLOSE DataFrame to plot
-
-    bins: np.array
-        bins of the histogram
-    """
-    # Assign seasons to datetimes
-    df["season"] = [get_season(ts).split()[0] for ts in df["start_datetime"]]
-
-    season_colors = {
-        "winter": "#2ce5e3",
-        "spring": "#4fcf50",
-        "summer": "#ffcf50",
-        "autumn": "#fb9a67",
-    }
-
-    # Set the bar colors based on the season of the bin center
-    bin_centers = pd.to_datetime(
-        (bins[:-1] + bins[1:]) / 2, unit="D", origin=pd.Timestamp("1970-01-01")
-    )
-    bin_seasons = [
-        get_season(pd.Timestamp(bc)).split()[0] for bc in bin_centers
-    ]  # Assign season
-    bar_height = _set_bar_height(ax, 10)
-
-    for i, season in enumerate(bin_seasons):
-        ax.bar(
-            bin_centers[i],
-            height=bar_height,
-            bottom=ax.get_ylim()[1] + (0.5 * bar_height),
-            width=(bins[i + 1] - bins[i]),
-            color=season_colors[season],
-            align="center",
-            zorder=3,
-            alpha=0.6,
-        )
-
-    plt.ylim(ax.dataLim.ymin, ax.dataLim.ymax)
-
-    return
-
-
-def _set_bar_height(ax: mpl.axes, pixel_height: int = 10):
-    """
-    Converts pixel height to data coordinates
-
-    Parameters
-    ----------
-    ax: mpl.axes
-        Axis of the plot
-
-    pixel_height: int
-        in pixel
-    """
-    #
-    display_to_data = ax.transData.inverted().transform
-    _, data_bottom = display_to_data((0, 0))  # Bottom of the axis
-    _, data_top = display_to_data((0, pixel_height))  # Top of the bar
-
-    return data_top - data_bottom  # Convert pixel height to data scale
