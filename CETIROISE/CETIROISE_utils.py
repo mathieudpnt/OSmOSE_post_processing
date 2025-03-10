@@ -104,12 +104,12 @@ def cpod2aplose(
     bin_size: int = 60,
 ) -> pd.DataFrame:
     """
-    From FPOD result DataFrame to APLOSE formatted DataFrame.
+    From CPOD result DataFrame to APLOSE formatted DataFrame.
 
     Parameters
     ----------
     df: pd.DataFrame
-        FPOD result dataframe
+        CPOD result dataframe
     tz: pytz.BaseTzInfo
         Timezone object to get non-naïve datetimes
     dataset_name: str
