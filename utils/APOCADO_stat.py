@@ -7,7 +7,7 @@ from def_func import suntime_hour
 
 def stats_diel_pattern(deployment: pd.Series, detector: str):
     """
-    Computes and returns the diel pattern of detections for a given deployment.
+    Computes and returns the diel pattern of detections.
 
     This function analyzes detections recorded by a specified detector and
     categorizes them based on different light regimes (night, dawn, day, dusk).
@@ -179,22 +179,19 @@ def stats_diel_pattern(deployment: pd.Series, detector: str):
             # If the detection occured during 'day'
             if d == day:
                 if (
-                    df_detections["start_datetime"][idx_det] > dt_dawn[idx_day]
-                    and df_detections["start_datetime"][idx_det] < dt_day[idx_day]
+                        dt_dawn[idx_day] < df_detections["start_datetime"][idx_det] < dt_day[idx_day]
                 ):
                     # lr = 2
                     lr = 1
                     light_regime.append(lr)
                 elif (
-                    df_detections["start_datetime"][idx_det] > dt_day[idx_day]
-                    and df_detections["start_datetime"][idx_det] < dt_night[idx_day]
+                        dt_day[idx_day] < df_detections["start_datetime"][idx_det] < dt_night[idx_day]
                 ):
                     # lr = 3
                     lr = 2
                     light_regime.append(lr)
                 elif (
-                    df_detections["start_datetime"][idx_det] > dt_night[idx_day]
-                    and df_detections["start_datetime"][idx_det] < dt_dusk[idx_day]
+                        dt_night[idx_day] < df_detections["start_datetime"][idx_det] < dt_dusk[idx_day]
                 ):
                     # lr = 4
                     lr = 1
@@ -251,11 +248,7 @@ def stats_diel_pattern(deployment: pd.Series, detector: str):
             nb_det_day_corr_norm.append(nb_det_day_corr[idx_day] - a)
             # nb_det_dusk_corr_norm.append(nb_det_dusk_corr[idx_day] - a)
 
-    LIGHTR = [nb_det_night_corr_norm, nb_det_day_corr_norm]
-    # LIGHTR = [nb_det_night_corr_norm, nb_det_dawn_corr_norm, nb_det_day_corr_norm, nb_det_dusk_corr_norm]
-    BoxName = ["Night", "Day"]
-    # BoxName = ['Night', 'Dawn', 'Day', 'Dusk']
+    light_regime = [nb_det_night_corr_norm, nb_det_day_corr_norm]
+    box_name = ["Night", "Day"]
 
-    lr = pd.DataFrame(LIGHTR, index=BoxName).transpose()
-
-    return lr
+    return pd.DataFrame(light_regime, index=box_name).transpose()
