@@ -2,12 +2,7 @@ from pathlib import Path
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
-from def_func import (
-    get_coordinates,
-    json2df,
-    add_season_period,
-    add_recording_period
-)
+from def_func import get_coordinates, json2df, add_season_period, add_recording_period
 
 from premiers_resultats_utils import (
     load_parameters_from_yaml,
@@ -17,7 +12,7 @@ from premiers_resultats_utils import (
     multilabel_plot,
     multiuser_plot,
     overview_plot,
-    get_detection_perf
+    get_detection_perf,
 )
 
 mpl.rcdefaults()

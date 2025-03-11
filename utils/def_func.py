@@ -1,25 +1,23 @@
-import matplotlib as mpl
-import pandas as pd
-import numpy as np
 import bisect
-import astral
-from astral.sun import sun
 import csv
-import easygui
+import json
 from pathlib import Path
 
-from matplotlib import pyplot as plt
+import astral
+import easygui
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import yaml
+from OSmOSE.config import TIMESTAMP_FORMAT_AUDIO_FILE
+from OSmOSE.utils.audio_utils import is_supported_audio_format
+from OSmOSE.utils.timestamp_utils import strptime_from_text
+from astral.sun import sun
 from pandas import date_range, Timestamp, DateOffset
 from pandas.tseries.frequencies import to_offset
 from scipy.io import wavfile
 from scipy.signal import spectrogram
-import matplotlib.pyplot as plt
-import yaml
-import json
-
-from OSmOSE.utils.audio_utils import is_supported_audio_format
-from OSmOSE.utils.timestamp_utils import strptime_from_text
-from OSmOSE.config import TIMESTAMP_FORMAT_AUDIO_FILE
 
 
 def reshape_timebin(
@@ -870,7 +868,7 @@ def print_spectro_from_audio(
 
     Examples
     --------
-    audio_file = Path(r'path/to/file')
+    audio_file = Path(r"path\to\file")
     print_spectro_from_audio(audio_file)
     """
     if not is_supported_audio_format(file):
@@ -1025,13 +1023,13 @@ def json2df(json_path: Path):
     """
     with open(json_path, "r", encoding="utf-8") as f:
         df = pd.json_normalize(json.load(f))
-        df['deployment_date'] = pd.to_datetime(df['deployment_date'])
-        df['recovery_date'] = pd.to_datetime(df['recovery_date'])
+        df["deployment_date"] = pd.to_datetime(df["deployment_date"])
+        df["recovery_date"] = pd.to_datetime(df["recovery_date"])
 
     return df
 
 
-def add_season_period(ax : mpl.axes.Axes = None, bar_height: int = 10):
+def add_season_period(ax: mpl.axes.Axes = None, bar_height: int = 10):
     """
     Adds a bar at the top of the plot to seasons.
 
@@ -1050,8 +1048,12 @@ def add_season_period(ax : mpl.axes.Axes = None, bar_height: int = 10):
         raise ValueError("Axes have no data")
 
     bins = date_range(
-        start=(Timestamp(ax.get_xlim()[0], unit="D").normalize() - DateOffset(months=1)).replace(day=1),
-        end=(Timestamp(ax.get_xlim()[1], unit="D").normalize() + DateOffset(months=1)).replace(day=1),
+        start=(
+            Timestamp(ax.get_xlim()[0], unit="D").normalize() - DateOffset(months=1)
+        ).replace(day=1),
+        end=(
+            Timestamp(ax.get_xlim()[1], unit="D").normalize() + DateOffset(months=1)
+        ).replace(day=1),
         freq="MS",
     )
 
@@ -1062,8 +1064,11 @@ def add_season_period(ax : mpl.axes.Axes = None, bar_height: int = 10):
         "autumn": "#fb9a67",
     }
 
-    bin_centers = [(bins[i].timestamp() + bins[i + 1].timestamp()) / 2 for i in range(len(bins) - 1)]
-    bin_centers = [Timestamp(center, unit='s') for center in bin_centers]
+    bin_centers = [
+        (bins[i].timestamp() + bins[i + 1].timestamp()) / 2
+        for i in range(len(bins) - 1)
+    ]
+    bin_centers = [Timestamp(center, unit="s") for center in bin_centers]
 
     bin_seasons = [get_season(bc).split()[0] for bc in bin_centers]
     bar_height = set_bar_height(ax, bar_height)
@@ -1086,7 +1091,7 @@ def add_season_period(ax : mpl.axes.Axes = None, bar_height: int = 10):
     return
 
 
-def set_bar_height(ax : mpl.axes.Axes = None, pixel_height: int = 10):
+def set_bar_height(ax: mpl.axes.Axes = None, pixel_height: int = 10):
     """
     Converts pixel height to data coordinates
 
@@ -1110,7 +1115,9 @@ def set_bar_height(ax : mpl.axes.Axes = None, pixel_height: int = 10):
     return data_top - data_bottom  # Convert pixel height to data scale
 
 
-def add_recording_period(df: pd.DataFrame, ax : mpl.axes.Axes = None, bar_height: int = 10):
+def add_recording_period(
+    df: pd.DataFrame, ax: mpl.axes.Axes = None, bar_height: int = 10
+):
     """
     Adds a bar at the bottom on plot to show recording periods.
 

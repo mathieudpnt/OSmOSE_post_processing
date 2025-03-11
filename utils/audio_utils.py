@@ -1,6 +1,6 @@
-import soundfile as sf
-import numpy as np
 from pathlib import Path
+import numpy as np
+import soundfile as sf
 
 
 def normalize_audio(file: Path, output_folder: Path = None):
@@ -24,7 +24,7 @@ def normalize_audio(file: Path, output_folder: Path = None):
     format_file = sf.info(file).format
     subtype = sf.info(file).subtype
 
-    data_norm = np.transpose(np.array([(data / np.max(np.abs(data)))]))[:, 0]
+    data_norm = np.transpose(np.array([data / np.max(np.abs(data))]))[:, 0]
 
     new_fn = (
         file.stem + ".wav"

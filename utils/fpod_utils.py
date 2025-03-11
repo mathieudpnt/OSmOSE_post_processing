@@ -1,6 +1,6 @@
-from OSmOSE.utils.timestamp_utils import strftime_osmose_format, strptime_from_text
 import pandas as pd
 import pytz
+from OSmOSE.utils.timestamp_utils import strftime_osmose_format, strptime_from_text
 
 
 def fpod2aplose(

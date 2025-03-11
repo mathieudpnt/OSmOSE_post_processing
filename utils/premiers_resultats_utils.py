@@ -1,13 +1,18 @@
 import datetime
-from typing import Iterable
+from collections import Counter
 from pathlib import Path
-import pandas as pd
-import numpy as np
+from typing import Iterable
+
 import easygui
 import matplotlib as mpl
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import seaborn as sns
+from scipy.stats import pearsonr
 
+import def_func
 from def_func import (
     t_rounder,
     suntime_hour,
@@ -15,12 +20,7 @@ from def_func import (
     read_yaml,
     load_detections,
     get_datetime_format,
-    add_season_period, add_recording_period,
 )
-from collections import Counter
-import seaborn as sns
-from scipy.stats import pearsonr
-import def_func
 
 
 def load_parameters_from_yaml(
@@ -80,14 +80,14 @@ def load_parameters_from_yaml(
 
 
 def select_tick_resolution(
-    ax: str, default: int, lowerbound: int, upperbound: int
+    ax: str, default: int, lower_bound: int, upper_bound: int
 ) -> int:
     return easygui.integerbox(
         msg=f"Choose the {ax}-axis tick resolution",
         title="Tick resolution",
         default=default,
-        lowerbound=lowerbound,
-        upperbound=upperbound,
+        lowerbound=lower_bound,
+        upperbound=upper_bound,
     )
 
 
@@ -318,8 +318,8 @@ def plot_hourly_detection_rate(
     df["hour"] = [ts.hour for ts in df["start_datetime"]]
 
     det_groupby = df.groupby(["date", "hour"]).size()
-    idx_day_groupby = det_groupby.index.get_level_values(0)
-    idx_hour_groupby = det_groupby.index.get_level_values(1)
+    idx_day_group_by = det_groupby.index.get_level_values(0)
+    idx_hour_group_by = det_groupby.index.get_level_values(1)
 
     dates = pd.date_range(
         datetime_begin.normalize(), datetime_end.normalize(), freq="D"
@@ -327,10 +327,10 @@ def plot_hourly_detection_rate(
     M = np.zeros((24, len(dates)))
     for idx_j, j in enumerate(dates):
         # Search for detection in day = j
-        f = [idx for idx, det in enumerate(idx_day_groupby) if det == j]
+        f = [idx for idx, det in enumerate(idx_day_group_by) if det == j]
         if f:
             for ff in f:
-                hour = idx_hour_groupby[ff]
+                hour = idx_hour_group_by[ff]
                 M[int(hour), idx_j] = det_groupby.iloc[ff]
 
     # plot
