@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy import stats
 import matplotlib.dates as mdates
-from utils.Deployment import Deployment
+from dataclass.Deployment import Deployment
 from utils.def_func import reshape_timebin, t_rounder
 
 mpl.style.use("seaborn-v0_8-paper")
