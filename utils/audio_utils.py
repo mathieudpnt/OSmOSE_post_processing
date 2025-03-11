@@ -9,9 +9,9 @@ def normalize_audio(file: Path, output_folder: Path = None):
     Parameters
     ----------
     file : Path
-        Path of the audio file to normalize
+        The path of the audio file to normalize
     output_folder : Path
-        Path to output destination
+        The path to output destination
     """
     try:
         data, fs = sf.read(file)

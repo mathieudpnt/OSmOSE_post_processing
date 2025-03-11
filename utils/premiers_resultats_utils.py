@@ -534,7 +534,8 @@ def single_plot(df: pd.DataFrame):
 
 
 def multilabel_plot(df: pd.DataFrame):
-    """Plot the detections of an APLOSE formatted DataFrame for a all labels
+    """
+    Plots the detections of an APLOSE formatted DataFrame for all labels
 
     Parameters
     ----------

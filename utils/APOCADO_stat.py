@@ -81,7 +81,7 @@ def stats_diel_pattern(deployment: pd.Series, detector: str):
     # dusk_duration = [b - a for a, b in zip(dt_dusk, dt_night)]
     # night_duration = [dt.timedelta(hours=24) - dawn - day - dusk for dawn, day, dusk in zip(dawn_duration, day_duration, dusk_duration)]
 
-    # Compute duration of each light regime in regards of deployement effort
+    # Compute duration of each light regime in regard to deployement effort
     dawn_duration, dusk_duration, day_duration, night_duration = [], [], [], []
     for idx, day in enumerate(list_day):
         # duration effort on day
