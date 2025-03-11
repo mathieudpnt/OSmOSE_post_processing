@@ -7,8 +7,8 @@ from numpy.lib.npyio import NpzFile
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
-import def_func
-from GLIDER.glider_config import NAV_STATE
+from def_func import get_duration, get_datetime_format
+from glider_config import NAV_STATE
 from trajectoryFda import TrajectoryFda
 
 
@@ -94,13 +94,13 @@ def plot_detections_with_nav_data_single_label(
     plt.grid(color="k", linestyle="--", linewidth=0.2, zorder=0)
     plt.xlim(nav["Timestamp"].iloc[0], nav["Timestamp"].iloc[-1])
 
-    xtick_resolution = def_func.get_duration(
+    xtick_resolution = get_duration(
         msg="Enter x-tick resolution", default="1d"
     )
     locator = mdates.SecondLocator(interval=xtick_resolution)
     ax.xaxis.set_major_locator(locator)
 
-    datetime_format = def_func.get_datetime_format(
+    datetime_format = get_datetime_format(
         msg="Enter x-tick format", default="%d/%m/%y"
     )
     formatter = mdates.DateFormatter(datetime_format)
@@ -157,13 +157,13 @@ def plot_detections_with_nav_data_all_labels(
         color="tab:blue",
     )
 
-    xtick_resolution = def_func.get_duration(
+    xtick_resolution = get_duration(
         msg="Enter x-tick resolution", default="1d"
     )
     locator = mdates.SecondLocator(interval=xtick_resolution)
     ax.xaxis.set_major_locator(locator)
 
-    datetime_format = def_func.get_datetime_format(
+    datetime_format = get_datetime_format(
         msg="Enter x-tick format", default="%d/%m"
     )
     formatter = mdates.DateFormatter(datetime_format)
