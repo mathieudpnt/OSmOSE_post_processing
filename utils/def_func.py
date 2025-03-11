@@ -1142,7 +1142,7 @@ def add_recording_period(
         for start, end in zip(df["deployment_date"], df["recovery_date"])
     ]
 
-    bar_height = set_bar_height(bar_height)
+    bar_height = set_bar_height(ax=ax, pixel_height=bar_height)
 
     ax.broken_barh(
         recorder_intervals,
