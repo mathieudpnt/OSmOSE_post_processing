@@ -1,13 +1,18 @@
 import datetime
-from typing import Iterable
+from collections import Counter
 from pathlib import Path
-import pandas as pd
-import numpy as np
+from typing import Iterable
+
 import easygui
 import matplotlib as mpl
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import seaborn as sns
+from scipy.stats import pearsonr
 
+import def_func
 from def_func import (
     t_rounder,
     suntime_hour,
@@ -16,10 +21,6 @@ from def_func import (
     load_detections,
     get_datetime_format,
 )
-from collections import Counter
-import seaborn as sns
-from scipy.stats import pearsonr
-import def_func
 
 
 def load_parameters_from_yaml(
@@ -79,14 +80,14 @@ def load_parameters_from_yaml(
 
 
 def select_tick_resolution(
-    ax: str, default: int, lowerbound: int, upperbound: int
+    ax: str, default: int, lower_bound: int, upper_bound: int
 ) -> int:
     return easygui.integerbox(
         msg=f"Choose the {ax}-axis tick resolution",
         title="Tick resolution",
         default=default,
-        lowerbound=lowerbound,
-        upperbound=upperbound,
+        lowerbound=lower_bound,
+        upperbound=upper_bound,
     )
 
 
@@ -317,8 +318,8 @@ def plot_hourly_detection_rate(
     df["hour"] = [ts.hour for ts in df["start_datetime"]]
 
     det_groupby = df.groupby(["date", "hour"]).size()
-    idx_day_groupby = det_groupby.index.get_level_values(0)
-    idx_hour_groupby = det_groupby.index.get_level_values(1)
+    idx_day_group_by = det_groupby.index.get_level_values(0)
+    idx_hour_group_by = det_groupby.index.get_level_values(1)
 
     dates = pd.date_range(
         datetime_begin.normalize(), datetime_end.normalize(), freq="D"
@@ -326,10 +327,10 @@ def plot_hourly_detection_rate(
     M = np.zeros((24, len(dates)))
     for idx_j, j in enumerate(dates):
         # Search for detection in day = j
-        f = [idx for idx, det in enumerate(idx_day_groupby) if det == j]
+        f = [idx for idx, det in enumerate(idx_day_group_by) if det == j]
         if f:
             for ff in f:
-                hour = idx_hour_groupby[ff]
+                hour = idx_hour_group_by[ff]
                 M[int(hour), idx_j] = det_groupby.iloc[ff]
 
     # plot
@@ -381,15 +382,23 @@ def scatter_detections(
     lon: float,
     show_rise_set: bool = True,
 ):
-    """Plot scatter of the detections from an APLOSE formatted DataFrame.
+    """
+    Scatter plot of the detections from an APLOSE formatted DataFrame.
     Additionally, sunrise and sunset lines can be plotted if show_rise_set is set to True (default value)
 
     Parameters
     ----------
-    df : pd.DataFrame, APLOSE formatted result DataFrame with detections and associated timestamps
-    lat : float, latitude
-    lon : float, longitude
-    show_rise_set : bool, default True, display the sunrise and sunset lines
+    df : pd.DataFrame
+        APLOSE formatted result DataFrame with detections and associated timestamps
+
+    lat : float
+        latitude
+
+    lon : float
+        longitude
+
+    show_rise_set : bool, default True
+        display the sunrise and sunset lines
     """
     datetime_begin = df["start_datetime"].iloc[0]
     datetime_end = df["end_datetime"].iloc[-1]
@@ -449,11 +458,16 @@ def scatter_detections(
 
 
 def single_plot(df: pd.DataFrame):
-    """Plot the detections of an APLOSE formatted DataFrame for a single label
+    """
+    Plots the detections of an APLOSE formatted DataFrame for a single label
 
     Parameters
     ----------
-    df: pd.DataFrame, APLOSE formatted result DataFrame with detections and associated timestamps
+    df: pd.DataFrame
+        APLOSE formatted result DataFrame with detections and associated timestamps
+
+    metadata: pd.DataFrame
+        auxiliary data that can be used to plot supplementary info
     """
     # selection of the references parameters
     datetime_begin = df["start_datetime"].iloc[0]
@@ -520,7 +534,8 @@ def single_plot(df: pd.DataFrame):
 
 
 def multilabel_plot(df: pd.DataFrame):
-    """Plot the detections of an APLOSE formatted DataFrame for a all labels
+    """
+    Plots the detections of an APLOSE formatted DataFrame for all labels
 
     Parameters
     ----------
@@ -895,11 +910,13 @@ def get_detection_perf(
 
 
 def _get_resolution_str(bin: int):
-    """From a resolution in seconds to corresponding string in day/hour/minute/second resolution
+    """
+    From a resolution in seconds to corresponding string in day/hour/minute/second resolution.
 
     Parameters
     ----------
-    bin: int, in seconds
+    bin: int
+        in seconds
     """
     if bin // 86400 >= 1:
         bin_str = str(int(bin // 86400)) + "D"

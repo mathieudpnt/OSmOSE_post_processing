@@ -1,6 +1,4 @@
-__pycache__/
-.spyproject/
-archive/
-.idea/
-venv/
 /utils/MATLAB/pgmatlab/
+__pycache__/
+/utils/dataclass/
+/.idea/

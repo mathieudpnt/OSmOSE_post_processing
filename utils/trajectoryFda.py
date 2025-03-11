@@ -1,6 +1,7 @@
-import numpy as np
-from operator import isub
 import math
+from operator import isub
+
+import numpy as np
 
 
 class TrajectoryFda:

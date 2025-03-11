@@ -1,13 +1,15 @@
-import pytz
-import pandas as pd
 import datetime as dt
+
 import numpy as np
+import pandas as pd
+import pytz
+
 from def_func import suntime_hour
 
 
 def stats_diel_pattern(deployment: pd.Series, detector: str):
     """
-    Computes and returns the diel pattern of detections for a given deployment.
+    Computes and returns the diel pattern of detections.
 
     This function analyzes detections recorded by a specified detector and
     categorizes them based on different light regimes (night, dawn, day, dusk).
@@ -51,7 +53,7 @@ def stats_diel_pattern(deployment: pd.Series, detector: str):
     ), "Error datetime recovery"
     assert f"df {detector}" in deployment.index and isinstance(
         deployment[f"df {detector}"], pd.DataFrame
-    ), f"Error f'df {detector}'"
+    ), f"Error 'df {detector}'"
     assert "latitude" in deployment.index and pd.api.types.is_numeric_dtype(
         deployment["latitude"]
     ), "Error latitude"
@@ -60,14 +62,14 @@ def stats_diel_pattern(deployment: pd.Series, detector: str):
     ), "Error longitude"
 
     df_detections = deployment[f"df {detector}"]
-    timeZ = pytz.FixedOffset(
+    timezone = pytz.FixedOffset(
         deployment["datetime deployment"].utcoffset().total_seconds() // 60
     )
 
     # Compute sunrise and sunset decimal hour at the dataset location
     [dt_dusk, dt_dawn, dt_day, dt_night] = suntime_hour(
-        begin_deploy=deployment["datetime deployment"],
-        end_deploy=deployment["datetime recovery"],
+        start=deployment["datetime deployment"],
+        stop=deployment["datetime recovery"],
         lat=deployment["latitude"],
         lon=deployment["longitude"],
     )
@@ -81,11 +83,11 @@ def stats_diel_pattern(deployment: pd.Series, detector: str):
     # dusk_duration = [b - a for a, b in zip(dt_dusk, dt_night)]
     # night_duration = [dt.timedelta(hours=24) - dawn - day - dusk for dawn, day, dusk in zip(dawn_duration, day_duration, dusk_duration)]
 
-    # Compute duration of each light regime in regards of deployement effort
+    # Compute duration of each light regime in regard to deployment effort
     dawn_duration, dusk_duration, day_duration, night_duration = [], [], [], []
     for idx, day in enumerate(list_day):
         # duration effort on day
-        beg_day = timeZ.localize(pd.Timestamp(day).normalize())  # midnight
+        beg_day = timezone.localize(pd.Timestamp(day).normalize())  # midnight
         end_day = beg_day + pd.Timedelta(days=1)  # midnight the following day
 
         light_regime_day = [
@@ -176,25 +178,28 @@ def stats_diel_pattern(deployment: pd.Series, detector: str):
     light_regime = []
     for idx_day, day in enumerate(list_day):
         for idx_det, d in enumerate(day_det):
-            # If the detection occured during 'day'
+            # If the detection occurred during 'day'
             if d == day:
                 if (
-                    df_detections["start_datetime"][idx_det] > dt_dawn[idx_day]
-                    and df_detections["start_datetime"][idx_det] < dt_day[idx_day]
+                    dt_dawn[idx_day]
+                    < df_detections["start_datetime"][idx_det]
+                    < dt_day[idx_day]
                 ):
                     # lr = 2
                     lr = 1
                     light_regime.append(lr)
                 elif (
-                    df_detections["start_datetime"][idx_det] > dt_day[idx_day]
-                    and df_detections["start_datetime"][idx_det] < dt_night[idx_day]
+                    dt_day[idx_day]
+                    < df_detections["start_datetime"][idx_det]
+                    < dt_night[idx_day]
                 ):
                     # lr = 3
                     lr = 2
                     light_regime.append(lr)
                 elif (
-                    df_detections["start_datetime"][idx_det] > dt_night[idx_day]
-                    and df_detections["start_datetime"][idx_det] < dt_dusk[idx_day]
+                    dt_night[idx_day]
+                    < df_detections["start_datetime"][idx_det]
+                    < dt_dusk[idx_day]
                 ):
                     # lr = 4
                     lr = 1
@@ -208,9 +213,9 @@ def stats_diel_pattern(deployment: pd.Series, detector: str):
     # nb_det_night, nb_det_dawn, nb_det_day, nb_det_dusk = [], [], [], []
     nb_det_night, nb_det_day = [], []
     for idx_day, day in enumerate(list_day):
-        # Find index of detections that occured during 'day'
+        # Find index of detections that occurred during 'day'
         idx_det = [idx for idx, det in enumerate(day_det) if det == day]
-        if idx_det == []:
+        if not idx_det:
             nb_det_night.append(0)
             # nb_det_dawn.append(0)
             nb_det_day.append(0)
@@ -223,23 +228,23 @@ def stats_diel_pattern(deployment: pd.Series, detector: str):
             nb_det_night.append(light_regime[idx_det[0] : idx_det[-1]].count(1))
             nb_det_day.append(light_regime[idx_det[0] : idx_det[-1]].count(2))
 
-    # For each day, compute number of detection per light regime corrected by ligh regime duration
+    # For each day, compute number of detection per light regime corrected by light regime duration
     nb_det_night_corr = [(nb / d) for nb, d in zip(nb_det_night, night_duration_dec2)]
     # nb_det_dawn_corr = [(nb / d) for nb, d in zip(nb_det_dawn, dawn_duration_dec)]
     nb_det_day_corr = [(nb / d) for nb, d in zip(nb_det_day, day_duration_dec)]
     # nb_det_dusk_corr = [(nb / d) for nb, d in zip(nb_det_dusk, dusk_duration_dec)]
 
     # Normalize by daily average number of detection per hour
-    # av_daily_nbdet, nb_det_night_corr_norm, nb_det_dawn_corr_norm, nb_det_day_corr_norm, nb_det_dusk_corr_norm = [], [], [], [], []
-    av_daily_nbdet, nb_det_night_corr_norm, nb_det_day_corr_norm = [], [], []
+    # av_daily_nb_det, nb_det_night_corr_norm, nb_det_dawn_corr_norm, nb_det_day_corr_norm, nb_det_dusk_corr_norm = [], [], [], [], []
+    av_daily_nb_det, nb_det_night_corr_norm, nb_det_day_corr_norm = [], [], []
 
     for idx_day, day in enumerate(list_day):
-        # Find index of detections that occured during 'day'
+        # Find index of detections that occurred during 'day'
         idx_det = [idx for idx, det in enumerate(day_det) if det == day]
 
         # Compute daily average number of detections per hour
         a = len(idx_det) / (night_duration_dec2[idx_day] + day_duration_dec[idx_day])
-        av_daily_nbdet.append(a)
+        av_daily_nb_det.append(a)
         if a == 0:
             nb_det_night_corr_norm.append(0)
             # nb_det_dawn_corr_norm.append(0)
@@ -251,11 +256,7 @@ def stats_diel_pattern(deployment: pd.Series, detector: str):
             nb_det_day_corr_norm.append(nb_det_day_corr[idx_day] - a)
             # nb_det_dusk_corr_norm.append(nb_det_dusk_corr[idx_day] - a)
 
-    LIGHTR = [nb_det_night_corr_norm, nb_det_day_corr_norm]
-    # LIGHTR = [nb_det_night_corr_norm, nb_det_dawn_corr_norm, nb_det_day_corr_norm, nb_det_dusk_corr_norm]
-    BoxName = ["Night", "Day"]
-    # BoxName = ['Night', 'Dawn', 'Day', 'Dusk']
+    light_regime = [nb_det_night_corr_norm, nb_det_day_corr_norm]
+    box_name = ["Night", "Day"]
 
-    lr = pd.DataFrame(LIGHTR, index=BoxName).transpose()
-
-    return lr
+    return pd.DataFrame(light_regime, index=box_name).transpose()

@@ -1,20 +1,23 @@
-import pandas as pd
-import numpy as np
 import bisect
-import astral
-from astral.sun import sun
 import csv
-import easygui
+import json
 from pathlib import Path
+
+import astral
+import easygui
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import yaml
+from OSmOSE.config import TIMESTAMP_FORMAT_AUDIO_FILE
+from OSmOSE.utils.audio_utils import is_supported_audio_format
+from OSmOSE.utils.timestamp_utils import strptime_from_text
+from astral.sun import sun
+from pandas import date_range, Timestamp, DateOffset
 from pandas.tseries.frequencies import to_offset
 from scipy.io import wavfile
 from scipy.signal import spectrogram
-import matplotlib.pyplot as plt
-import yaml
-
-from OSmOSE.utils.audio_utils import is_supported_audio_format
-from OSmOSE.utils.timestamp_utils import strptime_from_text
-from OSmOSE.config import TIMESTAMP_FORMAT_AUDIO_FILE
 
 
 def reshape_timebin(
@@ -569,7 +572,7 @@ def t_rounder(t: pd.Timestamp, res: int):
             else:
                 hour = 0
                 t += pd.Timedelta(days=1)
-        t = t.replace(hour=hour, minute=0, second=0, microsecond=0)
+                t = t.replace(hour=hour, minute=0, second=0, microsecond=0)
     elif res == 10:  # 10s
         second = t.second
         second = round(second / 10) * 10
@@ -865,7 +868,7 @@ def print_spectro_from_audio(
 
     Examples
     --------
-    audio_file = Path(r'path/to/file')
+    audio_file = Path(r"path\to\file")
     print_spectro_from_audio(audio_file)
     """
     if not is_supported_audio_format(file):
@@ -1008,3 +1011,145 @@ def add_weak_detection(
                     df.loc[len(df.index)] = new_line
 
     return df.sort_values("start_datetime").reset_index(drop=True)
+
+
+def json2df(json_path: Path):
+    """
+    Converts a metadatax json file into a DataFrame
+
+    Parameters
+    ----------
+    json_path: Path
+    """
+    with open(json_path, "r", encoding="utf-8") as f:
+        df = pd.json_normalize(json.load(f))
+        df["deployment_date"] = pd.to_datetime(df["deployment_date"])
+        df["recovery_date"] = pd.to_datetime(df["recovery_date"])
+
+    return df
+
+
+def add_season_period(ax: mpl.axes.Axes = None, bar_height: int = 10):
+    """
+    Adds a bar at the top of the plot to seasons.
+
+    Parameters
+    ----------
+    ax: mpl.axes.Axes
+        Figure plot
+
+    bar_height: int
+        Bar height in pixels
+    """
+    if not ax:
+        ax = plt.gca()
+
+    if not ax.has_data():
+        raise ValueError("Axes have no data")
+
+    bins = date_range(
+        start=(
+            Timestamp(ax.get_xlim()[0], unit="D").normalize() - DateOffset(months=1)
+        ).replace(day=1),
+        end=(
+            Timestamp(ax.get_xlim()[1], unit="D").normalize() + DateOffset(months=1)
+        ).replace(day=1),
+        freq="MS",
+    )
+
+    season_colors = {
+        "winter": "#2ce5e3",
+        "spring": "#4fcf50",
+        "summer": "#ffcf50",
+        "autumn": "#fb9a67",
+    }
+
+    bin_centers = [
+        (bins[i].timestamp() + bins[i + 1].timestamp()) / 2
+        for i in range(len(bins) - 1)
+    ]
+    bin_centers = [Timestamp(center, unit="s") for center in bin_centers]
+
+    bin_seasons = [get_season(bc).split()[0] for bc in bin_centers]
+    bar_height = set_bar_height(ax, bar_height)
+    bar_bottom = ax.get_ylim()[1] + (0.2 * bar_height)
+
+    for i, season in enumerate(bin_seasons):
+        ax.bar(
+            bin_centers[i],
+            height=bar_height,
+            bottom=bar_bottom,
+            width=(bins[i + 1] - bins[i]),
+            color=season_colors[season],
+            align="center",
+            zorder=3,
+            alpha=0.6,
+        )
+
+    plt.ylim(ax.dataLim.ymin, ax.dataLim.ymax)
+
+    return
+
+
+def set_bar_height(ax: mpl.axes.Axes = None, pixel_height: int = 10):
+    """
+    Converts pixel height to data coordinates
+
+    Parameters
+    ----------
+    ax: mpl.axes.Axes
+
+    pixel_height: int
+        in pixel
+    """
+    if not ax:
+        ax = plt.gca()
+
+    if not ax.has_data():
+        raise ValueError("Axes have no data")
+
+    display_to_data = ax.transData.inverted().transform
+    _, data_bottom = display_to_data((0, 0))  # Bottom of the axis
+    _, data_top = display_to_data((0, pixel_height))  # Top of the bar
+
+    return data_top - data_bottom  # Convert pixel height to data scale
+
+
+def add_recording_period(
+    df: pd.DataFrame, ax: mpl.axes.Axes = None, bar_height: int = 10
+):
+    """
+    Adds a bar at the bottom on plot to show recording periods.
+
+    Parameters
+    ----------
+    df: pd.DataFrame
+        Includes the recording campaign deployment and recovery dates (typically extracted from metadatax)
+
+    ax: mpl.axes.Axes
+
+    bar_height: int
+        Bar height in pixels
+    """
+    if not ax:
+        ax = plt.gca()
+
+    if not ax.has_data():
+        raise ValueError("Axes have no data")
+
+    recorder_intervals = [
+        (start, end - start)
+        for start, end in zip(df["deployment_date"], df["recovery_date"])
+    ]
+
+    bar_height = set_bar_height(ax=ax, pixel_height=bar_height)
+
+    ax.broken_barh(
+        recorder_intervals,
+        (ax.get_ylim()[0] - (1.2 * bar_height), bar_height),
+        facecolors="red",
+        alpha=0.6,
+    )
+    plt.ylim(ax.dataLim.ymin, ax.dataLim.ymax)
+
+    return
