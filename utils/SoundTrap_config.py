@@ -12,6 +12,3 @@ RECORDER_GAIN = {
     "7193": -174.6,
     "7194": -175.7,
 }
-
-# Specify what should be imported when using 'from SoundTrap import *'
-__all__ = ["RECORDER_GAIN"]
