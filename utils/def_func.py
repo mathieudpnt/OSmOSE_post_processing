@@ -1031,16 +1031,20 @@ def json2df(json_path: Path):
     return df
 
 
-def add_season_period(bar_height: int = 10):
+def add_season_period(ax : mpl.axes.Axes = None, bar_height: int = 10):
     """
     Adds a bar at the top of the plot to seasons.
 
     Parameters
     ----------
+    ax: mpl.axes.Axes
+        Figure plot
+
     bar_height: int
         Bar height in pixels
     """
-    ax = plt.gca()
+    if not ax:
+        ax = plt.gca()
 
     if not ax.has_data():
         raise ValueError("Axes have no data")
@@ -1062,7 +1066,7 @@ def add_season_period(bar_height: int = 10):
     bin_centers = [Timestamp(center, unit='s') for center in bin_centers]
 
     bin_seasons = [get_season(bc).split()[0] for bc in bin_centers]
-    bar_height = set_bar_height(bar_height)
+    bar_height = set_bar_height(ax, bar_height)
     bar_bottom = ax.get_ylim()[1] + (0.2 * bar_height)
 
     for i, season in enumerate(bin_seasons):
@@ -1082,16 +1086,19 @@ def add_season_period(bar_height: int = 10):
     return
 
 
-def set_bar_height(pixel_height: int = 10):
+def set_bar_height(ax : mpl.axes.Axes = None, pixel_height: int = 10):
     """
     Converts pixel height to data coordinates
 
     Parameters
     ----------
+    ax: mpl.axes.Axes
+
     pixel_height: int
         in pixel
     """
-    ax = plt.gca()
+    if not ax:
+        ax = plt.gca()
 
     if not ax.has_data():
         raise ValueError("Axes have no data")
@@ -1103,7 +1110,7 @@ def set_bar_height(pixel_height: int = 10):
     return data_top - data_bottom  # Convert pixel height to data scale
 
 
-def add_recording_period(df: pd.DataFrame, bar_height: int = 10):
+def add_recording_period(df: pd.DataFrame, ax : mpl.axes.Axes = None, bar_height: int = 10):
     """
     Adds a bar at the bottom on plot to show recording periods.
 
@@ -1112,10 +1119,13 @@ def add_recording_period(df: pd.DataFrame, bar_height: int = 10):
     df: pd.DataFrame
         Includes the recording campaign deployment and recovery dates (typically extracted from metadatax)
 
+    ax: mpl.axes.Axes
+
     bar_height: int
         Bar height in pixels
     """
-    ax = plt.gca()
+    if not ax:
+        ax = plt.gca()
 
     if not ax.has_data():
         raise ValueError("Axes have no data")
