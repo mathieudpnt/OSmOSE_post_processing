@@ -35,7 +35,7 @@ overview_plot(df=df_detections)
 plt.show()
 
 # %% Single seasonality plot
-single_plot(df=df_detections, metadata=metadatax, season_bar=True)
+single_plot(df=df_detections)
 add_season_period()  # add seasons to plot
 add_recording_period(metadatax)  # add recording periods
 plt.show()
