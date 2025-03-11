@@ -13,16 +13,17 @@ from trajectoryFda import TrajectoryFda
 
 
 def set_trajectory(nav: pd.DataFrame) -> TrajectoryFda:
-    """Create a trajectory object in order to track data
+    """
+    Creates a trajectory object in order to track data
 
     Parameters
     ----------
-    nav: navigation data with a GPS position and associated datetime
+    nav: DataFrame,
+        Navigation data with GPS positions and associated datetimes
 
     Returns
     -------
     TrajectoryFda object
-
     """
     traj = TrajectoryFda()
     for ix, row in tqdm(nav.iterrows(), total=len(nav), desc="Tracking data"):
@@ -35,17 +36,19 @@ def set_trajectory(nav: pd.DataFrame) -> TrajectoryFda:
 def get_loc_from_time(
     traj: TrajectoryFda, time_vector: list[int | float]
 ) -> (list[float], list[float], list[float]):
-    """Compute location for at a given datetime for a given trajectory
+    """
+    Computes location for at a given datetime for a given trajectory
 
     Parameters
     ----------
     traj: TrajectoryFda object
-    time_vector:  list of datetimes to associate a location to, in unix time
+
+    time_vector:  list
+        A list of datetimes to associate a location to, in unix time
 
     Returns
     -------
     (latitude, longitude, timestamp)
-
     """
     latitude, longitude, timestamp = [], [], []
     for ts in tqdm(time_vector):
@@ -60,14 +63,19 @@ def get_loc_from_time(
 def plot_detections_with_nav_data_single_label(
     df: pd.DataFrame, nav: pd.DataFrame, criterion: str, annotation: str
 ):
-    """Plot detections of one annotation type according to a navigation data criterion
+    """
+    Plots detections of one annotation type according to a navigation data criterion
 
     Parameters
     ----------
-    df: pd.DataFrame, APLOSE formatted detection file
-    nav: pd.DataFrame, navigation data comprised of criteria (latitude, longitude, depth...) and associated datetimes
-    criterion: user selected navigation parameter from nav (latitude, longitude, depth...)
-    annotation: user selected annotation from df
+    df: pd.DataFrame
+        APLOSE formatted detection file
+    nav: pd.DataFrame
+        navigation data comprised of criteria (latitude, longitude, depth...) and associated datetimes
+    criterion: string
+        User selected navigation parameter from nav (latitude, longitude, depth...)
+    annotation: string
+        User selected annotation from df
     """
     df_1label = df[(df["annotation"] == annotation) & (df["is_box"] == 0)]
 
@@ -110,17 +118,23 @@ def plot_detections_with_nav_data_single_label(
     plt.title(f"'{annotation}' detections")
     plt.tight_layout()
 
+    return
+
 
 def plot_detections_with_nav_data_all_labels(
     df: pd.DataFrame, nav: pd.DataFrame, criterion: str
 ):
-    """Plot detections of all annotation types according to a navigation data criterion
+    """
+    Plots detections of all annotation types according to a navigation data criterion
 
     Parameters
     ----------
-    df: pd.DataFrame, APLOSE formatted detection file
-    nav: pd.DataFrame, navigation data comprised of criteria (latitude, longitude, depth...) and associated datetimes
-    criterion: user selected navigation parameter from nav (latitude, longitude, depth...)
+    df: pd.DataFrame
+        APLOSE formatted detection file
+    nav: pd.DataFrame
+        Navigation data comprised of criteria (latitude, longitude, depth...) and associated datetimes
+    criterion: string
+        User selected navigation parameter from nav (latitude, longitude, depth...)
     """
     fig, ax = plt.subplots()
     labels = df["annotation"].unique()
@@ -174,6 +188,8 @@ def plot_detections_with_nav_data_all_labels(
     plt.ylabel(criterion)
     plt.tight_layout()
 
+    return
+
 
 def load_glider_nav(directory: Path):
     """Load the navigation data from glider output files in a specified directory.
@@ -183,8 +199,7 @@ def load_glider_nav(directory: Path):
     Parameters
     ----------
     directory : Path
-        The path to the directory containing the glider output files. This can
-        be provided as a string or a Path object.
+        The path to the directory containing the glider output files.
 
     Returns
     -------
@@ -265,8 +280,11 @@ def plot_nav_state(df: pd.DataFrame, npz: NpzFile):
 
     Parameters
     ----------
-    df: pd.DataFrame, glider navigation data
-    npz: npz file containing the LTAS matrix, its associated frequency and time vectors
+    df: pd.DataFrame
+        Glider navigation data
+
+    npz: NpzFile,
+        Npz file containing the LTAS matrix, its associated frequency and time vectors
     """
     f = npz["Freq"]
     sxx = npz["LTAS"]
@@ -302,6 +320,8 @@ def plot_nav_state(df: pd.DataFrame, npz: NpzFile):
 
     plt.tight_layout()
 
+    return
+
 
 def compute_acoustic_diversity(
     df: pd.DataFrame, nav: pd.DataFrame, time_vector: list[int | float]
@@ -310,14 +330,17 @@ def compute_acoustic_diversity(
 
     Parameters
     ----------
-    df: pd.DataFrame, APLOSE formatted result file
-    nav: pd.DataFrame, navigation data comprised of positions and associated timestamps
-    time_vector: list[int | float], list of timestamps used to check for annotations from df.
-    For APLOSE user, this vector can typically be constructed from corresponding task status files.
+    df: pd.DataFrame
+        APLOSE formatted result file
+    nav: pd.DataFrame
+        Navigation data comprised of positions and associated timestamps
+    time_vector: list[int | float]
+        List of timestamps used to check for annotations from df.
+        For APLOSE user, this vector can typically be constructed from corresponding task status files.
 
     Returns
     -------
-    df_acoustic_diversity: pd.DataFrame, DataFrame comprised of timestamps, associated position and acoustic diversity
+    DataFrame comprised of timestamps, associated position and acoustic diversity
     """
     # track_data: glider positions at every timestamp
     nav["Timestamp_unix"] = [ts.timestamp() for ts in nav["Timestamp"]]

@@ -1,4 +1,3 @@
-# Dict are easier to modify, namedtuple easier to use
 NAV_STATE = {
     100: "Going down",
     105: "Initializing",
@@ -16,5 +15,3 @@ NAV_STATE = {
 }
 
 SEA034_SENSITIVITY = -165
-# Specify what should be imported when using 'from glider_config import *'
-__all__ = ["NAV_STATE", "SEA034_SENSITIVITY"]
