@@ -213,7 +213,6 @@ def load_detections(
     result_df: pd.DataFrame
         A DataFrame corresponding to the selected filters and containing all the corresponding detections
     """
-    pd.read_csv(file)
     delimiter = find_delimiter(file)
 
     df = (
