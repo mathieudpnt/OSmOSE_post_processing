@@ -26,7 +26,7 @@ def fpod2aplose(
     bin_size: int
         Duration of the detections in seconds
 
-     Returns
+    Returns
     -------
     pd.DataFrame
         An APLOSE formatted DataFrame
