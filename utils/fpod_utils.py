@@ -88,6 +88,8 @@ def cpod2aplose(
     pd.DataFrame
         An APLOSE formatted DataFrame
     """
+    df = df.rename(columns={'ChunkEnd': 'Date heure'})
+    df.drop(df.loc[df['Date heure'] == ' at minute '].index, inplace=True) # Remove lines where the C-POD stopped working
     data = fpod2aplose(df,tz,dataset_name,annotation,bin_size)
     data['annotator'] = data.loc[data['annotator'] == 'FPOD'] = 'CPOD'
     if extra_columns:
