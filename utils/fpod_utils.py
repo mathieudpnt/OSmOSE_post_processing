@@ -53,6 +53,7 @@ def fpod2aplose(
         "annotator": ["FPOD"] * len(df),
         "start_datetime": [strftime_osmose_format(entry) for entry in fpod_start_dt],
         "end_datetime": [strftime_osmose_format(entry) for entry in fpod_end_dt],
+        "is_box": 0
     }
 
     return pd.DataFrame(data)
@@ -97,7 +98,7 @@ def cpod2aplose(
             if col in df.columns:
                 data[col] = df[col].tolist()
             else:
-                print(f"Avertissement : La colonne '{col}' n'existe pas dans df et sera ignorée.")
+                print(f"Warning : The column '{col}' does not exist and will be ignored.")
     return pd.DataFrame(data)
 
 
@@ -117,7 +118,7 @@ def meta_cut_aplose(
      Returns
     -------
     pd.DataFrame
-        An APLOSE formatted DataFrame with data from beginning to end of the deployement.
+        An APLOSE formatted DataFrame with data from beginning to end of each deployment.
         Returns the percentage of usable datas.
     """
     d_meta.loc[:,['deployment_date','recovery_date']] = d_meta[['deployment_date','recovery_date']].apply(pd.to_datetime)
@@ -146,5 +147,5 @@ def meta_cut_aplose(
         on = int(df.loc[df.MinsOn == 1, 'MinsOn'].count())
         percentage_on = percentage_data * (on/ len(df))
 
-    print(f"Pourcentage de données exploitables : {percentage_on}%")
+    print(f"Percentage of usable data : {percentage_on}%")
     return df
