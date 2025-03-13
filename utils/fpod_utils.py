@@ -53,7 +53,7 @@ def fpod2aplose(
         "annotator": ["FPOD"] * len(df),
         "start_datetime": [strftime_osmose_format(entry) for entry in fpod_start_dt],
         "end_datetime": [strftime_osmose_format(entry) for entry in fpod_end_dt],
-        "is_box": 0
+        "is_box": [0] * len(df)
     }
 
     return pd.DataFrame(data)
@@ -103,9 +103,9 @@ def cpod2aplose(
 
 
 def meta_cut_aplose(
-        d_meta:pd.DataFrame,
-        df:pd.DataFrame
-)-> pd.DataFrame:
+    d_meta:pd.DataFrame,
+    df:pd.DataFrame
+) -> pd.DataFrame:
     """
     From APLOSE formatted DataFrame with all rows to filtered DataFrame.
 
