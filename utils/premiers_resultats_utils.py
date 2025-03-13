@@ -770,12 +770,14 @@ def plot_detection_timeline(df: pd.DataFrame):
 
 
 def _map_datetimes_to_vector(df: pd.DataFrame, timestamps: [int]):
-    """Maps datetime ranges to a binary vector based on overlap with timestamp intervals.
+    """
+    Maps datetime ranges to a binary vector based on overlap with timestamp intervals.
 
     Parameters
     ----------
     df: pandas DataFrame
         APLOSE dataframe with detections
+
     timestamps: list of int
         unix timestamps
 
@@ -807,17 +809,24 @@ def _map_datetimes_to_vector(df: pd.DataFrame, timestamps: [int]):
 
 def get_detection_perf(
     df: pd.DataFrame,
+    timestamps: list[pd.Timestamp] = None,
     start: pd.Timestamp = None,
     stop: pd.Timestamp = None,
 ):
-    """Computes the detection performances of a reference annotator in comparison with a second annotator/detector
+    """
+    Computes the detection performances of a reference annotator in comparison with a second annotator/detector
 
     Parameters
     ----------
     df: pd.DataFrame
         APLOSE formatted detection/annotation DataFrame
+
+    timestamps: list[pd.Timestamp]
+        list of datetimes to base the computation on
+
     start: pd.Timestamp
         begin datetime, optional
+
     stop: pd.Timestamp
         end datetime, optional
     """
@@ -829,10 +838,14 @@ def get_detection_perf(
     if len(annotators) < 2:
         raise ValueError("At least 2 annotators needed")
 
-    timestamps = [
-        ts.timestamp()
-        for ts in pd.date_range(start=datetime_begin, end=datetime_end, freq=df_freq)
-    ]
+    if not timestamps:
+        timestamps = [
+            ts.timestamp()
+            for ts in pd.date_range(start=datetime_begin, end=datetime_end, freq=df_freq)
+        ]
+    else:
+        timestamps = [ts.timestamp() for ts in timestamps]
+
     if start and stop:
         if start > stop:
             raise ValueError(
