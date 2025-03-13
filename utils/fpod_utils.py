@@ -26,7 +26,7 @@ def fpod2aplose(
     bin_size: int
         Duration of the detections in seconds
 
-     Returns
+    Returns
     -------
     pd.DataFrame
         An APLOSE formatted DataFrame
@@ -84,7 +84,7 @@ def cpod2aplose(
     extra_columns: list, optional
         Additional columns added from df to data
 
-     Returns
+    Returns
     -------
     pd.DataFrame
         An APLOSE formatted DataFrame
@@ -115,7 +115,7 @@ def meta_cut_aplose(
         CPOD result dataframe
     d_meta: pd.DataFrame
         Metadata dataframe with deployments information (previously exported as json)
-     Returns
+    Returns
     -------
     pd.DataFrame
         An APLOSE formatted DataFrame with data from beginning to end of each deployment.
