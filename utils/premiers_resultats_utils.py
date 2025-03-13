@@ -780,21 +780,21 @@ def _map_datetimes_to_vector(df: pd.DataFrame, timestamps: [int]):
 
     timestamps: list of int
         unix timestamps
-
-    Returns
-    -------
-
     """
-    times_beg = sorted(list(set(x.timestamp() for x in df["start_datetime"])))
-    times_end = sorted(list(set(y.timestamp() for y in df["end_datetime"])))
+    detection_time_beg = sorted(list(set(x.timestamp() for x in df["start_datetime"])))
+    detection_time_end = sorted(list(set(y.timestamp() for y in df["end_datetime"])))
+
+    timebin = df["end_time"].iloc[0]
+    timestamp_beg = timestamps
+    timestamp_end = [ts + timebin for ts in timestamps]
 
     vec, ranks, k = np.zeros(len(timestamps), dtype=int), [], 0
-    for i in range(len(times_beg)):
+    for i in range(len(detection_time_beg)):
         for j in range(k, len(timestamps) - 1):
-            if int(times_beg[i] * 1e7) in range(
-                int(timestamps[j] * 1e7), int(timestamps[j + 1] * 1e7)
-            ) or int(times_end[i] * 1e7) in range(
-                int(timestamps[j] * 1e7), int(timestamps[j + 1] * 1e7)
+            if int(detection_time_beg[i] * 1e7) in range(
+                int(timestamp_beg[j] * 1e7), int(timestamp_end[j] * 1e7)
+            ) or int(detection_time_end[i] * 1e7) in range(
+                int(timestamp_beg[j] * 1e7), int(timestamp_end[j] * 1e7)
             ):
                 ranks.append(j)
                 k = j
