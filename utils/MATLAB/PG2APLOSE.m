@@ -21,33 +21,33 @@ wav_struct.datetime = convert_datetime(wav_struct.filename, info_deployment.dt_f
 % loop until valid inputs are provided or user cancels
 while true
     % prompt user for deployment date and time
-    deployment1_str = inputdlg('Date & time of deployment (dd MM yyyy HH mm ss):', prompt_title);
-    if isempty(deployment1_str)  % check if user cancels
+    deployment_start_str = inputdlg('Date & time of deployment (dd MM yyyy HH mm ss):', prompt_title);
+    if isempty(deployment_start_str)  % check if user cancels
         return;
     end
 
     % prompt user for recovery date and time
-    deployment2_str = inputdlg('Date & time of recovery (dd MM yyyy HH mm ss):', prompt_title);
-    if isempty(deployment2_str)  % check if user cancels
+    deployment_stop_str = inputdlg('Date & time of recovery (dd MM yyyy HH mm ss):', prompt_title);
+    if isempty(deployment_stop_str)  % check if user cancels
         return;
     end
 
     % convert input strings to datetime
-    deployment1 = datetime(string(deployment1_str), 'InputFormat', 'dd MM yyyy HH mm ss', ...
+    deployment_start = datetime(string(deployment_start_str), 'InputFormat', 'dd MM yyyy HH mm ss', ...
         'Format', 'yyyy-MM-dd''T''HH:mm:ss.SSSZ', 'TimeZone', info_deployment.timezone);
-    deployment2 = datetime(string(deployment2_str), 'InputFormat', 'dd MM yyyy HH mm ss', ...
+    deployment_stop = datetime(string(deployment_stop_str), 'InputFormat', 'dd MM yyyy HH mm ss', ...
         'Format', 'yyyy-MM-dd''T''HH:mm:ss.SSSZ', 'TimeZone', info_deployment.timezone);
 
     % validate inputs
-    if isempty(deployment1) || isempty(deployment2)
+    if isempty(deployment_start) || isempty(deployment_stop)
         errordlg('Please enter valid date and time values', 'Invalid Input', 'modal');
-    elseif deployment2 <= deployment1
+    elseif deployment_stop <= deployment_start
         errordlg('Recovery date and time must be after deployment date and time', 'Invalid Input', 'modal');
     else
         break;
     end
 end
-dt_deploy = [deployment1, deployment2];
+dt_deploy = [deployment_start, deployment_stop];
 
 % file selection based on previous user inputs
 idx_file{1} = find(wav_struct.datetime < min(binary_struct.datetime), 1, 'last');
@@ -86,7 +86,7 @@ end
 wav_struct.txt_filename = extractBefore(wav_struct.filename(1), '.wav');
 
 % importation of data
-[PG_Annotation_Raven,  PG_Annotation_Aplose] = importBinary(info_deployment, wav_struct, binary_struct, binary_path, dt_deploy);
+detection_table_aplose = importBinary(info_deployment, wav_struct, binary_struct, binary_path, dt_deploy);
 
 % name of file
 if isequal([year(wav_struct.datetime(1)), month(wav_struct.datetime(1)), day(wav_struct.datetime(1))],...
@@ -98,7 +98,7 @@ else
 end
 
 % export data as APLOSE csv file
-writetable(PG_Annotation_Aplose, strcat(fileparts(binary_path), strcat('\PG_rawdata_', PG_title_datestr, '.csv')))
+writetable(detection_table_aplose, strcat(fileparts(binary_path), strcat('\PG_rawdata_', PG_title_datestr, '.csv')))
 
 stop = datetime("now");
 elapsed_time = seconds(stop - start);
