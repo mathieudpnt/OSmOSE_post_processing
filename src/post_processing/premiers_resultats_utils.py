@@ -61,7 +61,7 @@ def load_parameters_from_yaml(file: Path) -> pd.DataFrame:
             dt.tz_convert("UTC") for dt in df_detections["end_datetime"]
         ]
 
-    return (df_detections.sort_values(by="start_datetime").reset_index(drop=True),)
+    return df_detections.sort_values(by="start_datetime").reset_index(drop=True)
 
 
 def select_reference(param: Iterable, param_str: str = "") -> str | int | float:
