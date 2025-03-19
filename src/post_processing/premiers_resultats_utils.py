@@ -23,18 +23,7 @@ from src.post_processing.def_func import (
 )
 
 
-def load_parameters_from_yaml(
-    file: Path,
-) -> (
-    pd.DataFrame,
-    list[int],
-    list[str],
-    list[str],
-    list[int],
-    pd.Timestamp,
-    pd.Timestamp,
-    list[datetime.timezone],
-):
+def load_parameters_from_yaml(file: Path) -> pd.DataFrame:
     """Load parameters from yaml.
 
     Parameters
