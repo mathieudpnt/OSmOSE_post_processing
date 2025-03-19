@@ -1,5 +1,5 @@
-import pandas as pd
 import pytz
+import pandas as pd
 from OSmOSE.utils.timestamp_utils import strftime_osmose_format, strptime_from_text
 
 
@@ -102,6 +102,51 @@ def cpod2aplose(
     return pd.DataFrame(data)
 
 
+def usable_data_phase(
+        d_meta: pd.DataFrame,
+        df: pd.DataFrame,
+        dpl: str,
+) -> pd.DataFrame:
+    """
+    Calculate the percentage of usable data considering the deployment dates and the collected datas.
+
+    Parameters
+    ----------
+    df: pd.DataFrame
+        CPOD result dataframe
+    d_meta: pd.DataFrame
+        Metadata dataframe with deployments information (previously exported as json)
+    dpl: str
+        Deployment of interest where percentage of usable data will be calculated.
+    Returns
+    -------
+    pd.DataFrame
+        Returns the percentage of usable datas in the chosen phase.
+    """
+    d_meta.loc[:, ['deployment_date', 'recovery_date']] = d_meta[['deployment_date', 'recovery_date']].apply(
+        pd.to_datetime)
+    df['start_datetime'] = pd.to_datetime(df['start_datetime'])
+
+    phase = d_meta.loc[d_meta['name'] == dpl].reset_index()
+    data = df.loc[df['name'] == dpl].reset_index()
+    start_date = phase.loc[0, 'deployment_date']
+    end_date = phase.loc[0, 'recovery_date']
+
+    # Calculate the percentage of collected data on the phase length of time
+    if data.empty:
+        percentage_data = 0
+        print("No data for this phase")
+    else:
+        df_end = data.loc[data.index[-1], 'start_datetime']
+        df_start = data.loc[data.index[0], 'start_datetime']
+        act_length = df_end - df_start
+        p_length = end_date - start_date
+        percentage_data = act_length * 100 / p_length
+
+    print(f"Percentage of usable data : {percentage_data}%")
+    return percentage_data
+
+
 def meta_cut_aplose(
     d_meta:pd.DataFrame,
     df:pd.DataFrame
@@ -149,3 +194,201 @@ def meta_cut_aplose(
 
     print(f"Percentage of usable data : {percentage_on}%")
     return df
+
+
+def format_calendar(path):
+    df = pd.read_excel(path)
+    df = df[df['Site group'] == 'Data'].copy()
+    df = df.rename(columns={'Start': 'start_datetime', 'Stop': 'end_datetime', 'Site': 'site.name'})
+    return df
+
+
+def dpm_to_dph(
+        df: pd.DataFrame,
+        tz: pytz.BaseTzInfo,
+        dataset_name: str,
+        annotation: str,
+        bin_size: int = 3600,
+        extra_columns : list = None,
+) -> pd.DataFrame:
+    """
+    From CPOD result DataFrame to APLOSE formatted DataFrame.
+
+    Parameters
+    ----------
+    df: pd.DataFrame
+        CPOD result dataframe
+    tz: pytz.BaseTzInfo
+        Timezone object to get non-naïve datetimes
+    dataset_name: str
+        dataset name
+    annotation: str
+        annotation name
+    bin_size: int
+        Duration of the detections in seconds
+    extra_columns: list, optional
+        Additional columns added from df to data
+
+    Returns
+    -------
+    pd.DataFrame
+        An APLOSE formatted DataFrame
+    """
+    df['start_datetime'] = pd.to_datetime(df['start_datetime'], utc=True)
+    df['end_datetime'] = pd.to_datetime(df['end_datetime'], utc=True)
+
+    # Truncate column
+    df['Date heure'] = df['start_datetime'].dt.floor('h')
+
+    # Group by hour
+    dph = df.groupby(['Date heure'])['DPM'].sum().reset_index()
+    dph['Date heure'] = dph['Date heure']. apply(lambda x: pd.Timestamp(x).strftime(format="%d/%m/%Y %H:%M:%S"))
+
+    return cpod2aplose(dph,tz,dataset_name,annotation,bin_size,extra_columns)
+
+
+def assign_phase(
+        meta: pd.DataFrame,
+        data: pd.DataFrame,
+        site: str,
+) -> pd.DataFrame:
+    """
+    Add a column to an Aplose dataframe to specify the name of the phase, according to metadata.
+
+    Parameters
+    ----------
+    meta: pd.DataFrame
+        Metadata dataframe with deployments information (previously exported as json).
+    data: pd.DataFrame
+        Dataframe containing positive hours to detections.
+    site: str
+        Name of the site you wish to assign phases to.
+
+    Returns
+    ----------
+    pd.DataFrame
+        The same dataframe with the column Phase.
+    """
+    data['start_datetime'] = pd.to_datetime(data['start_datetime'], utc=True)
+    meta['deployment_date'] = pd.to_datetime(meta['deployment_date'], utc=True)
+    meta['recovery_date'] = pd.to_datetime(meta['recovery_date'], utc=True)
+
+    meta = meta[meta['site.name'] == site].copy()
+
+    data['name'] = None
+    for i, meta_row in meta.iterrows():
+        j = 0
+        while j < len(data):
+            if meta_row["deployment_date"] <= data.at[j, "start_datetime"] < meta_row["recovery_date"]:
+                data.at[j, "name"] = meta_row["name"]
+            j += 1
+    return data
+
+
+def assign_phase_simple(
+        meta: pd.DataFrame,
+        data: pd.DataFrame,
+) -> pd.DataFrame:
+    """
+    Add a column to an Aplose dataframe to specify the name of the phase, according to metadata.
+
+    Parameters
+    ----------
+    meta: pd.DataFrame
+        Metadata dataframe with deployments information (previously exported as json).
+    data: pd.DataFrame
+        Dataframe containing positive hours to detections.
+
+    Returns
+    ----------
+    pd.DataFrame
+        The same dataframe with the column Phase.
+    """
+    data['start_datetime'] = pd.to_datetime(data['start_datetime'], utc=True)
+    meta['deployment_date'] = pd.to_datetime(meta['deployment_date'], utc=True)
+    meta['recovery_date'] = pd.to_datetime(meta['recovery_date'], utc=True)
+    meta['deployment_date'] = meta['deployment_date'].dt.floor('d')
+    meta['recovery_date'] = meta['recovery_date'].dt.floor('d')
+
+    data['name'] = None
+    for site in data['site.name'].unique():
+        site_meta = meta[meta['site.name'] == site]
+        site_data = data[data['site.name'] == site]
+
+        for i, meta_row in site_meta.iterrows():
+            time_filter = (meta_row['deployment_date'] <= site_data['start_datetime']) & (
+                        site_data['start_datetime'] < meta_row['recovery_date'])
+            data.loc[site_data.index[time_filter], 'name'] = meta_row['name']
+
+    return data
+
+
+def generate_hourly_detections(
+        meta: pd.DataFrame,
+        site: str):
+    """
+    Create a dataframe with one line per hour between start and end dates.
+    Keep the number of detections per hour between these dates.
+
+    Parameters
+    ----------
+    meta: pd.DataFrame
+        Metadata dataframe with deployments information (previously exported as json)
+    site: str
+        A way to isolate the site you want to work on.
+
+    Returns
+    ----------
+    pd.DataFrame
+        A full period of time with positive and negative hours to detections.
+    """
+    df_meta = meta[meta['site.name'] == site].copy()
+    df_meta['deployment_date'] = pd.to_datetime(df_meta['deployment_date'])
+    df_meta['recovery_date'] = pd.to_datetime(df_meta['recovery_date'])
+    df_meta['deployment_date'] = df_meta['deployment_date'].dt.floor('h')
+    df_meta['recovery_date'] = df_meta['recovery_date'].dt.floor('h')
+    df_meta = df_meta.sort_values(by=['deployment_date'])
+
+    records = []
+    for _, row in df_meta.iterrows():
+        name = row["name"]
+        period = pd.date_range(start=row["deployment_date"], end=row["recovery_date"], freq="h")
+        for date in period:
+            records.append({"name": name, "start_datetime": date})
+
+    return pd.DataFrame(records)
+
+
+def merging_tab(meta: pd.DataFrame,
+                data: pd.DataFrame):
+    """
+    Create a dataframe with one line per hour between start and end dates.
+    Keep the number of detections per hour between these dates.
+
+    Parameters
+    ----------
+    meta: pd.DataFrame
+        Metadata dataframe with deployments information (previously exported as json)
+    data: pd.DataFrame
+        Dataframe containing positive hours to detections.
+
+    Returns
+    ----------
+    pd.DataFrame
+        A full period of time with positive and negative hours to detections.
+    """
+    data['start_datetime'] = pd.to_datetime(data['start_datetime'], utc=True)
+    meta['start_datetime'] = pd.to_datetime(meta['start_datetime'], utc=True)
+
+    deploy_detec = data["name"].unique()
+    df_filtered = meta[meta["name"].isin(deploy_detec)]
+
+    output = df_filtered.merge(data[['name', 'start_datetime', 'DPM']],
+                               on=['name', 'start_datetime'],how="outer")
+    output['DPM'] = output['DPM'].fillna(0)
+
+    output['Day'] = output['start_datetime'].dt.day
+    output['Month'] = output['start_datetime'].dt.month
+    output['Year'] = output['start_datetime'].dt.year
+    output['hour'] = output['start_datetime'].dt.hour
+    return output
