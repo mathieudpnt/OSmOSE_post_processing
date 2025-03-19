@@ -5,18 +5,18 @@ from OSmOSE.utils.timestamp_utils import strftime_osmose_format, strptime_from_t
 
 def fpod2aplose(
     df: pd.DataFrame,
-    tz: pytz.BaseTzInfo,
+    tz: pytz.timezone,
     dataset_name: str,
     annotation: str,
     bin_size: int = 60,
 ) -> pd.DataFrame:
-    """From FPOD result DataFrame to APLOSE formatted DataFrame.
+    """Format FPOD DataFrame to match APLOSE format.
 
     Parameters
     ----------
     df: pd.DataFrame
         FPOD result dataframe
-    tz: pytz.BaseTzInfo
+    tz: pytz.timezone
         Timezone object to get non-naïve datetimes
     dataset_name: str
         dataset name
@@ -67,7 +67,7 @@ def cpod2aplose(
     bin_size: int = 60,
     extra_columns: list = None,
 ) -> pd.DataFrame:
-    """From CPOD result DataFrame to APLOSE formatted DataFrame.
+    """Format CPOD DataFrame to match APLOSE format.
 
     Parameters
     ----------
@@ -91,8 +91,8 @@ def cpod2aplose(
 
     """
     df = df.rename(columns={"ChunkEnd": "Date heure"})
-    df.drop(
-        df.loc[df["Date heure"] == " at minute "].index, inplace=True
+    df = df.drop(
+        df.loc[df["Date heure"] == " at minute "].index,
     )  # Remove lines where the C-POD stopped working
     data = fpod2aplose(df, tz, dataset_name, annotation, bin_size)
     data["annotator"] = data.loc[data["annotator"] == "FPOD"] = "CPOD"
@@ -102,7 +102,7 @@ def cpod2aplose(
                 data[col] = df[col].tolist()
             else:
                 print(
-                    f"Warning : The column '{col}' does not exist and will be ignored."
+                    f"Warning : The column '{col}' does not exist and will be ignored.",
                 )
     return pd.DataFrame(data)
 
@@ -131,7 +131,8 @@ def meta_cut_aplose(
         ["deployment_date", "recovery_date"]
     ].apply(pd.to_datetime)
     df["start_datetime"] = pd.to_datetime(
-        df["start_datetime"], format="%Y-%m-%dT%H:%M:%S.%f%z"
+        df["start_datetime"],
+        format="%Y-%m-%dT%H:%M:%S.%f%z",
     )
 
     # Add DPM column

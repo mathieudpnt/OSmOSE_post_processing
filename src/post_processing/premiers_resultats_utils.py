@@ -59,7 +59,8 @@ def load_parameters_from_yaml(
     df_detections = pd.DataFrame()
     for f in parameters:
         df_detections = pd.concat(
-            [df_detections, load_detections(**parameters[f])], ignore_index=True
+            [df_detections, load_detections(**parameters[f])],
+            ignore_index=True,
         )
 
     # converted to UTC in case of several timezones
@@ -460,7 +461,7 @@ def scatter_detections(
     elif resolution_x_ticks.base == "MS":
         ax.xaxis.set_major_locator(mdates.MonthLocator(interval=resolution_x_ticks.n))
     else:
-        msg = f"date locator not supported"
+        msg = "date locator not supported"
         raise ValueError(msg)
 
     date_formatter = mdates.DateFormatter(
@@ -539,7 +540,7 @@ def single_plot(df: pd.DataFrame) -> None:
     elif date_locator.name in ["MS", "ME", "BME", "BMS"]:
         ax.xaxis.set_major_locator(mdates.MonthLocator(interval=date_locator.n))
     else:
-        msg = f"date locator not supported"
+        msg = "date locator not supported"
         raise ValueError(msg)
 
     date_formatter = mdates.DateFormatter(
@@ -609,7 +610,7 @@ def multilabel_plot(df: pd.DataFrame) -> None:
         elif date_locator.name in ["MS", "ME", "BME", "BMS"]:
             ax[i].xaxis.set_major_locator(mdates.MonthLocator(interval=date_locator.n))
         else:
-            msg = f"date locator not supported"
+            msg = "date locator not supported"
             raise ValueError(msg)
 
         ax[i].xaxis.set_major_formatter(date_formatter)
@@ -708,7 +709,7 @@ def multiuser_plot(df: pd.DataFrame):
     elif date_locator.name in ["MS", "ME", "BME", "BMS"]:
         ax[0].xaxis.set_major_locator(mdates.MonthLocator(interval=date_locator.n))
     else:
-        msg = f"date locator not supported"
+        msg = "date locator not supported"
         raise ValueError(msg)
 
     date_formatter = mdates.DateFormatter(
