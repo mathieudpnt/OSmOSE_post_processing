@@ -1,4 +1,4 @@
-/utils/MATLAB/pgmatlab/
+/src/post_processing/MATLAB/pgmatlab/
 __pycache__/
-/utils/dataclass/
+/src/post_processing/dataclass/
 /.idea/

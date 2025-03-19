@@ -10,8 +10,7 @@ def fpod2aplose(
     annotation: str,
     bin_size: int = 60,
 ) -> pd.DataFrame:
-    """
-    From FPOD result DataFrame to APLOSE formatted DataFrame.
+    """From FPOD result DataFrame to APLOSE formatted DataFrame.
 
     Parameters
     ----------
@@ -30,16 +29,17 @@ def fpod2aplose(
     -------
     pd.DataFrame
         An APLOSE formatted DataFrame
+
     """
     fpod_start_dt = sorted(
         [
             tz.localize(strptime_from_text(entry, "%d/%m/%Y %H:%M"))
             for entry in df["Date heure"]
-        ]
+        ],
     )
 
     fpod_end_dt = sorted(
-        [entry + pd.Timedelta(seconds=bin_size) for entry in fpod_start_dt]
+        [entry + pd.Timedelta(seconds=bin_size) for entry in fpod_start_dt],
     )
 
     data = {
@@ -53,7 +53,7 @@ def fpod2aplose(
         "annotator": ["FPOD"] * len(df),
         "start_datetime": [strftime_osmose_format(entry) for entry in fpod_start_dt],
         "end_datetime": [strftime_osmose_format(entry) for entry in fpod_end_dt],
-        "is_box": [0] * len(df)
+        "is_box": [0] * len(df),
     }
 
     return pd.DataFrame(data)
@@ -66,8 +66,7 @@ def cpod2aplose(
     bin_size: int = 60,
     extra_columns: list = None,
 ) -> pd.DataFrame:
-    """
-    From CPOD result DataFrame to APLOSE formatted DataFrame.
+    """From CPOD result DataFrame to APLOSE formatted DataFrame.
 
     Parameters
     ----------
@@ -88,11 +87,12 @@ def cpod2aplose(
     -------
     pd.DataFrame
         An APLOSE formatted DataFrame
+
     """
-    df = df.rename(columns={'ChunkEnd': 'Date heure'})
-    df.drop(df.loc[df['Date heure'] == ' at minute '].index, inplace=True) # Remove lines where the C-POD stopped working
+    df = df.rename(columns={"ChunkEnd": "Date heure"})
+    df.drop(df.loc[df["Date heure"] == " at minute "].index, inplace=True) # Remove lines where the C-POD stopped working
     data = fpod2aplose(df,tz,dataset_name,annotation,bin_size)
-    data['annotator'] = data.loc[data['annotator'] == 'FPOD'] = 'CPOD'
+    data["annotator"] = data.loc[data["annotator"] == "FPOD"] = "CPOD"
     if extra_columns:
         for col in extra_columns:
             if col in df.columns:
@@ -149,10 +149,9 @@ def usable_data_phase(
 
 def meta_cut_aplose(
     d_meta:pd.DataFrame,
-    df:pd.DataFrame
+    df:pd.DataFrame,
 ) -> pd.DataFrame:
-    """
-    From APLOSE formatted DataFrame with all rows to filtered DataFrame.
+    """From APLOSE formatted DataFrame with all rows to filtered DataFrame.
 
     Parameters
     ----------
@@ -160,36 +159,38 @@ def meta_cut_aplose(
         CPOD result dataframe
     d_meta: pd.DataFrame
         Metadata dataframe with deployments information (previously exported as json)
+
     Returns
     -------
     pd.DataFrame
         An APLOSE formatted DataFrame with data from beginning to end of each deployment.
         Returns the percentage of usable datas.
+
     """
-    d_meta.loc[:,['deployment_date','recovery_date']] = d_meta[['deployment_date','recovery_date']].apply(pd.to_datetime)
-    df['start_datetime'] = pd.to_datetime(df['start_datetime'], format="%Y-%m-%dT%H:%M:%S.%f%z")
+    d_meta.loc[:,["deployment_date","recovery_date"]] = d_meta[["deployment_date","recovery_date"]].apply(pd.to_datetime)
+    df["start_datetime"] = pd.to_datetime(df["start_datetime"], format="%Y-%m-%dT%H:%M:%S.%f%z")
 
     # Add DPM column
-    df['DPM'] = (df['Nfiltered']>0).astype(int)
+    df["DPM"] = (df["Nfiltered"]>0).astype(int)
 
     # Extract corresponding line
-    campaign = df.iloc[0]['dataset']
-    phase = d_meta.loc[d_meta['name'] == campaign].reset_index()
-    start_date = phase.loc[0, 'deployment_date']
-    end_date = phase.loc[0, 'recovery_date']
-    df = df[(df['start_datetime'] >= start_date) & (df['start_datetime'] <= end_date)].copy()
+    campaign = df.iloc[0]["dataset"]
+    phase = d_meta.loc[d_meta["name"] == campaign].reset_index()
+    start_date = phase.loc[0, "deployment_date"]
+    end_date = phase.loc[0, "recovery_date"]
+    df = df[(df["start_datetime"] >= start_date) & (df["start_datetime"] <= end_date)].copy()
 
     # Calculate the percentage of collected data on the phase length of time
     if df.empty:
         percentage_on = 0
         print("No data for this phase")
     else:
-        df_end = df.loc[df.index[-1], 'start_datetime']
-        df_start = df.loc[df.index[0], 'start_datetime']
+        df_end = df.loc[df.index[-1], "start_datetime"]
+        df_start = df.loc[df.index[0], "start_datetime"]
         act_length = df_end - df_start
         p_length = end_date - start_date
         percentage_data = act_length * 100 / p_length
-        on = int(df.loc[df.MinsOn == 1, 'MinsOn'].count())
+        on = int(df.loc[df.MinsOn == 1, "MinsOn"].count())
         percentage_on = percentage_data * (on/ len(df))
 
     print(f"Percentage of usable data : {percentage_on}%")

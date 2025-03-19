@@ -2,9 +2,9 @@ from pathlib import Path
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
-from def_func import get_coordinates, json2df, add_season_period, add_recording_period
+from src.post_processing.def_func import get_coordinates, json2df, add_season_period, add_recording_period
 
-from premiers_resultats_utils import (
+from src.post_processing.premiers_resultats_utils import (
     load_parameters_from_yaml,
     scatter_detections,
     plot_hourly_detection_rate,

@@ -10,9 +10,9 @@ info_deploy.annotation = 'ANNOTATION_NAME';
 info_deploy.dataset = 'DATASET_NAME';
 info_deploy.timezone = '+00:00';
 % info_deploy.dt_format = 'yyyyMMdd''T''HHmmss'; % MIRACETI filename format
-% info_deploy.dt_format = 'yyyyMMddHHmmss'; % SoundTrap filename format
+% info_deploy.dt_format = 'yyMMddHHmmss'; % SoundTrap filename format
 % info_deploy.dt_format = 'yyyy-MM-dd_HH-mm-ss'; % Sylence filename format
-info_deploy.dt_format = 'yyyy''y''MM''m''dd''d''_HH''h''mm''m''ss''s'''; % DORI filename format
+% info_deploy.dt_format = 'yyyy''y''MM''m''dd''d''_HH''h''mm''m''ss''s'''; % DORI filename format
 
 % get wav files
 %%% mode 'folder': the wav files are located on different folders
@@ -20,7 +20,8 @@ info_deploy.dt_format = 'yyyy''y''MM''m''dd''d''_HH''h''mm''m''ss''s'''; % DORI 
 % mode = 'file';
 mode = 'folder';
 
-base_folder = 'L:\acoustock3\Bioacoustique';
+% path to start-location for the following pop-up menu
+base_folder = 'L:\acoustock\Bioacoustique';
 
 if isequal(mode, 'file')
     msg = sprintf('%s - select waves', info_deploy.dataset);
@@ -31,7 +32,6 @@ if isequal(mode, 'file')
 elseif isequal(mode, 'folder')
     msg = sprintf('%s - select wav folders', info_deploy.dataset);
     folder_wav = uigetdir2(base_folder, msg);
-%     wav_dir = cellfun(@dir, fullfile(folder_wav, '**/*.wav'));
     wav_dir = cellfun(@dir, fullfile(folder_wav, '**/*.wav'), 'UniformOutput', false);
     wav_dir = vertcat(wav_dir{:})';
 end

@@ -1,4 +1,5 @@
 from pathlib import Path
+
 import numpy as np
 import soundfile as sf
 
@@ -12,6 +13,7 @@ def normalize_audio(file: Path, output_folder: Path = None):
         The path of the audio file to normalize
     output_folder : Path
         The path to output destination
+
     """
     try:
         data, fs = sf.read(file)
@@ -42,7 +44,6 @@ def normalize_audio(file: Path, output_folder: Path = None):
 
     print(f"File '{new_fn}' exported in '{file.parent}'")
 
-    return
 
 
 def create_raven_file_list(directory: Path):
@@ -52,6 +53,7 @@ def create_raven_file_list(directory: Path):
     Parameters
     ----------
     directory: Path to the folder containing all audio data
+
     """
     # get file list
     files = list(directory.glob(r"*\*.wav"))
@@ -64,4 +66,3 @@ def create_raven_file_list(directory: Path):
 
     print(f"File list saved in '{directory}'")
 
-    return

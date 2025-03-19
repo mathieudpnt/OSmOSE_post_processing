@@ -3,8 +3,7 @@ from OSmOSE.utils.timestamp_utils import strptime_from_text
 
 
 def clean_pamguard_false_detection(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Cleans PAMGuard whistle and moan detector first detection of each audio file (might be very specific to Sylence data).
+    """Cleans PAMGuard whistle and moan detector first detection of each audio file (might be very specific to Sylence data).
     This is because the first detection on each audio file corresponds to the detection of an electronic buzz made by the recorder.
 
     The first detection in each audio file seem to be caused by an electronic buzz produced
@@ -20,6 +19,7 @@ def clean_pamguard_false_detection(df: pd.DataFrame) -> pd.DataFrame:
     -------
     pd.DataFrame
         A cleaned DataFrame with false detections removed.
+
     """
     filenames = df["filename"]
     tz_data = df["start_datetime"][0].tz
@@ -33,7 +33,7 @@ def clean_pamguard_false_detection(df: pd.DataFrame) -> pd.DataFrame:
     # compare date of filename detection and date of detection
     # and delete all lines for which the detection happens in the 5 first seconds of the file
     idx_false_detections = []
-    for i in range(0, len(start_datetimes)):
+    for i in range(len(start_datetimes)):
         d = (start_datetimes[i] - filename_datetimes[i]).total_seconds()
         if d < 5:
             idx_false_detections.append(i)
