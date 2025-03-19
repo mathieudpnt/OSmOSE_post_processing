@@ -2,12 +2,12 @@ import pytz
 import pandas as pd
 from pathlib import Path
 
-from fpod_utils import format_calendar, assign_phase_simple
-from utils.fpod_utils import usable_data_phase, dpm_to_dph, assign_phase, generate_hourly_detections, merging_tab
+from src.post_processing.fpod_utils import format_calendar, assign_phase_simple
+from src.post_processing.fpod_utils import usable_data_phase, dpm_to_dph, assign_phase, generate_hourly_detections, merging_tab
 
-from def_func import json2df
+from src.post_processing.def_func import json2df
 
-from premiers_resultats_utils import (
+from src.post_processing.premiers_resultats_utils import (
     load_parameters_from_yaml,
 )
 
