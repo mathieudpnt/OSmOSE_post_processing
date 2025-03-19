@@ -128,13 +128,20 @@ class TrajectoryFda:
         # 1ère étape: initialisation, si aucune fonction n'est définie
         if self.longitudeResultArray.size == 0:
             tdeb, tfin, f, nbPoints = self.processFunctionResearch(
-                self.timestamp, self.longitude, self.epsilon, 1000, self.degree,
+                self.timestamp,
+                self.longitude,
+                self.epsilon,
+                1000,
+                self.degree,
             )
             self.addNewLongitudeFunction(tdeb, tfin, f, nbPoints)
 
         # une fois calculée, on doit vérifier si les points fittent bien, qu'on a pas trop d'erreurs
         iiFirstErr, nbErr = self.controlErreurs(
-            self.timestamp, self.longitude, self.longitudeResultArray[-1], self.epsilon,
+            self.timestamp,
+            self.longitude,
+            self.longitudeResultArray[-1],
+            self.epsilon,
         )
         # si à la vérification on constate que le nouveau point dépasse la tolérance
         if nbErr > 0:
@@ -157,7 +164,11 @@ class TrajectoryFda:
             else:
                 # on part à la recherche du nouveau tronçon
                 tdeb, tfin2, f, nbPoints = self.processFunctionResearch(
-                    self.timestamp, self.longitude, self.epsilon, tfin, 1,
+                    self.timestamp,
+                    self.longitude,
+                    self.epsilon,
+                    tfin,
+                    1,
                 )
 
                 self.addNewLongitudeFunction(min(tdeb, tfin), tfin2, f, nbPoints)
@@ -184,7 +195,10 @@ class TrajectoryFda:
 
         # une fois calculée, on doit vérifier si les points fittent bien, qu'on a pas trop d'erreurs
         iiFirstErr, nbErr = self.controlErreurs(
-            self.timestamp, self.latitude, self.latitudeResultArray[-1], self.epsilon,
+            self.timestamp,
+            self.latitude,
+            self.latitudeResultArray[-1],
+            self.epsilon,
         )
         # si à la vérification on constate que le nouveau point dépasse la tolérance
         if nbErr > 0:
@@ -207,7 +221,11 @@ class TrajectoryFda:
             else:
                 # on part à la recherche du nouveau tronçon
                 tdeb, tfin2, f, nbPoints = self.processFunctionResearch(
-                    self.timestamp, self.latitude, self.epsilon, tfin, 1,
+                    self.timestamp,
+                    self.latitude,
+                    self.epsilon,
+                    tfin,
+                    1,
                 )
                 self.addNewLatitudeFunction(min(tdeb, tfin), tfin2, f, nbPoints)
 
@@ -234,7 +252,12 @@ class TrajectoryFda:
 
     # processus de recherche de fonction
     def processFunctionResearch(
-        self, input_time, input_position, epsilon_position, gap_max, degree,
+        self,
+        input_time,
+        input_position,
+        epsilon_position,
+        gap_max,
+        degree,
     ):
         deg = degree
         # nombre de points à notre disposition en input
@@ -262,7 +285,9 @@ class TrajectoryFda:
         nbPointsCompressed = len(input_time[element2process])
 
         f = np.polyfit(
-            input_time[element2process], input_position[element2process], deg,
+            input_time[element2process],
+            input_position[element2process],
+            deg,
         )
 
         result_f = np.zeros(4 - deg - 1)
@@ -296,10 +321,14 @@ class TrajectoryFda:
             self.latitude = self.latitude[ii2keep[0]]
             self.longitude = self.longitude[ii2keep[0]]
 
-
     # processus de recherche de fonction
     def processFunctionResearchMaj(
-        self, input_time, input_position, epsilon_position, timestampDebut, degree,
+        self,
+        input_time,
+        input_position,
+        epsilon_position,
+        timestampDebut,
+        degree,
     ):
         ideb = np.where(input_time >= timestampDebut)
 

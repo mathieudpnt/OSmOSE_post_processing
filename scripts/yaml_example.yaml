@@ -25,7 +25,7 @@
   # user selection
   'user_sel': all
   # f_min filter
-  'fmin_filter': null
+  'f_min': null
   # f_max filter
-  'fmax_filter': null
+  'f_max': null
 #########################################

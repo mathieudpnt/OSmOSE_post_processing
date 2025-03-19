@@ -7,12 +7,12 @@ import astral
 import easygui
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-from matplotlib.axes import Axes
 import numpy as np
 import pandas as pd
 import soundfile as sf
 import yaml
 from astral.sun import sun
+from matplotlib.axes import Axes
 from OSmOSE.config import TIMESTAMP_FORMAT_AUDIO_FILE
 from OSmOSE.utils.audio_utils import is_supported_audio_format
 from OSmOSE.utils.timestamp_utils import strptime_from_text
@@ -43,11 +43,11 @@ def reshape_timebin(
         The reshaped DataFrame
 
     """
-    df = df.sort_values("start_datetime").reset_index(drop=True)
-    annotators = df["annotator"].drop_duplicates().to_list()
-    labels = df["annotation"].drop_duplicates().to_list()
-    max_freq = int(max(df["end_frequency"]))
-    tz_data = df["start_datetime"][0].tz
+    df_sorted = df.sort_values("start_datetime").reset_index(drop=True)
+    annotators = df_sorted["annotator"].drop_duplicates().to_list()
+    labels = df_sorted["annotation"].drop_duplicates().to_list()
+    max_freq = int(max(df_sorted["end_frequency"]))
+    tz_data = df_sorted["start_datetime"][0].tz
 
     if not timebin_new:
         timebin_new = get_duration(
@@ -62,8 +62,9 @@ def reshape_timebin(
     df_new_timebin = pd.DataFrame()
     for annotator in annotators:
         for label in labels:
-            df_1annot_1label = df[
-                (df["annotator"] == annotator) & (df["annotation"] == label)
+            df_1annot_1label = df_sorted[
+                (df_sorted["annotator"] == annotator)
+                & (df_sorted["annotation"] == label)
             ]
 
             if len(df_1annot_1label) == 0:
@@ -138,7 +139,9 @@ def reshape_timebin(
                     )
                     end_datetime.append(
                         pd.Timestamp(
-                            time_vector[i] + timebin_new, unit="s", tz=tz_data
+                            time_vector[i] + timebin_new,
+                            unit="s",
+                            tz=tz_data,
                         ),
                     )
                     filename.append(filename_vector[i])
@@ -176,11 +179,12 @@ def load_detections(
     datetime_end: pd.Timestamp = None,
     annotator: str | None = None,
     annotation: str | None = None,
-    box: bool = False,
     timestamp_file: str | None = None,
     user_sel: str = "all",
     f_min: int | None = None,
     f_max: int | None = None,
+    *,
+    box: bool = False,
 ) -> pd.DataFrame:
     """Load and filter an APLOSE-formatted detection file.
 
@@ -233,28 +237,28 @@ def load_detections(
     """
     delimiter = find_delimiter(file)
 
-    df = (
+    df_loaded = (
         pd.read_csv(file, sep=delimiter, parse_dates=["start_datetime", "end_datetime"])
         .sort_values("start_datetime")
         .reset_index(drop=True)
     )
 
-    df = df.dropna(subset=["annotation"])  # drop lines with only comments
+    df_loaded = df_loaded.dropna(subset=["annotation"])  # drop lines with only comments
 
-    list_annotators = df["annotator"].drop_duplicates().to_list()
-    list_labels = df["annotation"].drop_duplicates().to_list()
-    max_freq = int(max(df["end_frequency"]))
-    max_time = int(max(df["end_time"]))
+    list_annotators = df_loaded["annotator"].drop_duplicates().to_list()
+    list_labels = df_loaded["annotation"].drop_duplicates().to_list()
+    max_freq = int(max(df_loaded["end_frequency"]))
+    max_time = int(max(df_loaded["end_time"]))
 
     if datetime_begin:
-        df = df[df["start_datetime"] >= datetime_begin]
-        if len(df) == 0:
+        df_loaded = df_loaded[df_loaded["start_datetime"] >= datetime_begin]
+        if len(df_loaded) == 0:
             msg = f"No detection found after '{datetime_begin}', upload aborted"
             raise ValueError(msg)
 
     if datetime_end:
-        df = df[df["end_datetime"] <= datetime_end]
-        if len(df) == 0:
+        df_loaded = df_loaded[df_loaded["end_datetime"] <= datetime_end]
+        if len(df_loaded) == 0:
             msg = f"No detection found before '{datetime_end}', upload aborted"
             raise ValueError(msg)
 
@@ -266,13 +270,13 @@ def load_detections(
                     f"'{invalid_annotators}' not present in annotators, upload aborted"
                 )
                 raise ValueError(msg)
-            df = df.loc[df["annotator"].isin(annotator)]
+            df_loaded = df_loaded.loc[df_loaded["annotator"].isin(annotator)]
             list_annotators = annotator
         else:
             if annotator not in list_annotators:
                 msg = f"'{annotator}' not present in annotators, upload aborted"
                 raise ValueError(msg)
-            df = df.loc[df["annotator"] == annotator]
+            df_loaded = df_loaded.loc[df_loaded["annotator"] == annotator]
             list_annotators = [annotator]
 
     if annotation:
@@ -281,29 +285,29 @@ def load_detections(
             if invalid_annotations:
                 msg = f"'{invalid_annotations}' not present in labels, upload aborted"
                 raise ValueError(msg)
-            df = df.loc[df["annotation"].isin(annotation)]
+            df_loaded = df_loaded.loc[df_loaded["annotation"].isin(annotation)]
         else:
             if annotation not in list_labels:
                 msg = f"'{annotation}' not present in labels, upload aborted"
                 raise ValueError(msg)
-            df = df.loc[df["annotation"] == annotation]
+            df_loaded = df_loaded.loc[df_loaded["annotation"] == annotation]
 
     if f_min:
-        df = df[df["start_frequency"] >= f_min]
-        if len(df) == 0:
+        df_loaded = df_loaded[df_loaded["start_frequency"] >= f_min]
+        if len(df_loaded) == 0:
             msg = f"No detection found above {f_min}Hz, upload aborted"
             raise ValueError(msg)
 
     if f_max:
-        df = df[df["end_frequency"] <= f_max]
-        if len(df) == 0:
+        df_loaded = df_loaded[df_loaded["end_frequency"] <= f_max]
+        if len(df_loaded) == 0:
             msg = f"No detection found below {f_max}Hz, upload aborted"
             raise ValueError(msg)
 
-    df_no_box = df.loc[
-        (df["start_time"] == 0)
-        & (df["end_time"] == max_time)
-        & (df["end_frequency"] == max_freq)
+    df_no_box = df_loaded.loc[
+        (df_loaded["start_time"] == 0)
+        & (df_loaded["end_time"] == max_time)
+        & (df_loaded["end_frequency"] == max_freq)
     ]
 
     if not box:
@@ -317,18 +321,18 @@ def load_detections(
             else:
                 timestamp = None
 
-            df = reshape_timebin(
-                df=df,
+            df_loaded = reshape_timebin(
+                df=df_loaded,
                 timebin_new=timebin_new,
                 timestamp=timestamp,
             )
         else:
-            df = df_no_box
+            df_loaded = df_no_box
 
     if len(list_annotators) > 1 and user_sel in ["union", "intersection"]:
-        df = intersection_or_union(df=df, user_sel=user_sel)
+        df_loaded = intersection_or_union(df=df_loaded, user_sel=user_sel)
 
-    return df.sort_values("start_datetime").reset_index(drop=True)
+    return df_loaded.sort_values("start_datetime").reset_index(drop=True)
 
 
 def intersection_or_union(df: pd.DataFrame, user_sel: str) -> pd.DataFrame:
@@ -560,10 +564,10 @@ def find_delimiter(file: str | Path) -> str:
         return delimiter
 
 
-def t_rounder(t: pd.Timestamp, res: int):
+def t_rounder(t: pd.Timestamp, res: int) -> pd.Timestamp:
     """Round a Timestamp according to the user specified resolution.
 
-    Possible values : 10s / 1min / 10min / 1h / 24h
+    Possible values: 10s / 1min / 10min / 1h / 24h
 
     Parameters
     ----------
@@ -627,13 +631,14 @@ def get_season(ts: pd.Timestamp) -> str:
     """Determine the meteorological season in the Northern Hemisphere.
 
     Winter is defined as timestamps from December to February,
-    spring from March to May,
+    Spring from March to May,
     Summer from June to August,
     Autumn from September to November.
 
     Parameters
     ----------
     ts: pd.Timestamp
+        Considered datetime
 
     Returns
     -------
@@ -641,7 +646,7 @@ def get_season(ts: pd.Timestamp) -> str:
 
     Example:
     -------
-    get_season(pd.Timestamp("01/01/2023"))
+    >>> get_season(pd.Timestamp("01/01/2023"))
 
     """
     winter = [1, 2, 12]
@@ -711,7 +716,7 @@ def suntime_hour(
     tz = start.tz
 
     # localisation info
-    gps = astral.LocationInfo(timezone=tz, latitude=lat, longitude=lon)
+    gps = astral.LocationInfo(latitude=lat, longitude=lon, timezone=tz)
 
     # List of days during when the data were recorded
     h_sunrise, h_sunset, dt_dusk, dt_dawn, dt_day, dt_night = [], [], [], [], [], []
@@ -721,7 +726,7 @@ def suntime_hour(
         ts.date() for ts in pd.date_range(start.normalize(), stop.normalize(), freq="D")
     ]:
         # nautical twilight = 12, see def here : https://www.timeanddate.com/astronomy/nautical-twilight.html
-        suntime = sun(gps.observer, date=date, dawn_dusk_depression=12)
+        suntime = sun(gps.observer, date=date, dawn_dusk_depression=12, tzinfo=tz)
         dawn, day, _, dusk, night = [
             pd.Timestamp(suntime[period]).tz_convert(tz) for period in suntime
         ]
@@ -746,6 +751,9 @@ def get_coordinates() -> tuple:
     field_names = ["lat decimal degree", "lon decimal degree"]
     field_values = easygui.multenterbox(msg, title, field_names)
 
+    max_lat = 90
+    max_lon = 180
+
     # make sure that none of the fields was left blank
     while True:
         if field_values is None:
@@ -756,7 +764,7 @@ def get_coordinates() -> tuple:
         errmsg = ""
         try:
             lat_val = float(lat.strip())  # Convert to float for latitude
-            if lat_val < -90 or lat_val > 90:
+            if lat_val < -max_lat or lat_val > max_lat:
                 errmsg += (
                     f"'{lat}' is not a valid latitude. It must be between -90 and 90.\n"
                 )
@@ -765,7 +773,7 @@ def get_coordinates() -> tuple:
 
         try:
             lon_val = float(lon.strip())  # Convert to float for longitude
-            if lon_val < -180 or lon_val > 180:
+            if lon_val < -max_lon or lon_val > max_lon:
                 errmsg += (
                     f"'lon', invalid entry: '{lon}'. It must be between -180 and 180.\n"
                 )
@@ -821,7 +829,8 @@ def get_duration(
 
     while True:
         if value is None:
-            raise TypeError("'get_duration()' was cancelled")
+            msg = "'get_duration()' was cancelled"
+            raise TypeError(msg)
 
         errmsg = ""
         try:
@@ -897,6 +906,7 @@ def print_spectro_from_audio(
     nfft: int = 1024,
     window_size: int = 1024,
     overlap: int = 20,
+    *,
     ax: bool = True,
 ) -> tuple:
     """Compute and prints a spectrogram from an audio file.
@@ -978,13 +988,16 @@ def print_spectro_from_audio(
     return size_x, size_y
 
 
-def print_spectro_from_npz(file: Path, ax: bool = True):
+def print_spectro_from_npz(file: Path, *, ax: bool = True) -> None:
     """Compute and prints a spectrogram from a npz file.
 
     Parameters
     ----------
-    file: Path to the npz file
-    ax: bool, show axes based on this value
+    file: Path
+        to the npz file
+
+    ax: bool
+        show axes based on this value
 
     Examples
     --------
@@ -1028,7 +1041,7 @@ def add_weak_detection(
     file: Path,
     datetime_format: str = TIMESTAMP_FORMAT_AUDIO_FILE,
 ) -> pd.DataFrame:
-    """Add weak detection lines to APLOSE formatted DataFrame with only strong detections.
+    """Add weak detections APLOSE formatted DataFrame with only strong detections.
 
     Parameters
     ----------
@@ -1038,25 +1051,29 @@ def add_weak_detection(
         A string corresponding to the datetime format in the `filename` column
 
     """
-    df = load_detections(file=file, box=True)
-    annotators = df["annotator"].drop_duplicates().tolist()
-    labels = df["annotation"].drop_duplicates().tolist()
-    max_freq = int(max(df["end_frequency"]))
-    max_time = int(max(df["end_time"]))
-    dataset_id = df["dataset"][0]
-    tz = df["start_datetime"].iloc[0].tz
+    df_weak_only = load_detections(file=file, box=True)
+    annotators = df_weak_only["annotator"].drop_duplicates().tolist()
+    labels = df_weak_only["annotation"].drop_duplicates().tolist()
+    max_freq = int(max(df_weak_only["end_frequency"]))
+    max_time = int(max(df_weak_only["end_time"]))
+    dataset_id = df_weak_only["dataset"][0]
+    tz = df_weak_only["start_datetime"].iloc[0].tz
 
     for annotator in annotators:
         for label in labels:
             filenames = (
-                df[(df["annotator"] == annotator) & (df["annotation"] == label)][
-                    "filename"
-                ]
+                df_weak_only[
+                    (df_weak_only["annotator"] == annotator)
+                    & (df_weak_only["annotation"] == label)
+                ]["filename"]
                 .drop_duplicates()
                 .tolist()
             )
             for f in filenames:
-                test = df[(df["filename"] == f) & (df["annotation"] == label)]["is_box"]
+                test = df_weak_only[
+                    (df_weak_only["filename"] == f)
+                    & (df_weak_only["annotation"] == label)
+                ]["is_box"]
                 if test.any():
                     start_datetime = strptime_from_text(
                         text=f,
@@ -1076,9 +1093,9 @@ def add_weak_detection(
                         end_datetime,
                         0,
                     ]
-                    df.loc[len(df.index)] = new_line
+                    df_weak_only.loc[len(df_weak_only.index)] = new_line
 
-    return df.sort_values("start_datetime").reset_index(drop=True)
+    return df_weak_only.sort_values("start_datetime").reset_index(drop=True)
 
 
 def json2df(json_path: Path) -> pd.DataFrame:
@@ -1092,7 +1109,9 @@ def json2df(json_path: Path) -> pd.DataFrame:
     """
     with json_path.open(encoding="utf-8") as f:
         metadatax_df = pd.json_normalize(json.load(f))
-        metadatax_df["deployment_date"] = pd.to_datetime(metadatax_df["deployment_date"])
+        metadatax_df["deployment_date"] = pd.to_datetime(
+            metadatax_df["deployment_date"],
+        )
         metadatax_df["recovery_date"] = pd.to_datetime(metadatax_df["recovery_date"])
 
     return metadatax_df

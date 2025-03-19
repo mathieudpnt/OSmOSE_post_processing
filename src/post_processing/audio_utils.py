@@ -45,7 +45,6 @@ def normalize_audio(file: Path, output_folder: Path = None):
     print(f"File '{new_fn}' exported in '{file.parent}'")
 
 
-
 def create_raven_file_list(directory: Path):
     """Creates a text file with the paths of the audio files contained in all the subfolders
     of a given directory. This is useful to open several audio located in different subfolders in Raven.
@@ -65,4 +64,3 @@ def create_raven_file_list(directory: Path):
             f.write(f"{item}\n")
 
     print(f"File list saved in '{directory}'")
-
