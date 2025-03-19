@@ -1,7 +1,7 @@
 import datetime
 from collections import Counter
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable
 
 import easygui
 import matplotlib as mpl
@@ -12,14 +12,13 @@ import pandas as pd
 import seaborn as sns
 from scipy.stats import pearsonr
 
-import def_func
-from def_func import (
-    t_rounder,
-    suntime_hour,
-    get_duration,
-    read_yaml,
-    load_detections,
+from src.post_processing.def_func import (
     get_datetime_format,
+    get_duration,
+    load_detections,
+    read_yaml,
+    suntime_hour,
+    t_rounder,
 )
 
 
@@ -51,6 +50,7 @@ def load_parameters_from_yaml(
     datetime_begin: pd.Timestamp
     datetime_end: pd.Timestamp
     tz: timezone
+
     """
     parameters = read_yaml(file=file)
 
@@ -80,7 +80,10 @@ def load_parameters_from_yaml(
 
 
 def select_tick_resolution(
-    ax: str, default: int, lower_bound: int, upper_bound: int
+    ax: str,
+    default: int,
+    lower_bound: int,
+    upper_bound: int,
 ) -> int:
     return easygui.integerbox(
         msg=f"Choose the {ax}-axis tick resolution",
@@ -104,6 +107,7 @@ def select_reference(param: Iterable, param_str: str = ""):
     Returns
     -------
     the user-defined reference parameter
+
     """
     if len(list(set(param))) > 1:
         selection = easygui.buttonbox(
@@ -126,6 +130,7 @@ def set_plot_resolution(
     stop: pd.Timestamp,
 ) -> (pd.DatetimeIndex, str, int, mpl.dates.DayLocator):
     """Compute the time_vector for a user-defined resolution and select appropriate date ticks and datetime format for plots
+
     Parameters
     ----------
     time_bin : int, length in seconds of a time bin, it is similar to the precision of the future plots
@@ -138,11 +143,12 @@ def set_plot_resolution(
     y_axis_plot_legend : str, string used for the y-axis legend
     number_max_of_annotation : maximum number of annotations possible according to resolution and time bin
     date_interval : mdates x-ticks resolution
-    """
 
+    """
     resolution_bin = get_duration(msg="Enter the x-axis bin resolution")
     resolution_x_ticks = get_duration(
-        msg="Enter the x-axis tick resolution", default="2h"
+        msg="Enter the x-axis tick resolution",
+        default="2h",
     )
 
     # if type(resolution_x_ticks) == int:
@@ -179,6 +185,7 @@ def _set_yaxis(ax: mpl.axes, max_annotation_number: int):
     ----------
     ax
     max_annotation_number
+
     """
     choice_percentage = easygui.buttonbox(
         msg="Do you want your scripts plot in percentage or in raw values ?",
@@ -192,8 +199,8 @@ def _set_yaxis(ax: mpl.axes, max_annotation_number: int):
                 [
                     max([patch.get_height() for patch in ax[i].patches])
                     for i in range(len(ax))
-                ]
-            )
+                ],
+            ),
         )
     else:
         y_max = int(max([patch.get_height() for patch in ax.patches]))
@@ -221,21 +228,20 @@ def _set_yaxis(ax: mpl.axes, max_annotation_number: int):
             current_label[0] = current_label[0] + " (%)"
             new_label = "\n".join(current_label)
             ax.set_ylabel(new_label)
+    elif isinstance(ax, Iterable):
+        [
+            a.set_yticks(
+                np.arange(0, max_annotation_number + resolution, resolution),
+            )
+            for a in ax
+        ]
+        [a.set_ylabel("") for a in ax]
     else:
-        if isinstance(ax, Iterable):
-            [
-                a.set_yticks(
-                    np.arange(0, max_annotation_number + resolution, resolution)
-                )
-                for a in ax
-            ]
-            [a.set_ylabel("") for a in ax]
-        else:
-            ax.set_yticks(np.arange(0, max_annotation_number + resolution, resolution))
-            current_label = ax.get_ylabel().split("\n")
-            current_label[0] = current_label[0] + " (N)"
-            new_label = "\n".join(current_label)
-            ax.set_ylabel(new_label)
+        ax.set_yticks(np.arange(0, max_annotation_number + resolution, resolution))
+        current_label = ax.get_ylabel().split("\n")
+        current_label[0] = current_label[0] + " (N)"
+        new_label = "\n".join(current_label)
+        ax.set_ylabel(new_label)
 
     # set y-axis limit
     if isinstance(ax, Iterable):
@@ -252,6 +258,7 @@ def overview_plot(df: pd.DataFrame):
     Parameters
     ----------
     df: pd.DataFrame, APLOSE formatted result DataFrame with detections and associated timestamps
+
     """
     summary_label = (
         df.groupby("annotation")["annotator"].apply(Counter).unstack(fill_value=0)
@@ -286,8 +293,6 @@ def overview_plot(df: pd.DataFrame):
 
     plt.tight_layout()
 
-    return
-
 
 def plot_hourly_detection_rate(
     df: pd.DataFrame,
@@ -303,6 +308,7 @@ def plot_hourly_detection_rate(
     lat: float, latitude
     lon: float, longitude
     show_rise_set : bool, default True, display the sunrise and sunset lines
+
     """
     datetime_begin = df["start_datetime"].iloc[0]
     datetime_end = df["end_datetime"].iloc[-1]
@@ -311,7 +317,10 @@ def plot_hourly_detection_rate(
 
     # compute sunrise and sunset decimal hour at the dataset location
     sunrise, sunset, _, _, _, _ = suntime_hour(
-        start=datetime_begin, stop=datetime_end, lat=lat, lon=lon
+        start=datetime_begin,
+        stop=datetime_end,
+        lat=lat,
+        lon=lon,
     )
 
     df["date"] = [ts.normalize() for ts in df["start_datetime"]]
@@ -322,7 +331,9 @@ def plot_hourly_detection_rate(
     idx_hour_group_by = det_groupby.index.get_level_values(1)
 
     dates = pd.date_range(
-        datetime_begin.normalize(), datetime_end.normalize(), freq="D"
+        datetime_begin.normalize(),
+        datetime_end.normalize(),
+        freq="D",
     )
     M = np.zeros((24, len(dates)))
     for idx_j, j in enumerate(dates):
@@ -345,7 +356,7 @@ def plot_hourly_detection_rate(
     )
     # colorbar
     cbar = fig.colorbar(im)
-    cbar.ax.set_ylabel(f"{str(bin)}s bins positive to detection")
+    cbar.ax.set_ylabel(f"{bin!s}s bins positive to detection")
 
     if show_rise_set:
         plt.plot(dates, sunrise, color="darkorange", linewidth=1)
@@ -354,7 +365,8 @@ def plot_hourly_detection_rate(
     # axes settings
     ax.xaxis_date()
     resolution_x_ticks = get_duration(
-        msg="Enter the x-axis tick resolution", default="2h"
+        msg="Enter the x-axis tick resolution",
+        default="2h",
     )
 
     if type(resolution_x_ticks) is int:
@@ -365,15 +377,14 @@ def plot_hourly_detection_rate(
         raise ValueError("date locator not supported")
 
     date_formatter = mdates.DateFormatter(
-        fmt=get_datetime_format(), tz=datetime_begin.tz
+        fmt=get_datetime_format(),
+        tz=datetime_begin.tz,
     )
     ax.xaxis.set_major_formatter(date_formatter)
     ax.set_ylabel("Hour")
     ax.set_xlabel("Date")
     plt.xlim(datetime_begin, datetime_end)
     plt.tight_layout()
-
-    return
 
 
 def scatter_detections(
@@ -382,8 +393,7 @@ def scatter_detections(
     lon: float,
     show_rise_set: bool = True,
 ):
-    """
-    Scatter plot of the detections from an APLOSE formatted DataFrame.
+    """Scatter plot of the detections from an APLOSE formatted DataFrame.
     Additionally, sunrise and sunset lines can be plotted if show_rise_set is set to True (default value)
 
     Parameters
@@ -399,13 +409,17 @@ def scatter_detections(
 
     show_rise_set : bool, default True
         display the sunrise and sunset lines
+
     """
     datetime_begin = df["start_datetime"].iloc[0]
     datetime_end = df["end_datetime"].iloc[-1]
 
     # compute sunrise and sunset decimal hour at the dataset location
     hour_sunrise, hour_sunset, _, _, _, _ = suntime_hour(
-        start=datetime_begin, stop=datetime_end, lat=lat, lon=lon
+        start=datetime_begin,
+        stop=datetime_end,
+        lat=lat,
+        lon=lon,
     )
 
     dates = pd.date_range(datetime_begin.date(), datetime_end.date(), freq="D")
@@ -418,7 +432,11 @@ def scatter_detections(
     # plot
     fig, ax = plt.subplots()
     plt.scatter(
-        df["start_datetime"], hour_det, marker="x", linewidths=1, color="silver"
+        df["start_datetime"],
+        hour_det,
+        marker="x",
+        linewidths=1,
+        color="silver",
     )
     if show_rise_set:
         plt.plot(dates, hour_sunrise, color="darkorange")
@@ -429,7 +447,8 @@ def scatter_detections(
     plt.ylim(0, 24)
 
     resolution_x_ticks = get_duration(
-        msg="Enter the x-axis tick resolution", default="2h"
+        msg="Enter the x-axis tick resolution",
+        default="2h",
     )
 
     if type(resolution_x_ticks) is int:
@@ -440,7 +459,8 @@ def scatter_detections(
         raise ValueError("date locator not supported")
 
     date_formatter = mdates.DateFormatter(
-        fmt=get_datetime_format(), tz=datetime_begin.tz
+        fmt=get_datetime_format(),
+        tz=datetime_begin.tz,
     )
     ax.xaxis.set_major_formatter(date_formatter)
     ax.grid(color="k", linestyle="-", linewidth=0.2)
@@ -449,17 +469,14 @@ def scatter_detections(
 
     # title
     plt.title(
-        f"Time of detections within each day for dataset {select_reference(df['dataset'])}"
+        f"Time of detections within each day for dataset {select_reference(df['dataset'])}",
     )
 
     plt.tight_layout()
 
-    return
-
 
 def single_plot(df: pd.DataFrame):
-    """
-    Plots the detections of an APLOSE formatted DataFrame for a single label
+    """Plots the detections of an APLOSE formatted DataFrame for a single label
 
     Parameters
     ----------
@@ -468,6 +485,7 @@ def single_plot(df: pd.DataFrame):
 
     metadata: pd.DataFrame
         auxiliary data that can be used to plot supplementary info
+
     """
     # selection of the references parameters
     datetime_begin = df["start_datetime"].iloc[0]
@@ -475,24 +493,27 @@ def single_plot(df: pd.DataFrame):
     annotators = list(set(df["annotator"]))
     annot_ref = select_reference(annotators, "annotator")
     label_ref = select_reference(
-        df[df["annotator"] == annot_ref]["annotation"], "label"
+        df[df["annotator"] == annot_ref]["annotation"],
+        "label",
     )
 
     if df[(df["start_time"] == 0) & (df["end_time"] == max(df["end_time"]))].empty:
         raise ValueError(
-            "DataFrame contains no weak detection, consider reshaping it first"
+            "DataFrame contains no weak detection, consider reshaping it first",
         )
 
     time_bin_ref = int(
         select_reference(
             df[(df["annotator"] == annot_ref) & (df["is_box"] == 0)]["end_time"],
             "time bin",
-        )
+        ),
     )
 
     # set plot resolution
     time_vector, y_label_legend, n_annot_max, date_locator = set_plot_resolution(
-        time_bin=time_bin_ref, start=datetime_begin, stop=datetime_end
+        time_bin=time_bin_ref,
+        start=datetime_begin,
+        stop=datetime_end,
     )
 
     df_1annot_1label = df[
@@ -520,7 +541,8 @@ def single_plot(df: pd.DataFrame):
         raise ValueError("date locator not supported")
 
     date_formatter = mdates.DateFormatter(
-        fmt=get_datetime_format(), tz=datetime_begin.tz
+        fmt=get_datetime_format(),
+        tz=datetime_begin.tz,
     )
     ax.xaxis.set_major_formatter(date_formatter)
     plt.xlim(time_vector[0], time_vector[-1])
@@ -530,29 +552,28 @@ def single_plot(df: pd.DataFrame):
 
     plt.tight_layout()
 
-    return
-
 
 def multilabel_plot(df: pd.DataFrame):
-    """
-    Plots the detections of an APLOSE formatted DataFrame for all labels
+    """Plots the detections of an APLOSE formatted DataFrame for all labels
 
     Parameters
     ----------
     df: pd.DataFrame, APLOSE formatted result DataFrame with detections and associated timestamps
+
     """
     datetime_begin = df["start_datetime"].iloc[0]
     datetime_end = df["end_datetime"].iloc[-1]
     annotators = list(set(df["annotator"]))
     annot_ref = select_reference(annotators, "annotator")
     time_bin_ref = select_reference(
-        df[df["annotator"] == annot_ref]["end_time"], "time bin"
+        df[df["annotator"] == annot_ref]["end_time"],
+        "time bin",
     )
     list_labels = list(set(df[df["annotator"] == annot_ref]["annotation"]))
 
     if not len(list_labels) > 1:
         raise ValueError(
-            f"Only {str(len(list_labels))} labels detected, multilabel plot cancelled"
+            f"Only {len(list_labels)!s} labels detected, multilabel plot cancelled",
         )
 
     time_vector, y_label_legend, n_annot_max, date_locator = set_plot_resolution(
@@ -566,7 +587,8 @@ def multilabel_plot(df: pd.DataFrame):
     )
 
     date_formatter = mdates.DateFormatter(
-        fmt=get_datetime_format(), tz=datetime_begin.tz
+        fmt=get_datetime_format(),
+        tz=datetime_begin.tz,
     )
     for i, label in enumerate(list_labels):
         df_1annot_1label = df[
@@ -604,8 +626,6 @@ def multilabel_plot(df: pd.DataFrame):
     fig.supylabel(new_label, ha="center")
     plt.tight_layout()
 
-    return
-
 
 def multiuser_plot(df: pd.DataFrame):
     df = df.sort_values(by="start_datetime")
@@ -618,33 +638,37 @@ def multiuser_plot(df: pd.DataFrame):
 
     annot_ref1 = select_reference(annotators, "annotator 1")
     annot_ref2 = select_reference(
-        [elem for elem in annotators if elem != annot_ref1], "annotator 2"
+        [elem for elem in annotators if elem != annot_ref1],
+        "annotator 2",
     )
 
     label_ref1 = select_reference(
-        df[df["annotator"] == annot_ref1]["annotation"], "label 1"
+        df[df["annotator"] == annot_ref1]["annotation"],
+        "label 1",
     )
     if label_ref1 not in list(set(df[df["annotator"] == annot_ref2]["annotation"])):
         label_ref2 = select_reference(
-            df[df["annotator"] == annot_ref2]["annotation"], "label 2"
+            df[df["annotator"] == annot_ref2]["annotation"],
+            "label 2",
         )
     else:
         label_ref2 = label_ref1
 
     time_bin_ref1 = select_reference(
-        df[df["annotator"] == annot_ref1]["end_time"], "time bin 1"
+        df[df["annotator"] == annot_ref1]["end_time"],
+        "time bin 1",
     )
     time_bin_ref2 = select_reference(
-        df[df["annotator"] == annot_ref2]["end_time"], "time bin 2"
+        df[df["annotator"] == annot_ref2]["end_time"],
+        "time bin 2",
     )
 
     if time_bin_ref1 != time_bin_ref1:
         raise ValueError(
             f"The timebin of the detections {annot_ref1}/{label_ref1} is {time_bin_ref1}s"
-            f" whereas the timebin for {annot_ref2}/{label_ref2} is {time_bin_ref2}s"
+            f" whereas the timebin for {annot_ref2}/{label_ref2} is {time_bin_ref2}s",
         )
-    else:
-        time_bin_ref = time_bin_ref1
+    time_bin_ref = time_bin_ref1
 
     # set plot resolution
     time_vector, y_label_legend, n_annot_max, date_locator = set_plot_resolution(
@@ -682,7 +706,8 @@ def multiuser_plot(df: pd.DataFrame):
         raise ValueError("date locator not supported")
 
     date_formatter = mdates.DateFormatter(
-        fmt=get_datetime_format(), tz=datetime_begin.tz
+        fmt=get_datetime_format(),
+        tz=datetime_begin.tz,
     )
     ax[0].xaxis.set_major_formatter(date_formatter)
     ax[0].set_xlim(time_vector[0], time_vector[-1])
@@ -696,17 +721,21 @@ def multiuser_plot(df: pd.DataFrame):
     list2 = list(df2_1annot_1label["start_datetime"])
 
     unique_annotations = len([elem for elem in list1 if elem not in list2]) + len(
-        [elem for elem in list2 if elem not in list1]
+        [elem for elem in list2 if elem not in list1],
     )
     common_annotations = len([elem for elem in list1 if elem in list2])
     agreement = common_annotations / (unique_annotations + common_annotations)
     ax[0].text(
-        0.05, 0.9, f"agreement={100 * agreement:.0f}%", transform=ax[0].transAxes
+        0.05,
+        0.9,
+        f"agreement={100 * agreement:.0f}%",
+        transform=ax[0].transAxes,
     )
 
     # scatter
     df_corr = pd.DataFrame(
-        hist_plot[0] / n_annot_max, index=[annot_ref1, annot_ref2]
+        hist_plot[0] / n_annot_max,
+        index=[annot_ref1, annot_ref2],
     ).transpose()
     sns.scatterplot(x=df_corr[annot_ref1], y=df_corr[annot_ref2], ax=ax[1])
 
@@ -723,8 +752,6 @@ def multiuser_plot(df: pd.DataFrame):
 
     plt.tight_layout()
 
-    return
-
 
 def plot_detection_timeline(df: pd.DataFrame):
     """Plot detections on a timeline
@@ -732,6 +759,7 @@ def plot_detection_timeline(df: pd.DataFrame):
     Parameters
     ----------
     df: pd.DataFrame, APLOSE formatted DataFrame
+
     """
     labels = sorted(list(set(df["annotation"])))
 
@@ -743,14 +771,16 @@ def plot_detection_timeline(df: pd.DataFrame):
         x = np.ones((l_data, 1), int) * i
         plt.scatter(time_det, x, s=12)
 
-    xtick_resolution = def_func.get_duration(
-        msg="Enter x-tick resolution", default="1d"
+    xtick_resolution = get_duration(
+        msg="Enter x-tick resolution",
+        default="1d",
     )
     locator = mdates.SecondLocator(interval=xtick_resolution)
     ax.xaxis.set_major_locator(locator)
 
-    datetime_format = def_func.get_datetime_format(
-        msg="Enter x-tick format", default="%d/%m"
+    datetime_format = get_datetime_format(
+        msg="Enter x-tick format",
+        default="%d/%m",
     )
     formatter = mdates.DateFormatter(datetime_format)
     ax.xaxis.set_major_formatter(formatter)
@@ -766,12 +796,9 @@ def plot_detection_timeline(df: pd.DataFrame):
 
     plt.tight_layout()
 
-    return
-
 
 def _map_datetimes_to_vector(df: pd.DataFrame, timestamps: [int]):
-    """
-    Maps datetime ranges to a binary vector based on overlap with timestamp intervals.
+    """Maps datetime ranges to a binary vector based on overlap with timestamp intervals.
 
     Parameters
     ----------
@@ -780,6 +807,7 @@ def _map_datetimes_to_vector(df: pd.DataFrame, timestamps: [int]):
 
     timestamps: list of int
         unix timestamps
+
     """
     detection_time_beg = sorted(list(set(x.timestamp() for x in df["start_datetime"])))
     detection_time_end = sorted(list(set(y.timestamp() for y in df["end_datetime"])))
@@ -792,15 +820,16 @@ def _map_datetimes_to_vector(df: pd.DataFrame, timestamps: [int]):
     for i in range(len(detection_time_beg)):
         for j in range(k, len(timestamps) - 1):
             if int(detection_time_beg[i] * 1e7) in range(
-                int(timestamp_beg[j] * 1e7), int(timestamp_end[j] * 1e7)
+                int(timestamp_beg[j] * 1e7),
+                int(timestamp_end[j] * 1e7),
             ) or int(detection_time_end[i] * 1e7) in range(
-                int(timestamp_beg[j] * 1e7), int(timestamp_end[j] * 1e7)
+                int(timestamp_beg[j] * 1e7),
+                int(timestamp_end[j] * 1e7),
             ):
                 ranks.append(j)
                 k = j
                 break
-            else:
-                continue
+            continue
     ranks = sorted(list(set(ranks)))
     vec[np.isin(range(len(timestamps)), ranks)] = 1
 
@@ -813,8 +842,7 @@ def get_detection_perf(
     start: pd.Timestamp = None,
     stop: pd.Timestamp = None,
 ):
-    """
-    Computes the detection performances of a reference annotator in comparison with a second annotator/detector
+    """Computes the detection performances of a reference annotator in comparison with a second annotator/detector
 
     Parameters
     ----------
@@ -829,6 +857,7 @@ def get_detection_perf(
 
     stop: pd.Timestamp
         end datetime, optional
+
     """
     datetime_begin = df["start_datetime"].min()
     datetime_end = df["start_datetime"].max()
@@ -841,7 +870,9 @@ def get_detection_perf(
     if not timestamps:
         timestamps = [
             ts.timestamp()
-            for ts in pd.date_range(start=datetime_begin, end=datetime_end, freq=df_freq)
+            for ts in pd.date_range(
+                start=datetime_begin, end=datetime_end, freq=df_freq,
+            )
         ]
     else:
         timestamps = [ts.timestamp() for ts in timestamps]
@@ -849,7 +880,7 @@ def get_detection_perf(
     if start and stop:
         if start > stop:
             raise ValueError(
-                f"Start timestamp {start} must be smaller than stop timestamp {stop}"
+                f"Start timestamp {start} must be smaller than stop timestamp {stop}",
             )
     if start:
         timestamps = [t for t in timestamps if t >= start.timestamp()]
@@ -870,7 +901,7 @@ def get_detection_perf(
 
     # df2
     selected_annotator2 = select_reference(
-        [annot for annot in annotators if annot != selected_annotator1]
+        [annot for annot in annotators if annot != selected_annotator1],
     )
     selected_label2 = select_reference(annotations)
     selected_annotations2 = df[
@@ -916,20 +947,18 @@ def get_detection_perf(
     print(f"F-SCORE : {f_score:.2f}")
 
     print(
-        f"File 1 : {selected_annotator1}/{selected_label1} \nFile 2 : {selected_annotator2}/{selected_label2}"
+        f"File 1 : {selected_annotator1}/{selected_label1} \nFile 2 : {selected_annotator2}/{selected_label2}",
     )
-
-    return
 
 
 def _get_resolution_str(bin: int):
-    """
-    From a resolution in seconds to corresponding string in day/hour/minute/second resolution.
+    """From a resolution in seconds to corresponding string in day/hour/minute/second resolution.
 
     Parameters
     ----------
     bin: int
         in seconds
+
     """
     if bin // 86400 >= 1:
         bin_str = str(int(bin // 86400)) + "D"

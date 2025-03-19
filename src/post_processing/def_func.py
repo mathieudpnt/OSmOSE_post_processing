@@ -7,26 +7,26 @@ import astral
 import easygui
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+from matplotlib.axes import Axes
 import numpy as np
 import pandas as pd
+import soundfile as sf
 import yaml
+from astral.sun import sun
 from OSmOSE.config import TIMESTAMP_FORMAT_AUDIO_FILE
 from OSmOSE.utils.audio_utils import is_supported_audio_format
 from OSmOSE.utils.timestamp_utils import strptime_from_text
-from astral.sun import sun
-from pandas import date_range, Timestamp, DateOffset
+from pandas import DateOffset, Timestamp, date_range
 from pandas.tseries.frequencies import to_offset
-from scipy.io import wavfile
 from scipy.signal import spectrogram
 
 
 def reshape_timebin(
     df: pd.DataFrame,
-    timebin_new: int = None,
-    timestamp: list[pd.Timestamp] = None,
+    timebin_new: int | None = None,
+    timestamp: list[pd.Timestamp] | None = None,
 ) -> pd.DataFrame:
-    """
-    Reshapes an APLOSE result DataFrame according to a new time bin.
+    """Reshape an APLOSE result DataFrame according to a new time bin.
 
     Parameters
     ----------
@@ -51,7 +51,9 @@ def reshape_timebin(
 
     if not timebin_new:
         timebin_new = get_duration(
-            title="Get duration", msg="Enter a new time bin", default="1min"
+            title="Get duration",
+            msg="Enter a new time bin",
+            default="1min",
         )
         frequency = str(timebin_new) + "s"
     else:
@@ -75,10 +77,12 @@ def reshape_timebin(
                 ]
             else:
                 t1 = t_rounder(
-                    t=df_1annot_1label["start_datetime"].iloc[0], res=timebin_new
+                    t=df_1annot_1label["start_datetime"].iloc[0],
+                    res=timebin_new,
                 )
                 t2 = t_rounder(
-                    t=df_1annot_1label["end_datetime"].iloc[-1], res=timebin_new
+                    t=df_1annot_1label["end_datetime"].iloc[-1],
+                    res=timebin_new,
                 )
                 time_vector = [
                     ts.timestamp()
@@ -123,36 +127,38 @@ def reshape_timebin(
                 )
 
             detect_vec = [0] * len(time_vector)
-            for start, end in zip(ranks1, ranks2):
+            for start, end in zip(ranks1, ranks2, strict=False):
                 detect_vec[start : end + 1] = [1] * (end - start + 1)
 
             start_datetime, end_datetime, filename = [], [], []
             for i in range(len(time_vector)):
                 if detect_vec[i] == 1:
                     start_datetime.append(
-                        pd.Timestamp(time_vector[i], unit="s", tz=tz_data)
+                        pd.Timestamp(time_vector[i], unit="s", tz=tz_data),
                     )
                     end_datetime.append(
-                        pd.Timestamp(time_vector[i] + timebin_new, unit="s", tz=tz_data)
+                        pd.Timestamp(
+                            time_vector[i] + timebin_new, unit="s", tz=tz_data
+                        ),
                     )
                     filename.append(filename_vector[i])
 
             df_1annot_1label_new_timebin = pd.DataFrame()
             df_1annot_1label_new_timebin["dataset"] = [
-                df_1annot_1label["dataset"].iloc[0]
+                df_1annot_1label["dataset"].iloc[0],
             ] * len(start_datetime)
             df_1annot_1label_new_timebin["filename"] = filename
             df_1annot_1label_new_timebin["start_time"] = [0] * len(start_datetime)
             df_1annot_1label_new_timebin["end_time"] = [timebin_new] * len(
-                start_datetime
+                start_datetime,
             )
             df_1annot_1label_new_timebin["start_frequency"] = [0] * len(start_datetime)
             df_1annot_1label_new_timebin["end_frequency"] = [max_freq] * len(
-                start_datetime
+                start_datetime,
             )
             df_1annot_1label_new_timebin["annotation"] = [label] * len(start_datetime)
             df_1annot_1label_new_timebin["annotator"] = [annotator] * len(
-                start_datetime
+                start_datetime,
             )
             df_1annot_1label_new_timebin["start_datetime"] = start_datetime
             df_1annot_1label_new_timebin["end_datetime"] = end_datetime
@@ -165,53 +171,65 @@ def reshape_timebin(
 
 def load_detections(
     file: Path,
-    timebin_new: int = None,
+    timebin_new: int | None = None,
     datetime_begin: pd.Timestamp = None,
     datetime_end: pd.Timestamp = None,
-    annotator: str = None,
-    annotation: str = None,
+    annotator: str | None = None,
+    annotation: str | None = None,
     box: bool = False,
-    timestamp_file: str = None,
+    timestamp_file: str | None = None,
     user_sel: str = "all",
-    fmin_filter: int = None,
-    fmax_filter: int = None,
+    f_min: int | None = None,
+    f_max: int | None = None,
 ) -> pd.DataFrame:
-    """
-    Loads and filters an APLOSE formatted detection file according to user specified filters.
+    """Load and filter an APLOSE-formatted detection file.
 
     Parameters
     ----------
     file : Path
-        A Path to the detection file
+        Detection file.
+
     timebin_new: int
-        The new time resolution to set the detections to (in seconds)
+        The new time resolution to set the detections to, in seconds.
+
     datetime_begin: pd.Timestamp
-        A datetime to filter out detections anterior to the datetime
+        To filter out detections anterior to the argument.
+
     datetime_end: pd.Timestamp
-        A datetime to filter out detections posterior to the datetime
+        To filter out detections posterior to the argument.
+
     annotator: str
-        A string to filter only detections of a particular annotator
+       To filter only detections of an annotator.
+
     annotation: str
-        A string to filter only detections of a particular annotation
+        To filter only detections of an annotation.
+
     box: bool, default False
-        if True, all annotations are kept, else keeps only absence/presence boxes (weak detection)
+        if True, all annotations are kept,
+        else keeps only absence/presence boxes (weak detection)
+
     timestamp_file: Path
-        A Path to an APLOSE formatted timestamp file.
-        It is used to create a reshaped detection file with timestamps that matches the APLOSE annotations.
+        APLOSE formatted timestamp file.
+        It is used to create a reshaped detection file
+        with timestamps that matches the APLOSE annotations.
+
     user_sel: str, default "all"
-        A string to filter detections of a file based on annotators
-            'union': the common detections of all annotators and the unique detections of each annotator are selected
-            'intersection': only the common detections of all annotators are selected
-            'all': all the detections are selected
-    fmin_filter: int
-        An integer to filter out detections based on a minimum frequency
-    fmax_filter: int
-        An integer to filter out detections based on a maximum frequency
+        A string to filter detections of a file based on annotators.
+            -'union': the common detections of all annotators and
+            the unique detections of each annotator are selected;
+            -'intersection': only the common detections of all annotators are selected;
+            -'all': all the detections are selected.
+
+    f_min: int
+        To filter out detections inferior to the argument.
+
+    f_max: int
+        To filter out detections superior to the argumet.
 
     Returns
     -------
-    result_df: pd.DataFrame
-        A DataFrame corresponding to the selected filters and containing all the corresponding detections
+    A DataFrame with detections corresponding to selected filters
+
     """
     delimiter = find_delimiter(file)
 
@@ -231,31 +249,29 @@ def load_detections(
     if datetime_begin:
         df = df[df["start_datetime"] >= datetime_begin]
         if len(df) == 0:
-            raise Exception(
-                f"No detection found after 'datetime_begin' filtering at '{datetime_begin}', upload aborted"
-            )
+            msg = f"No detection found after '{datetime_begin}', upload aborted"
+            raise ValueError(msg)
 
     if datetime_end:
         df = df[df["end_datetime"] <= datetime_end]
         if len(df) == 0:
-            raise Exception(
-                f"No detection found after 'datetime_end' filtering at '{datetime_end}', upload aborted"
-            )
+            msg = f"No detection found before '{datetime_end}', upload aborted"
+            raise ValueError(msg)
 
     if annotator:
         if isinstance(annotator, list):
             invalid_annotators = [a for a in annotator if a not in list_annotators]
             if invalid_annotators:
-                raise ValueError(
-                    f"Annotators {invalid_annotators} are not present in result file annotators, upload aborted"
+                msg = (
+                    f"'{invalid_annotators}' not present in annotators, upload aborted"
                 )
+                raise ValueError(msg)
             df = df.loc[df["annotator"].isin(annotator)]
             list_annotators = annotator
         else:
             if annotator not in list_annotators:
-                raise ValueError(
-                    f"Annotator '{annotator}' is not present in result file annotators, upload aborted"
-                )
+                msg = f"'{annotator}' not present in annotators, upload aborted"
+                raise ValueError(msg)
             df = df.loc[df["annotator"] == annotator]
             list_annotators = [annotator]
 
@@ -263,30 +279,26 @@ def load_detections(
         if isinstance(annotation, list):
             invalid_annotations = [a for a in annotation if a not in list_labels]
             if invalid_annotations:
-                raise ValueError(
-                    f"Annotations {invalid_annotations} are not present in result file labels, upload aborted"
-                )
+                msg = f"'{invalid_annotations}' not present in labels, upload aborted"
+                raise ValueError(msg)
             df = df.loc[df["annotation"].isin(annotation)]
         else:
             if annotation not in list_labels:
-                raise ValueError(
-                    f"Annotation '{annotation}' is not present in result file labels, upload aborted"
-                )
+                msg = f"'{annotation}' not present in labels, upload aborted"
+                raise ValueError(msg)
             df = df.loc[df["annotation"] == annotation]
 
-    if fmin_filter:
-        df = df[df["start_frequency"] >= fmin_filter]
+    if f_min:
+        df = df[df["start_frequency"] >= f_min]
         if len(df) == 0:
-            raise Exception(
-                f"No detection found after fmin filtering at {fmin_filter}Hz, upload aborted"
-            )
+            msg = f"No detection found above {f_min}Hz, upload aborted"
+            raise ValueError(msg)
 
-    if fmax_filter:
-        df = df[df["end_frequency"] <= fmax_filter]
+    if f_max:
+        df = df[df["end_frequency"] <= f_max]
         if len(df) == 0:
-            raise Exception(
-                f"No detection found after fmax filtering at {fmax_filter}Hz, upload aborted"
-            )
+            msg = f"No detection found below {f_max}Hz, upload aborted"
+            raise ValueError(msg)
 
     df_no_box = df.loc[
         (df["start_time"] == 0)
@@ -320,8 +332,7 @@ def load_detections(
 
 
 def intersection_or_union(df: pd.DataFrame, user_sel: str) -> pd.DataFrame:
-    """
-    Computes the intersection or union of annotations from multiple annotators.
+    """Compute the intersection or union of annotations from multiple annotators.
 
     This function identifies common and differing annotations based on the
     "start_datetime" values in the dataset. The intersection consists of
@@ -345,16 +356,20 @@ def intersection_or_union(df: pd.DataFrame, user_sel: str) -> pd.DataFrame:
     pd.DataFrame
         An APLOSE formatted DataFrame containing the selected annotations:
         - If "intersection" is chosen, the output includes only annotations
-          present in all annotators' data, with the annotator column merged as "annotator1 ∩ annotator2".
+          present in all annotators' data,
+          with the annotator column merged as "annotator1 ∩ annotator2".
         - If "union" is chosen, the output includes all annotations,
           with the annotator column merged as "annotator1 ∪ annotator2".
+
     """
     annotators = df["annotator"].drop_duplicates().to_list()
     if not len(annotators) > 1:
-        raise ValueError("Not enough annotators detected")
+        msg = "Not enough annotators detected"
+        raise ValueError(msg)
 
     if user_sel not in ["intersection", "union"]:
-        raise ValueError("'user_sel' must be either 'intersection' or 'union'")
+        msg = "'user_sel' must be either 'intersection' or 'union'"
+        raise ValueError(msg)
 
     labels = df["annotation"].drop_duplicates().to_list()
 
@@ -387,91 +402,96 @@ def intersection_or_union(df: pd.DataFrame, user_sel: str) -> pd.DataFrame:
 
     if user_sel == "intersection":
         df_inter["annotator"] = [" ∩ ".join(annotators)] * len(df_inter)
-        return df_inter.sort_values("start_datetime").reset_index(drop=True)
-    elif user_sel == "union":
+        df_result = df_inter.sort_values("start_datetime").reset_index(drop=True)
+    else:
         df_union = pd.concat([df_diff, df_inter]).reset_index(drop=True)
         df_union["annotator"] = [" ∪ ".join(annotators)] * len(df_union)
-        return df_union.sort_values("start_datetime").reset_index(drop=True)
+        df_result = df_union.sort_values("start_datetime").reset_index(drop=True)
+
+    return df_result
 
 
 def read_yaml(file: Path) -> dict:
-    """
-    Reads yaml file to extract detection parameters. The extracted parameters
-    are then used to import detections using 'sorting_detection'.
+    """Read yaml file to extract detection parameters.
+
+    The extracted parameters are then used to import
+    detections using 'sorting_detection'.
 
     Parameters
     ----------
-        file: Path
-            A path to the yaml file
+    file: Path
+        Yaml file.
 
     Returns
     -------
-        parameters: dict
-            Dictionary containing a set of parameters for each csv file
+    dict
+        Dictionary containing a set of parameters for each csv file
+
     """
-    with open(file, "r", encoding="utf-8") as yaml_file:
+    with file.open(encoding="utf-8") as yaml_file:
         parameters = yaml.safe_load(yaml_file)
 
-    for filename in parameters.keys():
+    for filename in parameters:
         if not Path(filename).exists():
-            raise FileNotFoundError(f"'{filename}' does not exist")
-        else:
-            parameters[filename]["file"] = Path(filename)
+            msg = f"'{filename}' does not exist"
+            raise FileNotFoundError(msg)
+        parameters[filename]["file"] = Path(filename)
 
         if parameters[filename]["timebin_new"] and not isinstance(
-            parameters[filename]["timebin_new"], int
+            parameters[filename]["timebin_new"],
+            int,
         ):
-            raise ValueError(
-                f"An integer must be passed to 'timebin_new', '{parameters[filename]['timebin_new']}' not a valid value."
-            )
+            msg = f"'{parameters[filename]['timebin_new']}' not a valid value."
+            raise ValueError(msg)
 
-        if parameters[filename]["fmin_filter"] and not isinstance(
-            parameters[filename]["fmin_filter"], int
+        if parameters[filename]["f_min"] and not isinstance(
+            parameters[filename]["f_min"],
+            int,
         ):
-            raise ValueError(
-                f"An integer must be passed to 'fmin_filter', '{parameters[filename]['fmin_filter']}' not a valid value."
-            )
+            msg = f"'{parameters[filename]['f_min']}' not a valid value."
+            raise ValueError(msg)
 
-        if parameters[filename]["fmax_filter"] and not isinstance(
-            parameters[filename]["fmax_filter"], int
+        if parameters[filename]["f_max"] and not isinstance(
+            parameters[filename]["f_max"],
+            int,
         ):
-            raise ValueError(
-                f"An integer must be passed to 'fmax_filter', '{parameters[filename]['fmax_filter']}' not a valid value."
-            )
+            msg = f"'{parameters[filename]['f_max']}' not a valid value."
+            raise ValueError(msg)
 
         if parameters[filename]["datetime_begin"]:
             try:
                 parameters[filename]["datetime_begin"] = pd.Timestamp(
-                    parameters[filename]["datetime_begin"]
+                    parameters[filename]["datetime_begin"],
                 )
             except ValueError as e:
-                raise ValueError(
-                    f"Invalid date format for 'datetime_begin': '{parameters[filename]['datetime_begin']}'"
-                ) from e
+                msg = (
+                    f"'datetime_begin', invalid format: '{parameters[filename]['datetime_begin']}'",
+                )
+                raise ValueError(msg) from e
 
         if parameters[filename]["datetime_end"]:
             try:
                 parameters[filename]["datetime_end"] = pd.Timestamp(
-                    parameters[filename]["datetime_end"]
+                    parameters[filename]["datetime_end"],
                 )
             except ValueError as e:
-                raise ValueError(
-                    f"Invalid date format for 'datetime_end': {parameters[filename]['datetime_end']}"
-                ) from e
+                msg = (
+                    f"'datetime_end', invalid format: '{parameters[filename]['datetime_end']}'",
+                )
+                raise ValueError(msg) from e
 
         if (
             all(
                 [
                     parameters[filename]["datetime_begin"],
                     parameters[filename]["datetime_end"],
-                ]
+                ],
             )
             and parameters[filename]["datetime_begin"]
             >= parameters[filename]["datetime_end"]
         ):
-            raise ValueError(
-                f'{parameters[filename]["datetime_begin"]} >= {parameters[filename]["datetime_end"]}'
-            )
+            msg = f'{parameters[filename]["datetime_begin"]} >= {parameters[filename]["datetime_end"]}'
+            raise ValueError(msg)
 
         if parameters[filename]["annotator"] and not (
             isinstance(parameters[filename]["annotator"], str)
@@ -482,47 +502,42 @@ def read_yaml(file: Path) -> dict:
                 )
             )
         ):
-            raise ValueError(
-                f"A string must be passed to 'annotator', '{parameters[filename]['annotator']}' not a valid value."
-            )
+            msg = f"'annotator', invalid value: '{parameters[filename]['annotator']}'"
+            raise ValueError(msg)
 
         if parameters[filename]["annotation"] and not isinstance(
-            parameters[filename]["annotation"], str
+            parameters[filename]["annotation"],
+            str,
         ):
-            raise ValueError(
-                f"A string must be passed to 'annotation', '{parameters[filename]['annotation']}' not a valid value."
-            )
+            msg = f"'annotation', invalid value: '{parameters[filename]['annotation']}'"
+            raise ValueError(msg)
 
         if parameters[filename]["box"] and not isinstance(
-            parameters[filename]["box"], bool
+            parameters[filename]["box"],
+            bool,
         ):
-            raise ValueError(
-                f"A boolean must be passed to 'box', '{parameters[filename]['box']}' not a valid value."
-            )
+            msg = f"'box', invalid value: '{parameters[filename]['box']}'"
+            raise ValueError(msg)
 
         if parameters[filename]["user_sel"] and parameters[filename][
             "user_sel"
         ] not in ["union", "intersection", "all"]:
-            raise ValueError(
-                f"Either 'union', 'intersection' or 'all' must be passed to 'user_sel', '{parameters[filename]['user_sel']}' not a valid value."
-            )
+            msg = f"'user_sel', invalid value: '{parameters[filename]['user_sel']}'"
+            raise ValueError(msg)
 
         if parameters[filename]["timestamp_file"]:
             if not Path(parameters[filename]["timestamp_file"]).exists():
-                raise FileNotFoundError(
-                    f"'{parameters[filename]['timestamp_file']}' does not exist"
-                )
-            else:
-                parameters[filename]["timestamp_file"] = Path(
-                    parameters[filename]["timestamp_file"]
-                )
+                msg = f"'{parameters[filename]['timestamp_file']}'"
+                raise FileNotFoundError(msg)
+            parameters[filename]["timestamp_file"] = Path(
+                parameters[filename]["timestamp_file"],
+            )
 
     return parameters
 
 
 def find_delimiter(file: str | Path) -> str:
-    """
-    Finds the proper delimiter for a csv file.
+    """Find the proper delimiter for a csv file.
 
     Parameters
     ----------
@@ -533,8 +548,9 @@ def find_delimiter(file: str | Path) -> str:
     -------
     delimiter: str
         The delimiter to use to read the file
+
     """
-    with open(file, "r", newline="") as csv_file:
+    with file.open(newline="") as csv_file:
         try:
             temp_lines = csv_file.readline() + "\n" + csv_file.readline()
             dialect = csv.Sniffer().sniff(temp_lines, delimiters=",;")
@@ -545,19 +561,22 @@ def find_delimiter(file: str | Path) -> str:
 
 
 def t_rounder(t: pd.Timestamp, res: int):
-    """
-    Rounds a Timestamp according to the user specified resolution : 10s / 1min / 10 min / 1h / 24h
+    """Round a Timestamp according to the user specified resolution.
+
+    Possible values : 10s / 1min / 10min / 1h / 24h
 
     Parameters
     ----------
-        t: pd.Timestamp
-            Datetime to round
-        res: integer
-            The new resolution in seconds
+    t: pd.Timestamp
+        Datetime to round
+
+    res: integer
+        The new resolution in seconds
 
     Returns
     -------
-        t: rounded Timestamp
+    rounded Timestamp
+
     """
     if res == 600:  # 10min
         minute = t.minute
@@ -565,13 +584,12 @@ def t_rounder(t: pd.Timestamp, res: int):
         hour = t.hour
         if minute < 60:
             t = t.replace(minute=minute, second=0, microsecond=0)
+        elif hour < 23:
+            hour += 1
         else:
-            if hour < 23:
-                hour += 1
-            else:
-                hour = 0
-                t += pd.Timedelta(days=1)
-                t = t.replace(hour=hour, minute=0, second=0, microsecond=0)
+            hour = 0
+            t += pd.Timedelta(days=1)
+            t = t.replace(hour=hour, minute=0, second=0, microsecond=0)
     elif res == 10:  # 10s
         second = t.second
         second = round(second / 10) * 10
@@ -600,26 +618,31 @@ def t_rounder(t: pd.Timestamp, res: int):
     elif res > 86400:
         t = t.replace(hour=0, minute=0, second=0, microsecond=0)
     else:
-        raise ValueError(f"res={res}s: Resolution not available")
+        msg = f"res={res}s: Resolution not available"
+        raise ValueError(msg)
     return t
 
 
 def get_season(ts: pd.Timestamp) -> str:
-    """
-    Determines the meteorological season for a given timestamp in the Northern Hemisphere.
-    Winter is defined as timestamps from December to February, spring from March to May and so on.
+    """Determine the meteorological season in the Northern Hemisphere.
 
-    Parameter
-    ---------
-        ts: pd.Timestamp
+    Winter is defined as timestamps from December to February,
+    spring from March to May,
+    Summer from June to August,
+    Autumn from September to November.
+
+    Parameters
+    ----------
+    ts: pd.Timestamp
 
     Returns
     -------
-        The season and year of ts
+    The season and year of ts
 
-    Example
+    Example:
     -------
     get_season(pd.Timestamp("01/01/2023"))
+
     """
     winter = [1, 2, 12]
     spring = [3, 4, 5]
@@ -637,40 +660,53 @@ def get_season(ts: pd.Timestamp) -> str:
     elif ts.month in winter and ts.month == 12:
         season = "winter" + " " + str(ts.year)
     else:
-        raise ValueError("Invalid timestamp")
+        msg = "Invalid timestamp"
+        raise ValueError(msg)
 
     return season
 
 
-def suntime_hour(start: pd.Timestamp, stop: pd.Timestamp, lat: float, lon: float):
-    """
-    Fetches sunrise and sunset hours for dates between start and stop.
+def suntime_hour(
+    start: pd.Timestamp,
+    stop: pd.Timestamp,
+    lat: float,
+    lon: float,
+) -> tuple:
+    """Fetch sunrise and sunset hours for dates between start and stop.
 
     Parameters
     ----------
-        start: pd.Timestamp
-            start datetime of when to fetch sun hour
-        stop: pd.Timestamp
-            end datetime of when to fetch sun hour
-        lat: float
-            latitude in decimal degrees
-        lon: float
-            longitude in decimal degrees
+    start: pd.Timestamp
+        start datetime of when to fetch sun hour
+    stop: pd.Timestamp
+        end datetime of when to fetch sun hour
+    lat: float
+        latitude in decimal degrees
+    lon: float
+        longitude in decimal degrees
 
     Returns
     -------
-        hour_sunrise: list
-            A list of float with sunrise decimal hours for each day between date_beg and date_end
-        hour_sunset: list
-            A List of float with sunset decimal hours for each day between date_beg and date_end
-        dt_dusk: pd.Timestamp
-            dusk datetime
-        dt_day: pd.Timestamp
-            day datetime
-        dt_dawn: pd.Timestamp
-            dawn datetime
-        dt_night: pd.Timestamp
-            night datetime
+    hour_sunrise: list
+        A list of float with sunrise decimal hours
+        for each day between date_beg and date_end
+
+    hour_sunset: list
+        A List of float with sunset decimal hours
+        for each day between date_beg and date_end
+
+    dt_dusk: pd.Timestamp
+        dusk datetime
+
+    dt_day: pd.Timestamp
+        day datetime
+
+    dt_dawn: pd.Timestamp
+        dawn datetime
+
+    dt_night: pd.Timestamp
+        night datetime
+
     """
     tz = start.tz
 
@@ -690,27 +726,21 @@ def suntime_hour(start: pd.Timestamp, stop: pd.Timestamp, lat: float, lon: float
             pd.Timestamp(suntime[period]).tz_convert(tz) for period in suntime
         ]
 
-        for lst, period in zip([h_sunrise, h_sunset], [day, dusk]):
+        for lst, period in zip([h_sunrise, h_sunset], [day, dusk], strict=False):
             lst.append(period.hour + period.minute / 60 + period.second / 3600)
 
         for lst, period in zip(
-            [dt_dawn, dt_day, dt_dusk, dt_night], [dawn, day, dusk, night]
+            [dt_dawn, dt_day, dt_dusk, dt_night],
+            [dawn, day, dusk, night],
+            strict=False,
         ):
             lst.append(period)
 
     return h_sunrise, h_sunset, dt_dusk, dt_dawn, dt_day, dt_night
 
 
-def get_coordinates():
-    """
-    Asks for user input to get GPS coordinates.
-
-    Returns
-    -------
-    latitude: float
-
-    longitude: float
-    """
+def get_coordinates() -> tuple:
+    """Ask for user input to get GPS coordinates."""
     title = "Coordinates in degree° minute'"
     msg = "latitude (N/S) and longitude (E/W)"
     field_names = ["lat decimal degree", "lon decimal degree"]
@@ -719,7 +749,8 @@ def get_coordinates():
     # make sure that none of the fields was left blank
     while True:
         if field_values is None:
-            raise TypeError("'get_coordinates()' was cancelled")
+            msg = "'get_coordinates()' was cancelled"
+            raise TypeError(msg)
 
         lat, lon = field_values
         errmsg = ""
@@ -735,9 +766,11 @@ def get_coordinates():
         try:
             lon_val = float(lon.strip())  # Convert to float for longitude
             if lon_val < -180 or lon_val > 180:
-                errmsg += f"'{lon}' is not a valid longitude. It must be between -180 and 180.\n"
+                errmsg += (
+                    f"'lon', invalid entry: '{lon}'. It must be between -180 and 180.\n"
+                )
         except ValueError:
-            errmsg += f"'{lon}' is not a valid entry for longitude.\n"
+            errmsg += f"'lon', invalid entry: '{lon}'.\n"
 
         if errmsg == "":
             break
@@ -754,10 +787,9 @@ def get_duration(
     title: str = "Get duration",
     msg: str = "Enter a time alias",
     default: str = "10min",
-    base: bool = False,
-):
-    """
-    Asks user input to get time duration.
+) -> int | pd.DateOffset:
+    """Ask user input to get time duration.
+
     Offset aliases are to be used,
     e.g.: '5D' => 432_000s
     '2h' => 7_200s
@@ -767,17 +799,24 @@ def get_duration(
     Parameters
     ----------
     title : str
+        Pop-up menu title
+
     msg : str
+        Pop-up menu message
+
     default : '10min' => 600s
-    base : bool, optional, default False, if True, return the base of the value.
-        For instance, "10min" => '<Minute>'
+        Displayed default value
 
     Returns
     -------
     The total number of seconds of the entered time alias or the time alias if not transposable to duration (<N*Months>)
+
     """
     value = easygui.enterbox(
-        msg=f"{msg}", title=f"{title}", default=f"{default}", strip=True
+        msg=f"{msg}",
+        title=f"{title}",
+        default=f"{default}",
+        strip=True,
     )
 
     while True:
@@ -787,7 +826,6 @@ def get_duration(
         errmsg = ""
         try:
             offset = to_offset(value)
-            base_str = offset.base.freqstr
             # Check if the offset is convertible to Timedelta
             try:
                 seconds = int(pd.Timedelta(offset).total_seconds())
@@ -802,10 +840,7 @@ def get_duration(
 
         value = easygui.enterbox(msg=errmsg, title=f"{title}", strip=True)
 
-    if base:
-        return seconds, base_str
-    else:
-        return seconds
+    return seconds
 
 
 def get_datetime_format(
@@ -813,24 +848,34 @@ def get_datetime_format(
     msg: str = "Enter a datetime format code",
     default: str = "%d/%m/%Y\n%H:%M",
 ) -> str:
-    """
-    Asks user input to get datetime format.
+    r"""Ask user input to get datetime format.
+
     Datetime format codes are to be used,
     See https://docs.python.org/fr/3/library/datetime.html
 
     Parameters
     ----------
-    title : str
-    msg : str
-    default : '%d/%m/%Y\n%H:%M'
+    title: str
+        Pop-up menu title
+
+    msg: str
+        Pop-up menu message
+
+    default: str
+        Displayed default value: '%d/%m/%Y\n%H:%M'
+
     """
     fmt = easygui.enterbox(
-        msg=f"{msg}", title=f"{title}", default=f"{default}", strip=True
+        msg=f"{msg}",
+        title=f"{title}",
+        default=f"{default}",
+        strip=True,
     )
 
     while True:
         if fmt is None:
-            raise TypeError("'get_duration()' was cancelled")
+            msg = "'get_duration()' was cancelled"
+            raise TypeError(msg)
 
         errmsg = ""
         datetime_test = pd.Timestamp("now")
@@ -853,35 +898,54 @@ def print_spectro_from_audio(
     window_size: int = 1024,
     overlap: int = 20,
     ax: bool = True,
-):
-    """
-    Computes and prints a spectrogram from an audio file.
+) -> tuple:
+    """Compute and prints a spectrogram from an audio file.
 
     Parameters
     ----------
-    file: Path to the audio file
-    nfft
-    window_size
-    overlap
-    ax: bool, show axes based on this value
+    file: Path
+        Audio file path
+
+    nfft: int
+        Default: 1024
+
+    window_size: int
+        Default: 1024
+
+    overlap: int
+        Default: 20
+
+    ax: bool
+        Show axes if True, defaults to True
+
+    Returns
+    -------
+    The x and y resolutions
 
     Examples
     --------
-    audio_file = Path(r"path\to\file")
+    audio_file = Path("path/to/file")
     print_spectro_from_audio(audio_file)
+
     """
     if not is_supported_audio_format(file):
-        raise ValueError("Audio file format is not supported")
+        msg = "Audio file format is not supported"
+        raise TypeError(msg)
 
     try:
-        sr, data = wavfile.read(file)
+        sr, data = sf.read(file)
     except ValueError as e:
-        print(e)
+        msg = f"Failed to read file {file}: {e}"
+        raise RuntimeError(msg) from e
 
     overlap_samples = int(overlap / 100 * window_size)  # overlap in samples
 
     frequencies, times, sxx = spectrogram(
-        data, fs=sr, nperseg=window_size, noverlap=overlap_samples, nfft=nfft
+        data,
+        fs=sr,
+        nperseg=window_size,
+        noverlap=overlap_samples,
+        nfft=nfft,
     )
 
     my_dpi = 200
@@ -892,13 +956,17 @@ def print_spectro_from_audio(
         dpi=my_dpi,
     )
 
-    # plt.pcolormesh(times, frequencies, 10 * np.log10(sxx), vmin=20, vmax=100)
     plt.pcolormesh(times, frequencies, 10 * np.log10(sxx))
 
     if not ax:
         plt.axis("off")
         plt.subplots_adjust(
-            top=1, bottom=0, right=1, left=0, hspace=0, wspace=0
+            top=1,
+            bottom=0,
+            right=1,
+            left=0,
+            hspace=0,
+            wspace=0,
         )  # delete white borders
     else:
         plt.tight_layout()
@@ -906,14 +974,12 @@ def print_spectro_from_audio(
     ech = len(data)
     size_x = (ech - window_size) / overlap_samples
     size_y = nfft / 2
-    print(f"X: {size_x:.3f}\nY: {size_y:.3f}")
 
-    return
+    return size_x, size_y
 
 
 def print_spectro_from_npz(file: Path, ax: bool = True):
-    """
-    Computes and prints a spectrogram from a npz file.
+    """Compute and prints a spectrogram from a npz file.
 
     Parameters
     ----------
@@ -922,11 +988,13 @@ def print_spectro_from_npz(file: Path, ax: bool = True):
 
     Examples
     --------
-    npz_file = Path(r'path/to/file')
+    npz_file = Path(path/to/file')
     print_spectro_from_npz(npz_file)
+
     """
-    if not file.suffix == ".npz":
-        raise ValueError("NPZ file format must be provided")
+    if file.suffix != ".npz":
+        msg = "npz file format must be provided"
+        raise ValueError(msg)
 
     try:
         with np.load(file, allow_pickle=True) as data:
@@ -934,7 +1002,8 @@ def print_spectro_from_npz(file: Path, ax: bool = True):
             freq = data["Freq"]
             time = data["Time"]
     except ValueError as e:
-        print(e)
+        msg = f"Failed to load file {file}: {e}"
+        raise RuntimeError(msg) from e
 
     my_dpi = 200
     fact_x = 1.3
@@ -954,14 +1023,12 @@ def print_spectro_from_npz(file: Path, ax: bool = True):
     else:
         plt.tight_layout()
 
-    return
-
 
 def add_weak_detection(
-    file: Path, datetime_format: str = TIMESTAMP_FORMAT_AUDIO_FILE
+    file: Path,
+    datetime_format: str = TIMESTAMP_FORMAT_AUDIO_FILE,
 ) -> pd.DataFrame:
-    """
-    Adds weak detection lines to APLOSE formatted DataFrame with only strong detections.
+    """Add weak detection lines to APLOSE formatted DataFrame with only strong detections.
 
     Parameters
     ----------
@@ -969,6 +1036,7 @@ def add_weak_detection(
         An APLOSE formatted csv file.
     datetime_format: str
         A string corresponding to the datetime format in the `filename` column
+
     """
     df = load_detections(file=file, box=True)
     annotators = df["annotator"].drop_duplicates().tolist()
@@ -991,7 +1059,8 @@ def add_weak_detection(
                 test = df[(df["filename"] == f) & (df["annotation"] == label)]["is_box"]
                 if test.any():
                     start_datetime = strptime_from_text(
-                        text=f, datetime_template=datetime_format
+                        text=f,
+                        datetime_template=datetime_format,
                     ).tz_localize(tz)
                     end_datetime = start_datetime + pd.Timedelta(max_time, unit="s")
                     new_line = [
@@ -1012,39 +1081,41 @@ def add_weak_detection(
     return df.sort_values("start_datetime").reset_index(drop=True)
 
 
-def json2df(json_path: Path):
-    """
-    Converts a metadatax json file into a DataFrame
+def json2df(json_path: Path) -> pd.DataFrame:
+    """Convert a metadatax json file into a DataFrame.
 
     Parameters
     ----------
     json_path: Path
+        Json file path
+
     """
-    with open(json_path, "r", encoding="utf-8") as f:
-        df = pd.json_normalize(json.load(f))
-        df["deployment_date"] = pd.to_datetime(df["deployment_date"])
-        df["recovery_date"] = pd.to_datetime(df["recovery_date"])
+    with json_path.open(encoding="utf-8") as f:
+        metadatax_df = pd.json_normalize(json.load(f))
+        metadatax_df["deployment_date"] = pd.to_datetime(metadatax_df["deployment_date"])
+        metadatax_df["recovery_date"] = pd.to_datetime(metadatax_df["recovery_date"])
 
-    return df
+    return metadatax_df
 
 
-def add_season_period(ax: mpl.axes.Axes = None, bar_height: int = 10):
-    """
-    Adds a bar at the top of the plot to seasons.
+def add_season_period(ax: Axes = None, bar_height: int = 10) -> None:
+    """Add a bar at the top of the plot to seasons.
 
     Parameters
     ----------
-    ax: mpl.axes.Axes
+    ax: Axes
         Figure plot
 
     bar_height: int
         Bar height in pixels
+
     """
     if not ax:
         ax = plt.gca()
 
     if not ax.has_data():
-        raise ValueError("Axes have no data")
+        msg = "Axes have no data"
+        raise ValueError(msg)
 
     bins = date_range(
         start=(
@@ -1087,25 +1158,25 @@ def add_season_period(ax: mpl.axes.Axes = None, bar_height: int = 10):
 
     plt.ylim(ax.dataLim.ymin, ax.dataLim.ymax)
 
-    return
 
-
-def set_bar_height(ax: mpl.axes.Axes = None, pixel_height: int = 10):
-    """
-    Converts pixel height to data coordinates
+def set_bar_height(ax: Axes = None, pixel_height: int = 10) -> float:
+    """Convert pixel height to data coordinates.
 
     Parameters
     ----------
-    ax: mpl.axes.Axes
+    ax: Axes
+        Figure plot
 
     pixel_height: int
-        in pixel
+        In pixel
+
     """
     if not ax:
         ax = plt.gca()
 
     if not ax.has_data():
-        raise ValueError("Axes have no data")
+        msg = "Axes have no data"
+        raise ValueError(msg)
 
     display_to_data = ax.transData.inverted().transform
     _, data_bottom = display_to_data((0, 0))  # Bottom of the axis
@@ -1115,30 +1186,35 @@ def set_bar_height(ax: mpl.axes.Axes = None, pixel_height: int = 10):
 
 
 def add_recording_period(
-    df: pd.DataFrame, ax: mpl.axes.Axes = None, bar_height: int = 10
-):
-    """
-    Adds a bar at the bottom on plot to show recording periods.
+    df: pd.DataFrame,
+    ax: mpl.axes.Axes = None,
+    bar_height: int = 10,
+) -> None:
+    """Add a bar at the bottom on plot to show recording periods.
 
     Parameters
     ----------
     df: pd.DataFrame
-        Includes the recording campaign deployment and recovery dates (typically extracted from metadatax)
+        Includes the recording campaign deployment
+        and recovery dates (typically extracted from metadatax)
 
-    ax: mpl.axes.Axes
+    ax: Axes
+        Figure plot
 
     bar_height: int
         Bar height in pixels
+
     """
     if not ax:
         ax = plt.gca()
 
     if not ax.has_data():
-        raise ValueError("Axes have no data")
+        msg = "Axes have no data"
+        raise ValueError(msg)
 
     recorder_intervals = [
         (start, end - start)
-        for start, end in zip(df["deployment_date"], df["recovery_date"])
+        for start, end in zip(df["deployment_date"], df["recovery_date"], strict=False)
     ]
 
     bar_height = set_bar_height(ax=ax, pixel_height=bar_height)
@@ -1150,5 +1226,3 @@ def add_recording_period(
         alpha=0.6,
     )
     plt.ylim(ax.dataLim.ymin, ax.dataLim.ymax)
-
-    return
