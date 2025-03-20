@@ -18,7 +18,10 @@ All results and expected input data is to be formatted according [OSmOSE](https:
 ### ✅ Prerequisites
 Ensure you have the following installed:
 - Python 3.12
-- Required dependencies (defined in `pyproject.toml`)
+- Required dependencies (see [latest release](https://github.com/mathieudpnt/OSmOSE_post_processing/releases))
+    ````
+    pip install path/to/wheel
+    ````
 
 ### 🛠 Steps
 1. Clone the repository:
