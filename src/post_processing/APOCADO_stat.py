@@ -3,7 +3,7 @@ import datetime as dt
 import numpy as np
 import pandas as pd
 import pytz
-from def_func import suntime_hour
+from def_func import get_sun_times
 
 
 def stats_diel_pattern(deployment: pd.Series, detector: str):
@@ -70,7 +70,7 @@ def stats_diel_pattern(deployment: pd.Series, detector: str):
     )
 
     # Compute sunrise and sunset decimal hour at the dataset location
-    [dt_dusk, dt_dawn, dt_day, dt_night] = suntime_hour(
+    [dt_dusk, dt_dawn, dt_day, dt_night] = get_sun_times(
         start=deployment["datetime deployment"],
         stop=deployment["datetime recovery"],
         lat=deployment["latitude"],
