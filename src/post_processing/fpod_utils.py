@@ -9,18 +9,18 @@ from OSmOSE.utils.timestamp_utils import strftime_osmose_format, strptime_from_t
 
 def fpod2aplose(
     df: pd.DataFrame,
-    tz: pytz.BaseTzInfo,
+    tz: pytz.timezone,
     dataset_name: str,
     annotation: str,
     bin_size: int = 60,
 ) -> pd.DataFrame:
-    """From FPOD result DataFrame to APLOSE formatted DataFrame.
+    """Format FPOD DataFrame to match APLOSE format.
 
     Parameters
     ----------
     df: pd.DataFrame
         FPOD result dataframe
-    tz: pytz.BaseTzInfo
+    tz: pytz.timezone
         Timezone object to get non-naïve datetimes
     dataset_name: str
         dataset name
@@ -71,7 +71,7 @@ def cpod2aplose(
     bin_size: int = 60,
     extra_columns: list | None = None,
 ) -> pd.DataFrame:
-    """From CPOD result DataFrame to APLOSE formatted DataFrame.
+    """Format CPOD DataFrame to match APLOSE format.
 
     Parameters
     ----------

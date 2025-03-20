@@ -8,12 +8,13 @@ import pandas as pd
 from def_func import get_datetime_format, get_duration
 from glider_config import NAV_STATE
 from numpy.lib.npyio import NpzFile
+from pandas import DataFrame
 from tqdm import tqdm
 from trajectoryFda import TrajectoryFda
 
 
 def set_trajectory(nav: pd.DataFrame) -> TrajectoryFda:
-    """Creates a trajectory object in order to track data
+    """Create a trajectory object in order to track data.
 
     Parameters
     ----------
@@ -26,24 +27,28 @@ def set_trajectory(nav: pd.DataFrame) -> TrajectoryFda:
 
     """
     traj = TrajectoryFda()
-    for ix, row in tqdm(nav.iterrows(), total=len(nav), desc="Tracking data"):
+    for _, row in tqdm(nav.iterrows(), total=len(nav), desc="Tracking data"):
         traj.setNewData(
-            timestamp=row["Timestamp_unix"], latitude=row["Lat"], longitude=row["Lon"],
+            timestamp=row["Timestamp_unix"],
+            latitude=row["Lat"],
+            longitude=row["Lon"],
         )
     return traj
 
 
 def get_loc_from_time(
-    traj: TrajectoryFda, time_vector: list[int | float],
+    traj: TrajectoryFda,
+    time_vector: list[int | float],
 ) -> (list[float], list[float], list[float]):
-    """Computes location for at a given datetime for a given trajectory
+    """Compute location for at a given datetime for a given trajectory.
 
     Parameters
     ----------
-    traj: TrajectoryFda object
+    traj: TrajectoryFda
+        Trajectory object
 
     time_vector:  list
-        A list of datetimes to associate a location to, in unix time
+        Datetimes to associate a location to, in unix time
 
     Returns
     -------
@@ -61,9 +66,12 @@ def get_loc_from_time(
 
 
 def plot_detections_with_nav_data_single_label(
-    df: pd.DataFrame, nav: pd.DataFrame, criterion: str, annotation: str,
-):
-    """Plots detections of one annotation type according to a navigation data criterion
+    df: pd.DataFrame,
+    nav: pd.DataFrame,
+    criterion: str,
+    annotation: str,
+) -> None:
+    """Plot detections of one annotation type according to a navigation data criterion.
 
     Parameters
     ----------
@@ -115,11 +123,12 @@ def plot_detections_with_nav_data_single_label(
     plt.tight_layout()
 
 
-
 def plot_detections_with_nav_data_all_labels(
-    df: pd.DataFrame, nav: pd.DataFrame, criterion: str,
-):
-    """Plots detections of all annotation types according to a navigation data criterion
+    df: pd.DataFrame,
+    nav: pd.DataFrame,
+    criterion: str,
+) -> None:
+    """Plot detections of all annotation types according to a navigation data criterion.
 
     Parameters
     ----------
@@ -180,9 +189,9 @@ def plot_detections_with_nav_data_all_labels(
     plt.tight_layout()
 
 
-
-def load_glider_nav(directory: Path):
+def load_glider_nav(directory: Path) -> DataFrame:
     """Load the navigation data from glider output files in a specified directory.
+
     This function searches the given directory for compressed `.gz` files
     containing the substring 'gli' in their filenames.
 
@@ -193,26 +202,26 @@ def load_glider_nav(directory: Path):
 
     Returns
     -------
-    df : pd.DataFrame
-        A DataFrame containing the combined navigation data from all
-        matching glider output files. The DataFrame includes:
-        - Columns from the original CSV files.
-        - A 'yo' column representing the file number extracted from the filename.
-        - A 'file' column indicating the source file for each row.
-        - A 'Lat DD' column for latitude in decimal degrees.
-        - A 'Lon DD' column for longitude in decimal degrees.
+    DataFrame
+        Combined navigation data from all matching glider output files.
+        The DataFrame includes:
+        - Columns from the original CSV files;
+        - A 'yo' column representing the file number extracted from the filename;
+        - A 'file' column indicating the source file for each row;
+        - A 'Lat DD' column for latitude in decimal degrees;
+        - A 'Lon DD' column for longitude in decimal degrees;
         - A 'Depth' column with depth values adjusted to be positive.
 
     """
     if not directory.exists():
-        raise FileNotFoundError(f"Directory '{directory}' does not exist.")
+        msg = f"Directory '{directory}' does not exist."
+        raise FileNotFoundError(msg)
 
     file = [f for f in directory.glob("*.gz") if "gli" in f.name]
 
     if not len(file) > 0:
-        raise FileNotFoundError(
-            f"Directory '{directory}' does not contain '.gz' files.",
-        )
+        msg = f"Directory '{directory}' does not contain '.gz' files."
+        raise FileNotFoundError(msg)
 
     all_rows = []  # Initialize an empty list to store the contents of all CSV files
     yo = []  # List to store the file numbers
@@ -237,36 +246,38 @@ def load_glider_nav(directory: Path):
             file_number += 1  # Increment the file number for the next file
 
     # Create a DataFrame from the combined data
-    df = pd.DataFrame(all_rows)
-    df.columns = df.iloc[0]  # set 1st row as headers
-    df = df.iloc[1:, 0:-1]  # delete last column and 1st row
+    df_nav = pd.DataFrame(all_rows)
+    df_nav.columns = df_nav.iloc[0]  # set 1st row as headers
+    df_nav = df_nav.iloc[1:, 0:-1]  # delete last column and 1st row
 
     # Add the yo number to the DataFrame
-    df["yo"] = [int(x) for x in yo]
+    df_nav["yo"] = [int(x) for x in yo]
 
-    df["file"] = data
-    df = df.drop(df[(df["Lat"] == 0) & (df["Lon"] == 0)].index).reset_index(drop=True)
-    df["Lat"] = [
+    df_nav["file"] = data
+    df_nav = df_nav.drop(
+        df_nav[(df_nav["Lat"] == 0) & (df_nav["Lon"] == 0)].index
+    ).reset_index(drop=True)
+
+    df_nav["Lat"] = [
         int(x) + (((x - int(x)) / 60) * 100) if not np.isnan(x) else np.nan
-        for x in df["Lat"] / 100
+        for x in df_nav["Lat"] / 100
     ]
-    df["Lon"] = [
+    df_nav["Lon"] = [
         int(x) + (((x - int(x)) / 60) * 100) if not np.isnan(x) else np.nan
-        for x in df["Lon"] / 100
+        for x in df_nav["Lon"] / 100
     ]
-    df["Depth"] = -df["Depth"]
-    df["NavState"] = df["NavState"].replace(NAV_STATE)
-    df["Timestamp"] = [
+    df_nav["Depth"] = -df_nav["Depth"]
+    df_nav["NavState"] = df_nav["NavState"].replace(NAV_STATE)
+    df_nav["Timestamp"] = [
         pd.to_datetime(ts, format="%d/%m/%Y %H:%M:%S").tz_localize("UTC")
-        for ts in df["Timestamp"]
+        for ts in df_nav["Timestamp"]
     ]
-    df = df.sort_values(by=["Timestamp"]).reset_index(drop=True)
 
-    return df
+    return df_nav.sort_values(by=["Timestamp"]).reset_index(drop=True)
 
 
-def plot_nav_state(df: pd.DataFrame, npz: NpzFile):
-    """Plot the LTAS from a npz file and the associated glider state of navigation
+def plot_nav_state(df: pd.DataFrame, npz: NpzFile) -> None:
+    """Plot the LTAS from a npz file and the associated glider state of navigation.
 
     Parameters
     ----------
@@ -312,9 +323,10 @@ def plot_nav_state(df: pd.DataFrame, npz: NpzFile):
     plt.tight_layout()
 
 
-
 def compute_acoustic_diversity(
-    df: pd.DataFrame, nav: pd.DataFrame, time_vector: list[int | float],
+    df: pd.DataFrame,
+    nav: pd.DataFrame,
+    time_vector: list[int | float],
 ) -> pd.DataFrame:
     """Compute the number of different annotations at given positions and timestamps.
 
@@ -346,7 +358,8 @@ def compute_acoustic_diversity(
     )
 
     lat_time_vector, lon_time_vector, ts_time_vector = get_loc_from_time(
-        traj=trajectory, time_vector=time_vector,
+        traj=trajectory,
+        time_vector=time_vector,
     )
 
     # delete duplicate detection in case several users annotated the same segment

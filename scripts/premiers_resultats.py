@@ -1,31 +1,35 @@
+"""How to use different utils for preliminary analysis of detection/annotation files."""
+
 from pathlib import Path
+
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
-from src.post_processing.def_func import get_coordinates, json2df, add_season_period, add_recording_period
-
+from src.post_processing.def_func import (
+    add_recording_period,
+    add_season_period,
+    get_coordinates,
+    json2df,
+)
 from src.post_processing.premiers_resultats_utils import (
+    get_detection_perf,
     load_parameters_from_yaml,
-    scatter_detections,
-    plot_hourly_detection_rate,
-    single_plot,
     multilabel_plot,
     multiuser_plot,
     overview_plot,
-    get_detection_perf,
+    plot_hourly_detection_rate,
+    scatter_detections,
+    single_plot,
 )
 
 mpl.rcdefaults()
-mpl.style.use("seaborn-v0_8-paper")
+plt.style.use("seaborn-v0_8-paper")
 mpl.rcParams["figure.dpi"] = 150
 mpl.rcParams["figure.figsize"] = [10, 6]
 
 # %% load parameters from the YAML file
 yaml_file = Path(r".\scripts\yaml_example.yaml")
-
-df_detections, time_bin, annotators, labels, fmax, datetime_begin, datetime_end, _ = (
-    load_parameters_from_yaml(file=yaml_file)
-)
+df_detections = load_parameters_from_yaml(file=yaml_file)
 
 json = Path(r"\path\to\json")
 metadatax = json2df(json_path=json)

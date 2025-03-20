@@ -42,16 +42,20 @@ def stats_diel_pattern(deployment: pd.Series, detector: str):
     """
     assert isinstance(deployment, pd.Series), "Not a Series passed"
     assert "datetime deployment" in deployment.index and isinstance(
-        deployment["datetime deployment"], pd.Timestamp,
+        deployment["datetime deployment"],
+        pd.Timestamp,
     ), "Error datetime deployment"
     assert "datetime recovery" in deployment.index and isinstance(
-        deployment["datetime recovery"], pd.Timestamp,
+        deployment["datetime recovery"],
+        pd.Timestamp,
     ), "Error datetime recovery"
     assert "datetime recovery" in deployment.index and isinstance(
-        deployment["datetime recovery"], pd.Timestamp,
+        deployment["datetime recovery"],
+        pd.Timestamp,
     ), "Error datetime recovery"
     assert f"df {detector}" in deployment.index and isinstance(
-        deployment[f"df {detector}"], pd.DataFrame,
+        deployment[f"df {detector}"],
+        pd.DataFrame,
     ), f"Error 'df {detector}'"
     assert "latitude" in deployment.index and pd.api.types.is_numeric_dtype(
         deployment["latitude"],
@@ -226,9 +230,13 @@ def stats_diel_pattern(deployment: pd.Series, detector: str):
             nb_det_day.append(light_regime[idx_det[0] : idx_det[-1]].count(2))
 
     # For each day, compute number of detection per light regime corrected by light regime duration
-    nb_det_night_corr = [(nb / d) for nb, d in zip(nb_det_night, night_duration_dec2, strict=False)]
+    nb_det_night_corr = [
+        (nb / d) for nb, d in zip(nb_det_night, night_duration_dec2, strict=False)
+    ]
     # nb_det_dawn_corr = [(nb / d) for nb, d in zip(nb_det_dawn, dawn_duration_dec)]
-    nb_det_day_corr = [(nb / d) for nb, d in zip(nb_det_day, day_duration_dec, strict=False)]
+    nb_det_day_corr = [
+        (nb / d) for nb, d in zip(nb_det_day, day_duration_dec, strict=False)
+    ]
     # nb_det_dusk_corr = [(nb / d) for nb, d in zip(nb_det_dusk, dusk_duration_dec)]
 
     # Normalize by daily average number of detection per hour

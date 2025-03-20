@@ -3,22 +3,21 @@ from OSmOSE.utils.timestamp_utils import strptime_from_text
 
 
 def clean_pamguard_false_detection(df: pd.DataFrame) -> pd.DataFrame:
-    """Cleans PAMGuard whistle and moan detector first detection of each audio file (might be very specific to Sylence data).
-    This is because the first detection on each audio file corresponds to the detection of an electronic buzz made by the recorder.
+    """Clean PAMGuard false detections.
 
-    The first detection in each audio file seem to be caused by an electronic buzz produced
-    by the recorder. This function identifies and removes these false detections
-    by checking if a detection occurs within the first five seconds of the corresponding audio file.
+    The first detection on each audio file corresponds to the detection of
+    an electronic buzz made by the recorder (might be very specific to Sylence data).
+    This function identifies and removes these false detections by checking if
+    a detection occurs within the first five seconds of the corresponding audio file.
 
     Parameters
     ----------
     df: pd.DataFrame
-        An APLOSE formatted DataFrame (presumably from PAMGuard)
+        APLOSE DataFrame (presumably from PAMGuard)
 
     Returns
     -------
-    pd.DataFrame
-        A cleaned DataFrame with false detections removed.
+    A cleaned DataFrame with false detections removed
 
     """
     filenames = df["filename"]
@@ -30,12 +29,13 @@ def clean_pamguard_false_detection(df: pd.DataFrame) -> pd.DataFrame:
 
     start_datetimes = df["start_datetime"]
 
-    # compare date of filename detection and date of detection
-    # and delete all lines for which the detection happens in the 5 first seconds of the file
+    # compare date of filename detection and date of detection and delete all lines
+    # for which the detection happens in the 5 first seconds of the file
+    max_time = 5
     idx_false_detections = []
     for i in range(len(start_datetimes)):
         d = (start_datetimes[i] - filename_datetimes[i]).total_seconds()
-        if d < 5:
+        if d < max_time:
             idx_false_detections.append(i)
 
     return df.drop(labels=idx_false_detections)
