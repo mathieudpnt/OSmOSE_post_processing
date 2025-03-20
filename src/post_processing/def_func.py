@@ -671,13 +671,26 @@ def get_season(ts: pd.Timestamp) -> str:
     return season
 
 
-def suntime_hour(
+def get_sun_times(
     start: pd.Timestamp,
     stop: pd.Timestamp,
     lat: float,
     lon: float,
-) -> tuple:
+) -> (
+    list[float],
+    list[float],
+    list[pd.Timestamp],
+    list[pd.Timestamp],
+    list[pd.Timestamp],
+    list[pd.Timestamp],
+):
     """Fetch sunrise and sunset hours for dates between start and stop.
+
+    Each twilight phase is defined by the solar elevation angle,
+    which is the position of the Sun in relation to the horizon.
+    During nautical twilight, the geometric center of the Sun's disk
+    is between 6 and 12 degrees below the horizon.
+    See: https://www.timeanddate.com/astronomy/nautical-twilight.html
 
     Parameters
     ----------
@@ -692,25 +705,23 @@ def suntime_hour(
 
     Returns
     -------
-    hour_sunrise: list
-        A list of float with sunrise decimal hours
-        for each day between date_beg and date_end
+    hour_sunrise: list[float]
+        Sunrise decimal hours for each day between start and stop
 
-    hour_sunset: list
-        A List of float with sunset decimal hours
-        for each day between date_beg and date_end
+    hour_sunset: list[float]
+        Sunset decimal hours for each day between start and stop
 
-    dt_dusk: pd.Timestamp
-        dusk datetime
+    dt_dawn: list[pd.Timestamp]
+        Dawn datetimes for each day between start and stop
 
-    dt_day: pd.Timestamp
-        day datetime
+    dt_day: list[pd.Timestamp]
+        Day datetimes for each day between start and stop
 
-    dt_dawn: pd.Timestamp
-        dawn datetime
+    dt_dusk: list[pd.Timestamp]
+        Dusk datetimes for each day between start and stop
 
-    dt_night: pd.Timestamp
-        night datetime
+    dt_night: list[pd.Timestamp]
+        Night datetimes for each day between start and stop
 
     """
     tz = start.tz
@@ -725,7 +736,6 @@ def suntime_hour(
     for date in [
         ts.date() for ts in pd.date_range(start.normalize(), stop.normalize(), freq="D")
     ]:
-        # nautical twilight = 12, see def here : https://www.timeanddate.com/astronomy/nautical-twilight.html
         suntime = sun(gps.observer, date=date, dawn_dusk_depression=12, tzinfo=tz)
         dawn, day, _, dusk, night = [
             pd.Timestamp(suntime[period]).tz_convert(tz) for period in suntime
@@ -741,7 +751,7 @@ def suntime_hour(
         ):
             lst.append(period)
 
-    return h_sunrise, h_sunset, dt_dusk, dt_dawn, dt_day, dt_night
+    return h_sunrise, h_sunset, dt_dawn, dt_day, dt_dusk, dt_night
 
 
 def get_coordinates() -> tuple:

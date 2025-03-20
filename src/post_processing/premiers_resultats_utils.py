@@ -20,7 +20,7 @@ from src.post_processing.def_func import (
     get_duration,
     load_detections,
     read_yaml,
-    suntime_hour,
+    get_sun_times,
     t_rounder,
 )
 
@@ -311,7 +311,7 @@ def plot_hourly_detection_rate(
     bin_ref = select_reference(df["end_time"], "time bin")
 
     # compute sunrise and sunset decimal hour at the dataset location
-    sunrise, sunset, _, _, _, _ = suntime_hour(
+    sunrise, sunset, _, _, _, _ = get_sun_times(
         start=datetime_begin,
         stop=datetime_end,
         lat=lat,
@@ -414,7 +414,7 @@ def scatter_detections(
     datetime_end = df["end_datetime"].iloc[-1]
 
     # compute sunrise and sunset decimal hour at the dataset location
-    hour_sunrise, hour_sunset, _, _, _, _ = suntime_hour(
+    hour_sunrise, hour_sunset, _, _, _, _ = get_sun_times(
         start=datetime_begin,
         stop=datetime_end,
         lat=lat,
