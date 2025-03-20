@@ -354,6 +354,7 @@ def assign_phase_simple(
 
     """
     data["start_datetime"] = pd.to_datetime(data["start_datetime"], utc=True)
+    data["end_datetime"] = pd.to_datetime(data["end_datetime"], dayfirst=True, utc=True)
     meta["deployment_date"] = pd.to_datetime(meta["deployment_date"], utc=True)
     meta["recovery_date"] = pd.to_datetime(meta["recovery_date"], utc=True)
     meta["deployment_date"] = meta["deployment_date"].dt.floor("d")
