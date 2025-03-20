@@ -15,12 +15,12 @@ All results and expected input data is to be formatted according [OSmOSE](https:
 
 
 ## Installation
-### Prerequisites
+### ✅ Prerequisites
 Ensure you have the following installed:
 - Python 3.12
 - Required dependencies (defined in `pyproject.toml`)
 
-### Steps
+### 🛠 Steps
 1. Clone the repository:
    ```
    git clone https://github.com/mathieudpnt/OSmOSE_post_processing.git
@@ -30,13 +30,13 @@ Ensure you have the following installed:
    poetry install
    ```
 
-## Contributing
+## 🤝 Contributing
 Contributions are welcome! To contribute:
-1. Fork the repository.
-2. Create a new branch: `git checkout -b feature-branch`.
-3. Commit your changes: `git commit -m 'Add new feature'`.
-4. Push to your branch: `git push origin feature-branch`.
-5. Open a pull request.
+1. Fork the repository 🍴
+2. Create a new branch 🚀<br>`git checkout -b feature-branch`
+3. Commit your changes ✏️<br>`git commit -m 'Add new feature'`
+4. Push to your branch 📤<br>`git push origin feature-branch`
+5. Open a pull request 📝
 
-## Contact
-For questions or collaborations, open an issue or contact the repository maintainer.
+## 📬  Contact
+💡 Have questions or ideas? Open an issue or reach out to [me](mailto:mathieu.dupont@ensta.fr) !
