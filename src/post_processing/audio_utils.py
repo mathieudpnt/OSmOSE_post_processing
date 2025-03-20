@@ -1,11 +1,12 @@
+import logging
 from pathlib import Path
 
 import numpy as np
 import soundfile as sf
 
 
-def normalize_audio(file: Path, output_folder: Path = None):
-    """Normalize the audio data of a file
+def normalize_audio(file: Path, output_folder: Path | None = None) -> None:
+    """Normalize the audio data of a file.
 
     Parameters
     ----------
@@ -15,10 +16,12 @@ def normalize_audio(file: Path, output_folder: Path = None):
         The path to output destination
 
     """
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
     try:
         data, fs = sf.read(file)
-    except Exception as e:
-        print(f"An error occurred while reading file {file}: {e}")
+    except ValueError as e:
+        msg = f"An error occurred while reading file {file}: {e}"
+        raise ValueError(msg) from e
 
     if not output_folder:
         output_folder = file.parent
@@ -42,25 +45,30 @@ def normalize_audio(file: Path, output_folder: Path = None):
         format=format_file,
     )
 
-    print(f"File '{new_fn}' exported in '{file.parent}'")
+    logging.info("File '%s' exported in '%s'", new_fn, file.parent)
 
 
-def create_raven_file_list(directory: Path):
-    """Creates a text file with the paths of the audio files contained in all the subfolders
-    of a given directory. This is useful to open several audio located in different subfolders in Raven.
+def create_raven_file_list(directory: Path) -> None:
+    """Create a text file with reference to audio in directory.
+
+    The test file contained the paths of audio files in directory and all subfolders.
+    This is useful to open several audio located in different subfolders in Raven.
 
     Parameters
     ----------
-    directory: Path to the folder containing all audio data
+    directory: Path
+        Folder containing all audio data
 
     """
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+
     # get file list
-    files = list(directory.glob(r"*\*.wav"))
+    files = list(directory.rglob(r"*.wav"))
 
     # save file list as a txt file
     filename = directory / "Raven_file_list.txt"
-    with open(filename, "w") as f:
+    with filename.open(mode="w") as f:
         for item in files:
             f.write(f"{item}\n")
 
-    print(f"File list saved in '{directory}'")
+    logging.info("File list saved in '%s'", directory)
