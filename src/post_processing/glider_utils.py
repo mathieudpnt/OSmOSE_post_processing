@@ -5,11 +5,10 @@ import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from pandas import DataFrame
-
 from def_func import get_datetime_format, get_duration
 from glider_config import NAV_STATE
 from numpy.lib.npyio import NpzFile
+from pandas import DataFrame
 from tqdm import tqdm
 from trajectoryFda import TrajectoryFda
 
