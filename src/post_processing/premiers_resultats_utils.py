@@ -1,4 +1,6 @@
-import datetime
+"""Utils for first analysis on annotation/detection DataFrame."""
+
+import logging
 from collections import Counter
 from collections.abc import Iterable
 from pathlib import Path
@@ -151,7 +153,7 @@ def set_plot_resolution(
     )
 
 
-def _set_yaxis(ax: Axes, max_annotation_number: int) -> str:
+def _set_yaxis(ax: Axes | Iterable, max_annotation_number: int) -> str:
     """Change ax properties.
 
     Whether the plot is visualized in percentage or in raw values.
@@ -185,7 +187,8 @@ def _set_yaxis(ax: Axes, max_annotation_number: int) -> str:
 
     resolution = easygui.integerbox(
         msg=f"Select a y-ticks resolution\n"
-        f"(mode='{choice_percentage}' - highest_bin/max={y_max}/{max_annotation_number})",
+        f"(mode='{choice_percentage}'"
+        f" - highest_bin/max={y_max}/{max_annotation_number})",
         title="Plot resolution",
         default=10,
         lowerbound=1,
@@ -239,14 +242,22 @@ def overview_plot(df: pd.DataFrame) -> None:
         APLOSE formatted result DataFrame with detections and associated timestamps
 
     """
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+
     summary_label = (
-        df.groupby("annotation")["annotator"].apply(Counter).pivot_table(fill_value=0)
-    )
-    summary_annotator = (
-        df.groupby("annotator")["annotation"].apply(Counter).pivot_table(fill_value=0)
+        df.groupby("annotation")["annotator"]  # noqa: PD010
+        .apply(Counter)
+        .unstack(fill_value=0)
     )
 
-    print(f"\n- Overview of the detections -\n\n {summary_label}")
+    summary_annotator = (
+        df.groupby("annotator")["annotation"]  # noqa: PD010
+        .apply(Counter)
+        .unstack(fill_value=0)
+    )
+
+    msg = f"- Overview of the detections -\n\n {summary_label}"
+    logging.info(msg)
 
     fig, ax = plt.subplots(2, 1)
     ax[0] = summary_label.plot(kind="bar", ax=ax[0], edgecolor="black", linewidth=1)
@@ -332,7 +343,7 @@ def plot_hourly_detection_rate(
     fig, ax = plt.subplots()
     im = ax.imshow(
         m,
-        extent=[datetime_begin, datetime_end, 0, 24],
+        extent=(datetime_begin, datetime_end, 0, 24),
         vmin=0,
         vmax=3600 / bin_ref,
         aspect="auto",
@@ -458,7 +469,8 @@ def scatter_detections(
 
     # title
     plt.title(
-        f"Time of detections within each day for dataset {select_reference(df['dataset'])}",
+        f"Time of detections within each day for dataset"
+        f" {select_reference(df['dataset'])}",
     )
 
     plt.tight_layout()
@@ -614,13 +626,22 @@ def multilabel_plot(df: pd.DataFrame) -> None:
     plt.tight_layout()
 
 
-def multiuser_plot(df: pd.DataFrame):
-    df = df.sort_values(by="start_datetime")
-    datetime_begin = df["start_datetime"].iloc[0]
-    datetime_end = df["end_datetime"].iloc[-1]
-    annotators = list(set(df["annotator"]))
+def multiuser_plot(df: pd.DataFrame) -> None:
+    """Plot the detections of an APLOSE formatted DataFrame for two annotators.
 
-    if len(annotators) < 2:
+    Parameters
+    ----------
+    df: pd.DataFrame
+        APLOSE DataFrame
+
+    """
+    df_multi_user = df.sort_values(by="start_datetime")
+    datetime_begin = df_multi_user["start_datetime"].iloc[0]
+    datetime_end = df_multi_user["end_datetime"].iloc[-1]
+    annotators = list(set(df_multi_user["annotator"]))
+
+    min_annotator = 2
+    if len(annotators) < min_annotator:
         msg = "Only 1 annotator detected, multiuser plot cancelled"
         raise ValueError(msg)
 
@@ -631,23 +652,25 @@ def multiuser_plot(df: pd.DataFrame):
     )
 
     label_ref1 = select_reference(
-        df[df["annotator"] == annot_ref1]["annotation"],
+        df_multi_user[df_multi_user["annotator"] == annot_ref1]["annotation"],
         "label 1",
     )
-    if label_ref1 not in list(set(df[df["annotator"] == annot_ref2]["annotation"])):
+    if label_ref1 not in list(
+        set(df_multi_user[df_multi_user["annotator"] == annot_ref2]["annotation"])
+    ):
         label_ref2 = select_reference(
-            df[df["annotator"] == annot_ref2]["annotation"],
+            df_multi_user[df_multi_user["annotator"] == annot_ref2]["annotation"],
             "label 2",
         )
     else:
         label_ref2 = label_ref1
 
     time_bin_ref1 = select_reference(
-        df[df["annotator"] == annot_ref1]["end_time"],
+        df_multi_user[df_multi_user["annotator"] == annot_ref1]["end_time"],
         "time bin 1",
     )
     time_bin_ref2 = select_reference(
-        df[df["annotator"] == annot_ref2]["end_time"],
+        df_multi_user[df_multi_user["annotator"] == annot_ref2]["end_time"],
         "time bin 2",
     )
 
@@ -667,11 +690,13 @@ def multiuser_plot(df: pd.DataFrame):
         stop=datetime_end,
     )
 
-    df1_1annot_1label = df[
-        (df["annotator"] == annot_ref1) & (df["annotation"] == label_ref1)
+    df1_1annot_1label = df_multi_user[
+        (df_multi_user["annotator"] == annot_ref1)
+        & (df_multi_user["annotation"] == label_ref1)
     ]
-    df2_1annot_1label = df[
-        (df["annotator"] == annot_ref2) & (df["annotation"] == label_ref2)
+    df2_1annot_1label = df_multi_user[
+        (df_multi_user["annotator"] == annot_ref2)
+        & (df_multi_user["annotation"] == label_ref2)
     ]
 
     fig, ax = plt.subplots(1, 2, gridspec_kw={"width_ratios": [8, 2]})
@@ -753,7 +778,7 @@ def plot_detection_timeline(df: pd.DataFrame) -> None:
         APLOSE DataFrame
 
     """
-    labels = sorted(list(set(df["annotation"])))
+    labels = sorted(set(df["annotation"]))
 
     fig, ax = plt.subplots()
 
@@ -858,6 +883,8 @@ def get_detection_perf(
         end datetime, optional
 
     """
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+
     datetime_begin = df["start_datetime"].min()
     datetime_end = df["start_datetime"].max()
     df_freq = str(df["end_time"].max()) + "s"
@@ -931,18 +958,18 @@ def get_detection_perf(
         msg = f"Error : {error}"
         raise ValueError(msg)
 
-    print("\n\n### Detection results ###", end="\n")
-    print(f"True positive : {true_pos}")
-    print(f"True negative : {true_neg}")
-    print(f"False positive : {false_pos}")
-    print(f"False negative : {false_neg}")
+    msg_result = "- Detection results -\n\n"
+    msg_result += f"True positive : {true_pos}\n"
+    msg_result += f"True negative : {true_neg}\n"
+    msg_result += f"False positive : {false_pos}\n"
+    msg_result += f"False negative : {false_neg}\n\n"
 
     if true_pos + false_pos == 0 or false_neg + true_pos == 0:
         msg = "Precision/Recall computation impossible"
         raise ValueError(msg)
 
-    print(f"\nPRECISION : {true_pos / (true_pos + false_pos):.2f}")
-    print(f"RECALL : {true_pos / (false_neg + true_pos):.2f}")
+    msg_result += f"Precision : {true_pos / (true_pos + false_pos):.2f}\n"
+    msg_result += f"Recall : {true_pos / (false_neg + true_pos):.2f}\n"
 
     # f-score : 2 * (precision * recall) / (precision + recall)
     f_score = (
@@ -950,12 +977,13 @@ def get_detection_perf(
         * ((true_pos / (true_pos + false_pos)) * (true_pos / (false_neg + true_pos)))
         / ((true_pos / (true_pos + false_pos)) + (true_pos / (false_neg + true_pos)))
     )
-    print(f"F-SCORE : {f_score:.2f}")
+    msg_result += f"F-score : {f_score:.2f}\n\n"
 
-    print(
-        f"File 1 : {selected_annotator1}/{selected_label1} \n"
-        f"File 2 : {selected_annotator2}/{selected_label2}",
+    msg_result += (
+        f"Config 1 : {selected_annotator1}/{selected_label1} \n"
+        f"Config 2 : {selected_annotator2}/{selected_label2}"
     )
+    logging.info(msg_result)
 
 
 def _get_resolution_str(bin_sec: int) -> str:
