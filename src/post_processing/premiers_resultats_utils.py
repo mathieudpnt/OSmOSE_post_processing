@@ -33,14 +33,8 @@ def load_parameters_from_yaml(file: Path) -> pd.DataFrame:
 
     Returns
     -------
-    df : APLOSE formatted detections
-    time_bin:  list, time bin(s) in seconds
-    annotators: list of annotators
-    labels: list of labels
-    f_max: list of maximum frequencies
-    datetime_begin: pd.Timestamp
-    datetime_end: pd.Timestamp
-    tz: timezone
+    df : pd.DataFrame
+        APLOSE formatted detections
 
     """
     parameters = read_yaml(file=file)
