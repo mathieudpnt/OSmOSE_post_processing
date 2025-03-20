@@ -1,3 +1,5 @@
+"""How to use different utils for preliminary analysis of detection/annotation files."""
+
 from pathlib import Path
 
 import matplotlib as mpl
@@ -21,7 +23,7 @@ from src.post_processing.premiers_resultats_utils import (
 )
 
 mpl.rcdefaults()
-mpl.style.use("seaborn-v0_8-paper")
+plt.style.use("seaborn-v0_8-paper")
 mpl.rcParams["figure.dpi"] = 150
 mpl.rcParams["figure.figsize"] = [10, 6]
 
