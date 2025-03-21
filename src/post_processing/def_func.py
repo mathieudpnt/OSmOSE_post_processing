@@ -564,67 +564,34 @@ def find_delimiter(file: str | Path) -> str:
         return delimiter
 
 
-def t_rounder(t: pd.Timestamp, res: int) -> pd.Timestamp:
-    """Round a Timestamp according to the user specified resolution.
-
-    Possible values: 10s / 1min / 10min / 1h / 24h
+def t_rounder(t: pd.Timestamp, res: pd.Timedelta | int) -> pd.Timestamp:
+    """Round a Timestamp to the nearest resolution.
 
     Parameters
     ----------
     t: pd.Timestamp
         Datetime to round
-
-    res: integer
-        The new resolution in seconds
+    res: pd.Timedelta | int
+        Resolution as a pandas Timedelta or an integer representing seconds
 
     Returns
     -------
-    rounded Timestamp
+    Rounded timestamp with preserved timezone
 
     """
-    if res == 600:  # 10min
-        minute = t.minute
-        minute = round(minute / 10) * 10
-        hour = t.hour
-        if minute < 60:
-            t = t.replace(minute=minute, second=0, microsecond=0)
-        elif hour < 23:
-            hour += 1
-        else:
-            hour = 0
-            t += pd.Timedelta(days=1)
-            t = t.replace(hour=hour, minute=0, second=0, microsecond=0)
-    elif res == 10:  # 10s
-        second = t.second
-        second = round(second / 10) * 10
-        if second < 60:
-            t = t.replace(second=second, microsecond=0)
-        else:
-            t = t + pd.Timedelta(minutes=1)
-            t = t.replace(second=0, microsecond=0)
-    elif res == 60:  # 1min
-        second = round(t.second / 10) * 10
-        if second < 60:
-            t = t.replace(second=0, microsecond=0)
-        else:
-            t = t + pd.Timedelta(minutes=1)
-            t = t.replace(second=0, microsecond=0)
-    elif res == 3600:  # 1h
-        t = t.replace(minute=0, second=0, microsecond=0)
-    elif res == 86400:  # 24h
-        if t > t.replace(hour=12, minute=0, second=0, microsecond=0):
-            t = t.replace(hour=0, minute=0, second=0, microsecond=0)
-            t += pd.Timedelta(days=1)
-        else:
-            t = t.replace(hour=0, minute=0, second=0, microsecond=0)
-    elif res == 3:
-        t = t.replace(microsecond=0)
-    elif res > 86400:
-        t = t.replace(hour=0, minute=0, second=0, microsecond=0)
+    if isinstance(res, pd.Timedelta):
+        res_seconds = res.total_seconds()
+    elif isinstance(res, int) and res > 0:
+        res_seconds = res
     else:
-        msg = f"res={res}s: Resolution not available"
+        msg = "Resolution must be a positive timedelta or a positive integer"
         raise ValueError(msg)
-    return t
+
+    tz = t.tzinfo
+    rounded_epoch = round(t.timestamp() / res_seconds) * res_seconds
+    rounded_t = pd.Timestamp.utcfromtimestamp(rounded_epoch)
+
+    return rounded_t.tz_convert(tz) if tz is not None else rounded_t.tz_localize(None)
 
 
 def get_season(ts: pd.Timestamp) -> str:
