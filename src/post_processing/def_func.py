@@ -598,20 +598,15 @@ def get_season(ts: pd.Timestamp, northern: bool = True) -> str:
     """Determine the meteorological season.
 
     In the Northern hemisphere
-    Winter is defined as timestamps from December to February,
-    Spring from March to May,
-    Summer from June to August,
-    Autumn from September to November.
+    Winter: Dec–Feb, Spring: Mar–May, Summer: Jun–Aug, Autumn: Sep–Nov
 
     In the Southern hemisphere
-    Winter is defined as timestamps from June to August,
-    Spring from September to November,
-    Summer from December to February,
-    Autumn from March to May.
+    Winter: Jun–Aug, Spring: Sep–Nov, Summer: Dec–Feb, Autumn: Mar–May
 
     Parameters
     ----------
-    northern: boolean, default True. Specify if the seasons are northern or austral
+    northern: boolean, default True.
+        Specify if the seasons are northern or austral
     ts: pd.Timestamp
         Considered datetime
 
@@ -1113,7 +1108,8 @@ def add_season_period(ax: Axes = None, bar_height: int = 10, northern: bool = Tr
 
     Parameters
     ----------
-    northern: boolean, default True. Specify if the seasons are northern or austral
+    northern: boolean, default True.
+        Specify if the seasons are northern or austral
     ax: Axes
         Figure plot
 
