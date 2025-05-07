@@ -594,16 +594,19 @@ def t_rounder(t: pd.Timestamp, res: pd.Timedelta | int) -> pd.Timestamp:
     return rounded_t.tz_convert(tz) if tz is not None else rounded_t.tz_localize(None)
 
 
-def get_season(ts: pd.Timestamp) -> str:
-    """Determine the meteorological season in the Northern Hemisphere.
+def get_season(ts: pd.Timestamp, northern: bool = True) -> str:
+    """Determine the meteorological season.
 
-    Winter is defined as timestamps from December to February,
-    Spring from March to May,
-    Summer from June to August,
-    Autumn from September to November.
+    In the Northern hemisphere
+    Winter: Dec–Feb, Spring: Mar–May, Summer: Jun–Aug, Autumn: Sep–Nov
+
+    In the Southern hemisphere
+    Winter: Jun–Aug, Spring: Sep–Nov, Summer: Dec–Feb, Autumn: Mar–May
 
     Parameters
     ----------
+    northern: boolean, default True.
+        Specify if the seasons are northern or austral
     ts: pd.Timestamp
         Considered datetime
 
@@ -616,10 +619,16 @@ def get_season(ts: pd.Timestamp) -> str:
     >>> get_season(pd.Timestamp("01/01/2023"))
 
     """
-    winter = [1, 2, 12]
-    spring = [3, 4, 5]
-    summer = [6, 7, 8]
-    autumn = [9, 10, 11]
+    if northern:
+        winter = [1, 2, 12]
+        spring = [3, 4, 5]
+        summer = [6, 7, 8]
+        autumn = [9, 10, 11]
+    else:
+        winter = [6, 7, 8]
+        spring = [9, 10, 11]
+        summer = [1, 2, 12]
+        autumn = [3, 4, 5]
 
     if ts.month in spring:
         season = "spring" + " " + str(ts.year)
@@ -1094,11 +1103,13 @@ def json2df(json_path: Path) -> pd.DataFrame:
     return metadatax_df
 
 
-def add_season_period(ax: Axes = None, bar_height: int = 10) -> None:
+def add_season_period(ax: Axes = None, bar_height: int = 10, northern: bool = True) -> None:
     """Add a bar at the top of the plot to seasons.
 
     Parameters
     ----------
+    northern: boolean, default True.
+        Specify if the seasons are northern or austral
     ax: Axes
         Figure plot
 
@@ -1136,7 +1147,7 @@ def add_season_period(ax: Axes = None, bar_height: int = 10) -> None:
     ]
     bin_centers = [Timestamp(center, unit="s") for center in bin_centers]
 
-    bin_seasons = [get_season(bc).split()[0] for bc in bin_centers]
+    bin_seasons = [get_season(bc, northern).split()[0] for bc in bin_centers]
     bar_height = set_bar_height(ax, bar_height)
     bar_bottom = ax.get_ylim()[1] + (0.2 * bar_height)
 
