@@ -14,23 +14,21 @@ This repository is used to process passive acoustic data particularly marine mam
 All results and expected input data is to be formatted according [OSmOSE](https://github.com/Project-OSmOSE) convention.
 
 
-## Installation
-### ✅ Prerequisites
-Ensure you have the following installed:
-- Python 3.12
-- Required dependencies (see [latest release](https://github.com/mathieudpnt/OSmOSE_post_processing/releases))
-    ````
-    pip install path/to/wheel
-    ````
+## 🛠 Installation
+The package will be installed with [uv](https://docs.astral.sh/uv/), a powerful Python package and project manager.
+Please refer to the uv [documentation](https://docs.astral.sh/uv/getting-started/installation/) for installing uv.
 
-### 🛠 Steps
-1. Clone the repository:
+To download the repository, simply clone it from git:
    ```
    git clone https://github.com/mathieudpnt/OSmOSE_post_processing.git
    ```
-2. Install dependencies using `poetry` (see poetry [documentation](https://python-poetry.org/docs/#installation)):
+Then, you can pull the latest update:
    ```
-   poetry install
+   git pull origin main
+   ```
+You can now install the package using uv from the cloned repository:
+   ```
+   uv sync
    ```
 
 ## 🤝 Contributing
