@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import bisect
 import csv
 import json
@@ -179,10 +181,11 @@ def load_detections(
     datetime_end: pd.Timestamp = None,
     annotator: str | None = None,
     annotation: str | None = None,
-    timestamp_file: str | None = None,
+    timestamp_file: Path | None = None,
     user_sel: str = "all",
     f_min: int | None = None,
     f_max: int | None = None,
+    score: float | None = None,
     *,
     box: bool = False,
 ) -> pd.DataFrame:
@@ -228,7 +231,10 @@ def load_detections(
         To filter out detections inferior to the argument.
 
     f_max: int
-        To filter out detections superior to the argumet.
+        To filter out detections superior to the argument.
+
+    score: float
+        To filter out detections with score lower than the argument.
 
     Returns
     -------
@@ -302,6 +308,12 @@ def load_detections(
         df_loaded = df_loaded[df_loaded["end_frequency"] <= f_max]
         if len(df_loaded) == 0:
             msg = f"No detection found below {f_max}Hz, upload aborted"
+            raise ValueError(msg)
+
+    if score and 'score' in df_loaded.columns:
+        df_loaded = df_loaded[df_loaded["score"] >= score]
+        if len(df_loaded) == 0:
+            msg = f"No detection found above with score above {score}, upload aborted"
             raise ValueError(msg)
 
     df_no_box = df_loaded.loc[
