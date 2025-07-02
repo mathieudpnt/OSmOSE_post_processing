@@ -1,4 +1,5 @@
 """Utils for first analysis on annotation/detection DataFrame."""
+from __future__ import annotations
 
 import logging
 from collections import Counter
@@ -18,9 +19,9 @@ from scipy.stats import pearsonr
 from src.post_processing.def_func import (
     get_datetime_format,
     get_duration,
+    get_sun_times,
     load_detections,
     read_yaml,
-    get_sun_times,
     t_rounder,
 )
 
@@ -862,7 +863,10 @@ def get_detection_perf(
     timestamps: [pd.Timestamp] = None,
     start: pd.Timestamp = None,
     stop: pd.Timestamp = None,
-) -> None:
+    annotation_label: [str] = None,
+    annotator_label: [str] = None,
+    verbose: bool = True,
+) -> (float, float):
     """Compute detection performances.
 
     Performances are computed with a reference annotator
@@ -870,6 +874,9 @@ def get_detection_perf(
 
     Parameters
     ----------
+    annotation_label
+    annotator_label
+    verbose
     df: pd.DataFrame
         APLOSE formatted detection/annotation DataFrame
 
@@ -882,9 +889,14 @@ def get_detection_perf(
     stop: pd.Timestamp
         end datetime, optional
 
+    Returns
+    -------
+    precision: float
+    recall: float
+    f_score: float
+
     """
     logging.basicConfig(level=logging.INFO, format="%(message)s")
-
     datetime_begin = df["start_datetime"].min()
     datetime_end = df["start_datetime"].max()
     df_freq = str(df["end_time"].max()) + "s"
@@ -923,8 +935,8 @@ def get_detection_perf(
             raise ValueError(msg)
 
     # df1 - REFERENCE
-    selected_annotator1 = select_reference(annotators, "annotator")
-    selected_label1 = select_reference(annotations)
+    selected_annotator1 = select_reference(annotators, "annotator") if not annotator_label else annotator_label[0]
+    selected_label1 = select_reference(annotations) if not annotation_label else annotation_label[0]
     selected_annotations1 = df[
         (df["annotator"] == selected_annotator1) & (df["annotation"] == selected_label1)
     ]
@@ -933,8 +945,8 @@ def get_detection_perf(
     # df2
     selected_annotator2 = select_reference(
         [annot for annot in annotators if annot != selected_annotator1],
-    )
-    selected_label2 = select_reference(annotations)
+    )  if not annotator_label else annotator_label[1]
+    selected_label2 = select_reference(annotations) if not annotation_label else annotation_label[1]
     selected_annotations2 = df[
         (df["annotator"] == selected_annotator2) & (df["annotation"] == selected_label2)
     ]
@@ -981,9 +993,12 @@ def get_detection_perf(
 
     msg_result += (
         f"Config 1 : {selected_annotator1}/{selected_label1} \n"
-        f"Config 2 : {selected_annotator2}/{selected_label2}"
+        f"Config 2 : {selected_annotator2}/{selected_label2}\n\n"
     )
-    logging.info(msg_result)
+    if verbose:
+        logging.info(msg_result)
+
+    return true_pos / (true_pos + false_pos), true_pos / (false_neg + true_pos), f_score
 
 
 def _get_resolution_str(bin_sec: int) -> str:
