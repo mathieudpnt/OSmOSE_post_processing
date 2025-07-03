@@ -478,7 +478,7 @@ def scatter_detections(
 
 
 def single_plot(df: pd.DataFrame, annotator: str, label: str) -> None:
-    """Plot the detections of an APLOSE DataFrame for a single label.
+    """Plot the detections of an APLOSE DataFrame for a single label and annotator.
 
     Parameters
     ----------
