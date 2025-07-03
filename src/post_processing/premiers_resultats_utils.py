@@ -477,7 +477,7 @@ def scatter_detections(
     plt.tight_layout()
 
 
-def single_plot(df: pd.DataFrame) -> None:
+def single_plot(df: pd.DataFrame, annotator: str, label: str) -> None:
     """Plot the detections of an APLOSE DataFrame for a single label.
 
     Parameters
@@ -490,19 +490,22 @@ def single_plot(df: pd.DataFrame) -> None:
     datetime_begin = df["start_datetime"].iloc[0]
     datetime_end = df["end_datetime"].iloc[-1]
     annotators = list(set(df["annotator"]))
-    annot_ref = select_reference(annotators, "annotator")
-    label_ref = select_reference(
-        df[df["annotator"] == annot_ref]["annotation"],
-        "label",
-    )
+    labels = list(set(df["annotation"]))
 
-    if df[(df["start_time"] == 0) & (df["end_time"] == max(df["end_time"]))].empty:
+    if annotator not in annotators:
+        msg = f'Annotator "{annotator}" not in APLOSE DataFrame'
+        raise ValueError(msg)
+    if label not in labels:
+        msg = f'Annotation "{label}" not in APLOSE DataFrame'
+        raise ValueError(msg)
+
+    if df[(df["is_box"] == 0)].empty:
         msg = "DataFrame contains no weak detection, consider reshaping it first"
         raise ValueError(msg)
 
     time_bin_ref = int(
         select_reference(
-            df[(df["annotator"] == annot_ref) & (df["is_box"] == 0)]["end_time"],
+            df[(df["annotator"] == annotator) & (df["is_box"] == 0)]["end_time"],
             "time bin",
         ),
     )
@@ -515,7 +518,7 @@ def single_plot(df: pd.DataFrame) -> None:
     )
 
     df_1annot_1label = df[
-        (df["annotator"] == annot_ref) & (df["annotation"] == label_ref)
+        (df["annotator"] == annotator) & (df["annotation"] == label)
     ]
 
     # plot
@@ -528,7 +531,7 @@ def single_plot(df: pd.DataFrame) -> None:
     )
 
     # title
-    plt.title(f"annotator: {annot_ref}\nlabel: {label_ref}")
+    plt.title(f"annotator: {annotator}\nlabel: {label}")
 
     # axes settings
     if type(date_locator) is int:
