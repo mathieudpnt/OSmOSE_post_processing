@@ -484,7 +484,8 @@ def single_plot(df: pd.DataFrame, annotator: str, label: str) -> None:
     ----------
     df: pd.DataFrame
         APLOSE DataFrame
-
+    annotator: str
+    label: str
     """
     # selection of the references parameters
     datetime_begin = df["start_datetime"].iloc[0]
