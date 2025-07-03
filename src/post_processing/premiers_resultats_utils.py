@@ -488,8 +488,8 @@ def single_plot(df: pd.DataFrame, annotator: str, label: str) -> None:
     label: str
     """
     # selection of the references parameters
-    datetime_begin = df["start_datetime"].iloc[0]
-    datetime_end = df["end_datetime"].iloc[-1]
+    datetime_begin = min(df["start_datetime"])
+    datetime_end = max(["end_datetime"])
     annotators = list(set(df["annotator"]))
     labels = list(set(df["annotation"]))
 
@@ -499,7 +499,6 @@ def single_plot(df: pd.DataFrame, annotator: str, label: str) -> None:
     if label not in labels:
         msg = f'Annotation "{label}" not in APLOSE DataFrame'
         raise ValueError(msg)
-
     if df[(df["is_box"] == 0)].empty:
         msg = "DataFrame contains no weak detection, consider reshaping it first"
         raise ValueError(msg)
