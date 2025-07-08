@@ -11,7 +11,7 @@ import matplotlib as mpl
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
+from pandas import DataFrame, date_range, DatetimeIndex, Timestamp, concat, Timedelta
 import seaborn as sns
 from matplotlib.axes import Axes
 from scipy.stats import pearsonr
@@ -25,8 +25,7 @@ from src.post_processing.def_func import (
     t_rounder,
 )
 
-
-def load_parameters_from_yaml(file: Path) -> pd.DataFrame:
+def load_parameters_from_yaml(file: Path) -> DataFrame:
     """Load parameters from yaml.
 
     Parameters
@@ -36,15 +35,15 @@ def load_parameters_from_yaml(file: Path) -> pd.DataFrame:
 
     Returns
     -------
-    df : pd.DataFrame
+    df : DataFrame
         APLOSE formatted detections
 
     """
     parameters = read_yaml(file=file)
 
-    df_detections = pd.DataFrame()
+    df_detections = DataFrame()
     for f in parameters:
-        df_detections = pd.concat(
+        df_detections = concat(
             [df_detections, load_detections(**parameters[f])],
             ignore_index=True,
         )
@@ -94,9 +93,9 @@ def select_reference(param: Iterable, param_str: str = "") -> str | int | float:
 
 def set_plot_resolution(
     time_bin: int,
-    start: pd.Timestamp,
-    stop: pd.Timestamp,
-) -> (pd.DatetimeIndex, str, int, mpl.dates.DayLocator):
+    start: Timestamp,
+    stop: Timestamp,
+) -> (DatetimeIndex, str, int, mpl.dates.DayLocator):
     """Compute the time_vector for a user-defined resolution.
 
     Select appropriate date ticks and datetime format for plots
@@ -107,15 +106,15 @@ def set_plot_resolution(
         Length in seconds of a time bin,
         it is similar to the precision of the future plots
 
-    start : pd.Timestamp
+    start : Timestamp
         begin datetime
 
-    stop : pd.Timestamp
+    stop : Timestamp
         end datetime
 
     Returns
     -------
-    datetime_index : pd.DatetimeIndex,
+    datetime_index : DatetimeIndex,
         computed timestamps according to user-defined resolution
     y_axis_plot_legend : str
         y-axis legend
@@ -134,14 +133,14 @@ def set_plot_resolution(
     date_interval = resolution_x_ticks
 
     number_max_of_annotation = int(resolution_bin / time_bin)
-    datetime_index = pd.date_range(
+    datetime_index = date_range(
         start=t_rounder(t=start, res=resolution_bin),
         end=t_rounder(t=stop, res=resolution_bin),
         freq=str(resolution_bin) + "s",
     )
 
-    resolution_bin_str = _get_resolution_str(resolution_bin)
-    time_bin_str = _get_resolution_str(time_bin)
+    resolution_bin_str = get_resolution_str(resolution_bin)
+    time_bin_str = get_resolution_str(time_bin)
     y_axis_plot_legend = (
         f"Detections\n(resolution: {time_bin_str} - bin size: {resolution_bin_str})"
     )
@@ -234,12 +233,12 @@ def _set_yaxis(ax: Axes | Iterable, max_annotation_number: int) -> str:
     return choice_percentage
 
 
-def overview_plot(df: pd.DataFrame) -> None:
+def overview_plot(df: DataFrame) -> None:
     """Overview of an APLOSE formatted dataframe.
 
     Parameters
     ----------
-    df: pd.DataFrame
+    df: DataFrame
         APLOSE formatted result DataFrame with detections and associated timestamps
 
     """
@@ -283,7 +282,7 @@ def overview_plot(df: pd.DataFrame) -> None:
 
 
 def plot_hourly_detection_rate(
-    df: pd.DataFrame,
+    df: DataFrame,
     lat: float,
     lon: float,
     *,
@@ -293,7 +292,7 @@ def plot_hourly_detection_rate(
 
     Parameters
     ----------
-    df : pd.DataFrame
+    df : DataFrame
         APLOSE formatted result DataFrame with detections and associated timestamps
 
     lat: float
@@ -326,7 +325,7 @@ def plot_hourly_detection_rate(
     idx_day_group_by = det_groupby.index.get_level_values(0)
     idx_hour_group_by = det_groupby.index.get_level_values(1)
 
-    dates = pd.date_range(
+    dates = date_range(
         datetime_begin.normalize(),
         datetime_end.normalize(),
         freq="D",
@@ -385,7 +384,7 @@ def plot_hourly_detection_rate(
 
 
 def scatter_detections(
-    df: pd.DataFrame,
+    df: DataFrame,
     lat: float,
     lon: float,
     *,
@@ -398,7 +397,7 @@ def scatter_detections(
 
     Parameters
     ----------
-    df : pd.DataFrame
+    df : DataFrame
         APLOSE formatted result DataFrame with detections and associated timestamps
 
     lat : float
@@ -422,7 +421,7 @@ def scatter_detections(
         lon=lon,
     )
 
-    dates = pd.date_range(datetime_begin.date(), datetime_end.date(), freq="D")
+    dates = date_range(datetime_begin.date(), datetime_end.date(), freq="D")
 
     # decimal hours of detections
     hour_det = [
@@ -477,7 +476,7 @@ def scatter_detections(
     plt.tight_layout()
 
 
-def single_plot(df: pd.DataFrame, annotator: str, label: str) -> None:
+def single_plot(df: DataFrame, annotator: str, label: str) -> None:
     """Plot the detections of an APLOSE DataFrame for a single label and annotator.
 
     Parameters
@@ -555,12 +554,12 @@ def single_plot(df: pd.DataFrame, annotator: str, label: str) -> None:
     plt.tight_layout()
 
 
-def multilabel_plot(df: pd.DataFrame) -> None:
+def multilabel_plot(df: DataFrame) -> None:
     """Plot the detections of an APLOSE formatted DataFrame for all labels.
 
     Parameters
     ----------
-    df: pd.DataFrame
+    df: DataFrame
         APLOSE DataFrame
 
     """
@@ -630,12 +629,12 @@ def multilabel_plot(df: pd.DataFrame) -> None:
     plt.tight_layout()
 
 
-def multiuser_plot(df: pd.DataFrame) -> None:
+def multiuser_plot(df: DataFrame) -> None:
     """Plot the detections of an APLOSE formatted DataFrame for two annotators.
 
     Parameters
     ----------
-    df: pd.DataFrame
+    df: DataFrame
         APLOSE DataFrame
 
     """
@@ -752,7 +751,7 @@ def multiuser_plot(df: pd.DataFrame) -> None:
     )
 
     # scatter
-    df_corr = pd.DataFrame(
+    df_corr = DataFrame(
         hist_plot[0] / n_annot_max,
         index=[annot_ref1, annot_ref2],
     ).transpose()
@@ -773,12 +772,12 @@ def multiuser_plot(df: pd.DataFrame) -> None:
     plt.tight_layout()
 
 
-def plot_detection_timeline(df: pd.DataFrame) -> None:
+def plot_detection_timeline(df: DataFrame) -> None:
     """Plot detections on a timeline.
 
     Parameters
     ----------
-    df: pd.DataFrame
+    df: DataFrame
         APLOSE DataFrame
 
     """
@@ -812,13 +811,13 @@ def plot_detection_timeline(df: pd.DataFrame) -> None:
     ax.set_xlabel("Date")
     plt.xlim(
         df["start_datetime"].min().normalize(),
-        df["end_datetime"].max().normalize() + pd.Timedelta(days=1),
+        df["end_datetime"].max().normalize() + Timedelta(days=1),
     )
 
     plt.tight_layout()
 
 
-def _map_datetimes_to_vector(df: pd.DataFrame, timestamps: [int]) -> np.ndarray:
+def _map_datetimes_to_vector(df: DataFrame, timestamps: [int]) -> np.ndarray:
     """Map datetime ranges to a binary vector based on overlap with timestamp intervals.
 
     Parameters
@@ -862,10 +861,10 @@ def _map_datetimes_to_vector(df: pd.DataFrame, timestamps: [int]) -> np.ndarray:
 
 
 def get_detection_perf(
-    df: pd.DataFrame,
-    timestamps: [pd.Timestamp] = None,
-    start: pd.Timestamp = None,
-    stop: pd.Timestamp = None,
+    df: DataFrame,
+    timestamps: [Timestamp] = None,
+    start: Timestamp = None,
+    stop: Timestamp = None,
     annotation_label: [str] = None,
     annotator_label: [str] = None,
     verbose: bool = True,
@@ -880,16 +879,16 @@ def get_detection_perf(
     annotation_label
     annotator_label
     verbose
-    df: pd.DataFrame
+    df: DataFrame
         APLOSE formatted detection/annotation DataFrame
 
-    timestamps: list[pd.Timestamp]
+    timestamps: list[Timestamp]
         list of datetimes to base the computation on
 
-    start: pd.Timestamp
+    start: Timestamp
         begin datetime, optional
 
-    stop: pd.Timestamp
+    stop: Timestamp
         end datetime, optional
 
     Returns
@@ -914,7 +913,7 @@ def get_detection_perf(
     if not timestamps:
         timestamps = [
             ts.timestamp()
-            for ts in pd.date_range(
+            for ts in date_range(
                 start=datetime_begin,
                 end=datetime_end,
                 freq=df_freq,
@@ -1004,17 +1003,9 @@ def get_detection_perf(
     return true_pos / (true_pos + false_pos), true_pos / (false_neg + true_pos), f_score
 
 
-def _get_resolution_str(bin_sec: int) -> str:
-    """From a resolution in seconds to corresponding string.
+def get_resolution_str(bin_sec: int) -> str:
+    """From a resolution in seconds to corresponding string."""
 
-    In day/hour/minute/second resolution
-
-    Parameters
-    ----------
-    bin_sec: int
-        in seconds
-
-    """
     if bin_sec // 86400 >= 1:
         bin_str = str(int(bin_sec // 86400)) + "D"
     elif bin_sec // 3600 >= 1:
