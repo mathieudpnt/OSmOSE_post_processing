@@ -1,13 +1,42 @@
+from __future__ import annotations
+
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 from numpy import ceil
-from pandas import DataFrame, Series, date_range
+from pandas import DataFrame, Series, date_range, Timedelta
+from pandas.tseries import offsets
+import logging
+from collections import Counter
 
 from src.post_processing.def_func import get_datetime_format, get_duration, t_rounder
 from src.post_processing.premiers_resultats_utils import (
     get_resolution_str,
     select_reference,
 )
+
+
+def get_locator_from_offset(offset) -> mdates.DateLocator:
+    """Map a pandas offset object to the appropriate matplotlib DateLocator."""
+    if isinstance(offset, int):
+        return mdates.SecondLocator(interval=offset)
+
+    offset_to_locator = {
+        (
+            offsets.MonthEnd,
+            offsets.MonthBegin,
+            offsets.BusinessMonthEnd,
+            offsets.BusinessMonthBegin,
+        ): mdates.MonthLocator,
+        (offsets.Day,): mdates.DayLocator,
+        (offsets.Hour,): mdates.HourLocator,
+        (offsets.Minute,): mdates.MinuteLocator,
+    }
+
+    for offset_classes, locator_cls in offset_to_locator.items():
+        if isinstance(offset, offset_classes):
+            return locator_cls(interval=offset.n)
+
+    raise ValueError(f"Unsupported offset type: {type(offset)}")
 
 
 class DataAplose:
@@ -87,27 +116,19 @@ class DataAplose:
         ax.title.set_text(f"annotator: {annotator}\nlabel: {label}")
 
 
-    def set_ax(self, ax: plt.Axes) -> plt.Axes:
+    def set_ax(self, ax: plt.Axes, bin_size: Timedelta = None, xticks_res: Timedelta | offsets.DateOffset = None) -> plt.Axes:
         """Set up axis configuration for plot."""
         self._time_bin = int(
             select_reference(self.df[self.df["is_box"] == 0]["end_time"], "time bin"),
         )
-        self._resolution_bin = get_duration(msg="Enter bin resolution")
+        time_bin_str = get_resolution_str(self._time_bin)
+        self._resolution_bin = get_duration(msg="Enter bin resolution") if not bin_size else bin_size.total_seconds()
         resolution_bin_str = get_resolution_str(self._resolution_bin)
         self._resolution_x_ticks = get_duration(
             msg="Enter x-axis tick resolution",
             default="2h",
-        )
-        time_bin_str = get_resolution_str(self._time_bin)
-
-        if isinstance(self._resolution_x_ticks, int):
-            ax.xaxis.set_major_locator(mdates.SecondLocator(interval=self._resolution_x_ticks))
-        elif self._resolution_x_ticks.name in ["MS", "ME", "BME", "BMS"]:
-            ax.xaxis.set_major_locator(mdates.MonthLocator(interval=self._resolution_x_ticks.n))
-        else:
-            msg = f"Date locator {self._resolution_x_ticks} not supported"
-            raise ValueError(msg)
-
+        ) if not xticks_res else xticks_res.total_seconds()
+        ax.xaxis.set_major_locator(get_locator_from_offset(offset=self._resolution_x_ticks))
         date_formatter = mdates.DateFormatter(fmt=get_datetime_format(), tz=self.begin.tz)
         ax.xaxis.set_major_formatter(date_formatter)
         ax.set_xlim(self.begin, self.end)
@@ -148,3 +169,44 @@ class DataAplose:
                     color=color,
                     zorder=zorder,
                 )
+
+    def overview(self) -> None:
+        """Overview of an APLOSE formatted DataFrame."""
+
+        logging.basicConfig(level=logging.INFO, format="%(message)s")
+
+        summary_label = (
+            self.df.groupby("annotation")["annotator"]  # noqa: PD010
+            .apply(Counter)
+            .unstack(fill_value=0)
+        )
+
+        summary_annotator = (
+            self.df.groupby("annotator")["annotation"]  # noqa: PD010
+            .apply(Counter)
+            .unstack(fill_value=0)
+        )
+
+        msg = f"- Overview of the detections -\n\n {summary_label}"
+        logging.info(msg)
+
+        fig, axs = plt.subplots(2, 1)
+        axs[0] = summary_label.plot(kind="bar", ax=axs[0], edgecolor="black", linewidth=1)
+        axs[1] = summary_annotator.plot(
+            kind="bar", ax=axs[1], edgecolor="black", linewidth=1
+        )
+
+        for a in axs:
+            a.legend(loc="best", frameon=1, framealpha=0.6)
+            a.tick_params(axis="both", rotation=0)
+            a.set_ylabel("Number of annotated calls")
+            a.yaxis.grid(color="gray", linestyle="--")
+            a.set_axisbelow(True)
+
+        # labels
+        axs[0].set_xlabel("Labels")
+        axs[1].set_xlabel("Annotator")
+
+        # titles
+        axs[0].set_title("Number of annotations per label")
+        axs[1].set_title("Number of annotations per annotator")
