@@ -16,7 +16,6 @@ import yaml
 from astral.sun import sun
 from matplotlib.axes import Axes
 from OSmOSE.config import TIMESTAMP_FORMAT_AUDIO_FILE
-from OSmOSE.utils.audio_utils import is_supported_audio_format
 from OSmOSE.utils.timestamp_utils import strptime_from_text
 from pandas import DateOffset, Timestamp, date_range
 from pandas.tseries.frequencies import to_offset
@@ -57,9 +56,7 @@ def reshape_timebin(
             msg="Enter a new time bin",
             default="1min",
         )
-        frequency = str(timebin_new) + "s"
-    else:
-        frequency = str(timebin_new) + "s"
+    frequency = str(timebin_new) + "s"
 
     df_new_timebin = pd.DataFrame()
     for annotator in annotators:
@@ -74,78 +71,58 @@ def reshape_timebin(
 
             if timestamp is not None:
                 origin_timebin = (timestamp[1] - timestamp[0]).total_seconds()
-                time_vector = [
-                    ts.timestamp()
-                    for ts in timestamp[0 :: int(timebin_new / origin_timebin)]
-                ]
+                time_vector = timestamp[0 :: int(timebin_new / origin_timebin)]
             else:
                 t1 = t_rounder(
-                    t=df_1annot_1label["start_datetime"].iloc[0],
+                    t=min(df_1annot_1label["start_datetime"]),
                     res=timebin_new,
                 )
                 t2 = t_rounder(
-                    t=df_1annot_1label["end_datetime"].iloc[-1],
+                    t=max(df_1annot_1label["end_datetime"]),
                     res=timebin_new,
                 )
-                time_vector = [
-                    ts.timestamp()
-                    for ts in pd.date_range(start=t1, end=t2, freq=frequency)
-                ]
+                time_vector = pd.date_range(start=t1, end=t2, freq=frequency)
 
-            ts_detect_beg = [
-                ts.timestamp() for ts in df_1annot_1label["start_datetime"]
-            ]
-            ts_detect_end = [ts.timestamp() for ts in df_1annot_1label["end_datetime"]]
-
-            filenames = df_1annot_1label["filename"]
+            ts_detect_beg = list(df_1annot_1label["start_datetime"])
+            ts_detect_end = list(df_1annot_1label["end_datetime"])
+            filenames = list(df_1annot_1label["filename"])
 
             filename_vector = []
             for ts in time_vector:
-                # insertion of ts in ts_detect_beg, `bisect_left` provides
-                # the index of the element in ts_detect_beg that is closest
-                # to ts (left element if between 2 elements of the list).
+                """
+                insertion of ts in ts_detect_beg, `bisect_left` provides
+                the index of the element in ts_detect_beg that is closest
+                to ts (left element if between 2 elements of the list).
+                """
                 index = bisect.bisect_left(ts_detect_beg, ts)
                 if index == 0:
-                    filename_vector.append(filenames.iloc[index])
+                    filename_vector.append(filenames[index])
                 else:
                     (
-                        filename_vector.append(filenames.iloc[index])
+                        filename_vector.append(filenames[index])
                         if ts in ts_detect_beg
-                        else filename_vector.append(filenames.iloc[index - 1])
+                        else filename_vector.append(filenames[index - 1])
                     )
 
-            ranks1, ranks2 = [], []
-            for i in range(len(df_1annot_1label)):
-                idx1 = bisect.bisect_left(time_vector, ts_detect_beg[i])
-                idx2 = bisect.bisect_left(time_vector, ts_detect_end[i])
-                (
-                    ranks1.append(idx1)
-                    if ts_detect_beg[i] in time_vector
-                    else ranks1.append(idx1 - 1)
-                )
-                (
-                    ranks2.append(idx2)
-                    if ts_detect_end[i] in time_vector
-                    else ranks2.append(idx2 - 1)
-                )
-
             detect_vec = [0] * len(time_vector)
-            for start, end in zip(ranks1, ranks2, strict=False):
-                detect_vec[start : end + 1] = [1] * (end - start + 1)
+            for i in range(len(df_1annot_1label)):
+                idx = bisect.bisect_left(time_vector, ts_detect_beg[i])
+
+                if ts_detect_beg[i] in time_vector:
+                    rank = idx
+                else:
+                    rank = max(0, idx - 1)
+
+                inc = 0
+                while (rank + inc) < len(time_vector) and time_vector[rank + inc] < ts_detect_end[i]:
+                    detect_vec[rank + inc] = 1
+                    inc += 1
 
             start_datetime, end_datetime, filename = [], [], []
             for i in range(len(time_vector)):
                 if detect_vec[i] == 1:
-                    start_datetime.append(
-                        pd.Timestamp(time_vector[i], unit="s", tz=tz_data),
-                    )
-                    end_datetime.append(
-                        pd.Timestamp(
-                            time_vector[i] + timebin_new,
-                            unit="s",
-                            tz=tz_data,
-                        ),
-                    )
+                    start_datetime.append(time_vector[i])
+                    end_datetime.append(time_vector[i] + pd.Timedelta(timebin_new, 's'))
                     filename.append(filename_vector[i])
 
             df_1annot_1label_new_timebin = pd.DataFrame()
@@ -334,7 +311,7 @@ def load_detections(
                 timestamp = None
 
             df_loaded = reshape_timebin(
-                df=df_loaded,
+                df=df_no_box,
                 timebin_new=timebin_new,
                 timestamp=timestamp,
             )
@@ -936,9 +913,9 @@ def print_spectro_from_audio(
     print_spectro_from_audio(audio_file)
 
     """
-    if not is_supported_audio_format(file):
-        msg = "Audio file format is not supported"
-        raise TypeError(msg)
+    # if not is_supported_audio_format(file):
+    #     msg = "Audio file format is not supported"
+    #     raise TypeError(msg)
 
     try:
         sr, data = sf.read(file)
