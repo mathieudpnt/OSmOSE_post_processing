@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pytz
 
-from src.post_processing.def_func import get_sun_times
+from post_processing.def_func import get_sun_times
 
 
 def stats_diel_pattern(deployment: pd.Series, detector: str):

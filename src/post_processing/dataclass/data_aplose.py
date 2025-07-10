@@ -8,8 +8,8 @@ from pandas.tseries import offsets
 import logging
 from collections import Counter
 
-from src.post_processing.def_func import get_datetime_format, get_duration, t_rounder
-from src.post_processing.premiers_resultats_utils import (
+from post_processing.def_func import get_datetime_format, get_duration, t_rounder
+from post_processing.premiers_resultats_utils import (
     get_resolution_str,
     select_reference,
 )

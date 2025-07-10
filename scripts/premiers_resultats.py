@@ -5,13 +5,13 @@ from pathlib import Path
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
-from src.post_processing.def_func import (
+from post_processing.def_func import (
     add_recording_period,
     add_season_period,
     get_coordinates,
     json2df,
 )
-from src.post_processing.premiers_resultats_utils import (
+from post_processing.premiers_resultats_utils import (
     get_detection_perf,
     load_parameters_from_yaml,
     multilabel_plot,

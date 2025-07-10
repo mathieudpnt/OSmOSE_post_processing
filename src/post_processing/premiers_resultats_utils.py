@@ -16,7 +16,7 @@ from matplotlib.axes import Axes
 from pandas import DataFrame, DatetimeIndex, Timedelta, Timestamp, concat, date_range
 from scipy.stats import pearsonr
 
-from src.post_processing.def_func import (
+from post_processing.def_func import (
     get_datetime_format,
     get_duration,
     get_sun_times,
