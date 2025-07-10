@@ -1,5 +1,5 @@
 import pandas as pd
-from OSmOSE.utils.timestamp_utils import strptime_from_text
+from osekit.utils.timestamp_utils import strptime_from_text
 
 
 def clean_pamguard_false_detection(df: pd.DataFrame) -> pd.DataFrame:

@@ -11,9 +11,9 @@ import matplotlib as mpl
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import numpy as np
-from pandas import DataFrame, date_range, DatetimeIndex, Timestamp, concat, Timedelta
 import seaborn as sns
 from matplotlib.axes import Axes
+from pandas import DataFrame, DatetimeIndex, Timedelta, Timestamp, concat, date_range
 from scipy.stats import pearsonr
 
 from src.post_processing.def_func import (
@@ -24,6 +24,7 @@ from src.post_processing.def_func import (
     read_yaml,
     t_rounder,
 )
+
 
 def load_parameters_from_yaml(file: Path) -> DataFrame:
     """Load parameters from yaml.
@@ -277,8 +278,6 @@ def overview_plot(df: DataFrame) -> None:
     # titles
     ax[0].set_title("Number of annotations per label")
     ax[1].set_title("Number of annotations per annotator")
-
-    plt.tight_layout()
 
 
 def plot_hourly_detection_rate(

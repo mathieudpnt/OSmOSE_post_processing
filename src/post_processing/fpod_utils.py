@@ -3,8 +3,8 @@ from pathlib import Path
 
 import pandas as pd
 import pytz
-from OSmOSE.config import TIMESTAMP_FORMAT_AUDIO_FILE
-from OSmOSE.utils.timestamp_utils import strftime_osmose_format, strptime_from_text
+from osekit.config import TIMESTAMP_FORMAT_AUDIO_FILE
+from osekit.utils.timestamp_utils import strftime_osmose_format, strptime_from_text
 
 
 def fpod2aplose(

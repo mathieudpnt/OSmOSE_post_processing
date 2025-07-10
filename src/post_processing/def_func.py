@@ -12,8 +12,8 @@ import matplotlib.pyplot as plt
 import yaml
 from astral.sun import sun
 from matplotlib.axes import Axes
-from OSmOSE.config import TIMESTAMP_FORMAT_AUDIO_FILE
-from OSmOSE.utils.timestamp_utils import strptime_from_text
+from osekit.config import TIMESTAMP_FORMAT_AUDIO_FILE
+from osekit.utils.timestamp_utils import strptime_from_text
 from pandas import (
     DataFrame,
     DateOffset,
