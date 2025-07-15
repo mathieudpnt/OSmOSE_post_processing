@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
-from numpy import ceil
-from pandas import DataFrame, Series, date_range, Timedelta
+from matplotlib.pyplot import legend
+from numpy import ceil, ndarray
+from pandas import DataFrame, Series, date_range, Timedelta, concat
 from pandas.tseries import offsets
 import logging
 from collections import Counter
@@ -82,21 +83,28 @@ class DataAplose:
         return self.df.iloc[item]
 
 
-    def plot(self, annotator: str, label: str, ax: plt.Axes) -> None:
+    def plot(self, annotator: str | [str], label: str | [str], ax: plt.Axes) -> None:
         """Seasonality plot."""
-        if annotator not in self.annotators:
-            msg = f'Annotator "{annotator}" not in APLOSE DataFrame'
-            raise ValueError(msg)
-        if label not in self.labels:
-            msg = f'Label "{label}" not in APLOSE DataFrame'
-            raise ValueError(msg)
-        if self.df[self.df["is_box"] == 0].empty:
-            msg = "DataFrame contains no weak detection, consider reshaping it first"
-            raise ValueError(msg)
+        if type(label) == str:
+            label = [label]
+        if type(annotator) == str:
+            annotator = [annotator] * len(label)
 
-        df_1annot_1label = self.df[
-            (self.df["annotator"] == annotator) & (self.df["annotation"] == label)
-            ]
+        for ant, lbl in zip(annotator, label):
+            if ant not in self.annotators:
+                msg = f'Annotator "{ant}" not in APLOSE DataFrame'
+                raise ValueError(msg)
+            if lbl not in self.labels:
+                msg = f'Label "{lbl}" not in APLOSE DataFrame'
+                raise ValueError(msg)
+            if self.df[(self.df["is_box"] == 0) & (self.df["annotator"] == ant) & (self.df["annotation"] == lbl)].empty:
+                msg = f"DataFrame with annotator {ant} / label {lbl} contains no weak detection, consider reshaping it first"
+                raise ValueError(msg)
+
+        datetime_list = [
+            self.df[(self.df["annotator"] == ant) & (self.df["annotation"] == lbl)]["start_datetime"]
+            for ant, lbl in zip(annotator, label)
+        ]
 
         bins = date_range(
             start=t_rounder(t=self.begin, res=self._resolution_bin),
@@ -105,15 +113,19 @@ class DataAplose:
         )
 
         val1, _, _ = ax.hist(
-            df_1annot_1label["start_datetime"],
+            datetime_list,
             bins=bins,
             edgecolor="black",
             zorder=2,
+            histtype="bar",
+            stacked=False,
         )
+        if val1.ndim > 1:
+            ax.legend(loc="best", labels=label)
 
-        ax.set_ylim(0, 1.05 * max(val1))
-        ax.set_yticks(range(0, int(ceil(max(val1))) + 1, max(1, int(ceil(max(val1))) // 4)))
-        ax.title.set_text(f"annotator: {annotator}\nlabel: {label}")
+        ax.set_ylim(0, int(ceil(1.05 * ndarray.max(val1))))
+        ax.set_yticks(range(0, int(ceil(ndarray.max(val1))) + 1, max(1, int(ceil(ndarray.max(val1))) // 4)))
+        ax.title.set_text(f"annotator: {', '.join(annotator)}\nlabel: {', '.join(label)}")
 
 
     def set_ax(self, ax: plt.Axes, bin_size: Timedelta = None, xticks_res: Timedelta | offsets.DateOffset = None) -> plt.Axes:
