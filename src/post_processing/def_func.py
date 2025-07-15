@@ -25,7 +25,7 @@ from pandas import (
     read_csv,
     to_datetime,
 )
-from pandas.tseries.frequencies import to_offset
+from pandas.tseries import frequencies
 
 
 def reshape_timebin(
@@ -803,7 +803,7 @@ def get_duration(
 
         errmsg = ""
         try:
-            offset = to_offset(value)
+            offset = frequencies.to_offset(value)
             # Check if the offset is convertible to Timedelta
             try:
                 seconds = int(Timedelta(offset).total_seconds())

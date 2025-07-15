@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from matplotlib.pyplot import legend
 from numpy import ceil, ndarray
 from pandas import DataFrame, Series, date_range, Timedelta, concat
-from pandas.tseries import offsets
+from pandas.tseries import offsets, frequencies
 import logging
 from collections import Counter
 
@@ -15,6 +15,7 @@ from post_processing.premiers_resultats_utils import (
     select_reference,
 )
 
+COLORS = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
 def get_locator_from_offset(offset) -> mdates.DateLocator:
     """Map a pandas offset object to the appropriate matplotlib DateLocator."""
@@ -83,7 +84,7 @@ class DataAplose:
         return self.df.iloc[item]
 
 
-    def plot(self, annotator: str | [str], label: str | [str], ax: plt.Axes) -> None:
+    def plot(self, annotator: str | [str], label: str | [str], ax: plt.Axes, color: str = None) -> None:
         """Seasonality plot."""
         if type(label) == str:
             label = [label]
@@ -106,11 +107,20 @@ class DataAplose:
             for ant, lbl in zip(annotator, label)
         ]
 
-        bins = date_range(
-            start=t_rounder(t=self.begin, res=self._resolution_bin),
-            end=t_rounder(t=self.end, res=self._resolution_bin),
-            freq=str(self._resolution_bin) + "s",
-        )
+        if type(self._resolution_bin) == int:
+            bins = date_range(
+                start=t_rounder(t=self.begin, res=self._resolution_bin),
+                end=t_rounder(t=self.end, res=self._resolution_bin),
+                freq=str(self._resolution_bin) + "s",
+            )
+        else:
+            bins = date_range(
+                start=self.begin.normalize(),
+                end=self.end.normalize(),
+                freq=str(self._resolution_bin.n) + self._resolution_bin.name,
+            )
+
+        color = color if color else COLORS[0:len(datetime_list)]
 
         val1, _, _ = ax.hist(
             datetime_list,
@@ -119,29 +129,38 @@ class DataAplose:
             zorder=2,
             histtype="bar",
             stacked=False,
+            color=color,
         )
+
         if val1.ndim > 1:
-            ax.legend(loc="best", labels=label)
+            ax.legend(loc="upper right", labels=label)
 
         ax.set_ylim(0, int(ceil(1.05 * ndarray.max(val1))))
         ax.set_yticks(range(0, int(ceil(ndarray.max(val1))) + 1, max(1, int(ceil(ndarray.max(val1))) // 4)))
         ax.title.set_text(f"annotator: {', '.join(annotator)}\nlabel: {', '.join(label)}")
 
 
-    def set_ax(self, ax: plt.Axes, bin_size: Timedelta = None, xticks_res: Timedelta | offsets.DateOffset = None) -> plt.Axes:
+    def set_ax(self, ax: plt.Axes, bin_size: Timedelta | offsets.BaseOffset = None, xticks_res: Timedelta | offsets.BaseOffset = None, date_format: str = None) -> plt.Axes:
         """Set up axis configuration for plot."""
         self._time_bin = int(
             select_reference(self.df[self.df["is_box"] == 0]["end_time"], "time bin"),
         )
         time_bin_str = get_resolution_str(self._time_bin)
-        self._resolution_bin = get_duration(msg="Enter bin resolution") if not bin_size else bin_size.total_seconds()
-        resolution_bin_str = get_resolution_str(self._resolution_bin)
-        self._resolution_x_ticks = get_duration(
-            msg="Enter x-axis tick resolution",
-            default="2h",
-        ) if not xticks_res else xticks_res.total_seconds()
+
+        self._resolution_bin = int(bin_size.total_seconds()) if type(bin_size) == Timedelta else bin_size
+
+        resolution_bin_str = str(self._resolution_bin.n) + self._resolution_bin.name if not type(self._resolution_bin) == int else get_resolution_str(self._resolution_bin)
+
+        if not xticks_res:
+            self._resolution_x_ticks = get_duration(
+                msg="Enter x-axis tick resolution",
+                default="2h",
+            )
+        self._resolution_x_ticks = xticks_res
+
         ax.xaxis.set_major_locator(get_locator_from_offset(offset=self._resolution_x_ticks))
-        date_formatter = mdates.DateFormatter(fmt=get_datetime_format(), tz=self.begin.tz)
+        date_format = date_format if date_format else get_datetime_format()
+        date_formatter = mdates.DateFormatter(fmt=date_format, tz=self.begin.tz)
         ax.xaxis.set_major_formatter(date_formatter)
         ax.set_xlim(self.begin, self.end)
         ax.grid(linestyle="--", linewidth=0.2, axis="both", zorder=1)
