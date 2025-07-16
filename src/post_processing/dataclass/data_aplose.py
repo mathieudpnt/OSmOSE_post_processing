@@ -90,6 +90,9 @@ class DataAplose:
             label = [label]
         if type(annotator) == str:
             annotator = [annotator] * len(label)
+        if not len(annotator) == len(label):
+            msg = f"Length of annotator ({len(annotator)}) and label ({len(label)}) must match."
+            raise ValueError(msg)
 
         for ant, lbl in zip(annotator, label):
             if ant not in self.annotators:
