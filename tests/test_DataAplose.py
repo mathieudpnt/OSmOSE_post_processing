@@ -19,7 +19,7 @@ def test_data_aplose_init(df_strong_and_weak_detections: DataFrame) -> None:
 
 def test_filter_df_single_pair(df_strong_and_weak_detections: DataFrame) -> None:
     data = DataAplose(df_strong_and_weak_detections)
-    label, annotator, legend, datetimes = data._filter_df("annotator1", "label1")  # noqa: SLF001
+    label, annotator, legend, datetimes = data._filter_df("annotator1", "label1")
 
     assert label == ["label1"]
     assert annotator == ["annotator1"]
@@ -30,14 +30,14 @@ def test_filter_df_single_pair(df_strong_and_weak_detections: DataFrame) -> None
 
 def test_filter_df_multiple_pairs(df_strong_and_weak_detections: DataFrame) -> None:
     data = DataAplose(df_strong_and_weak_detections)
-    label, annotator, legend, datetimes = data._filter_df(  # noqa: SLF001
+    label, annotator, legend, datetimes = data._filter_df(
         ["annotator1", "annotator2"],
         ["label1", "label2"],
     )
 
     assert label == ["label1", "label2"]
     assert annotator == ["annotator1", "annotator2"]
-    assert len(datetimes) == 2
+    assert len(datetimes) == 2  # noqa: PLR2004
     assert all(isinstance(df, Series) for df in datetimes)
 
 
@@ -65,7 +65,7 @@ def test_set_ax_uses_2hour_locator(df_strong_and_weak_detections: DataFrame) -> 
 
     locator = ax.xaxis.get_major_locator()
     assert isinstance(locator, mdates.HourLocator)
-    assert locator._get_interval() == 2
+    assert locator._get_interval() == 2  # noqa: PLR2004
 
 
 def test_histo_methods_dont_crash(df_strong_and_weak_detections: DataFrame) -> None:
