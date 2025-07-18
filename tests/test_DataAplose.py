@@ -1,7 +1,7 @@
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import pytest
-from pandas import DataFrame, Series, Timedelta
+from pandas import DataFrame, Timedelta
 from pandas.tseries import frequencies
 
 from post_processing.dataclass.data_aplose import DataAplose
@@ -19,26 +19,25 @@ def test_data_aplose_init(df_strong_and_weak_detections: DataFrame) -> None:
 
 def test_filter_df_single_pair(df_strong_and_weak_detections: DataFrame) -> None:
     data = DataAplose(df_strong_and_weak_detections)
-    label, annotator, legend, datetimes = data._filter_df("annotator1", "label1")
+    filtered_data = data.filter_df(annotator="annotator1", label="label1")
 
-    assert label == ["label1"]
-    assert annotator == ["annotator1"]
-    assert isinstance(datetimes, list)
-    assert isinstance(datetimes[0], Series)
-    assert not datetimes[0].empty
+    assert isinstance(filtered_data, DataFrame)
+    assert sorted(set(filtered_data["annotation"])) == ["label1"]
+    assert sorted(set(filtered_data["annotator"])) == ["annotator1"]
+    assert not filtered_data.empty
 
 
 def test_filter_df_multiple_pairs(df_strong_and_weak_detections: DataFrame) -> None:
     data = DataAplose(df_strong_and_weak_detections)
-    label, annotator, legend, datetimes = data._filter_df(
-        ["annotator1", "annotator2"],
-        ["label1", "label2"],
+    filtered_data = data.filter_df(
+        annotator=["annotator1", "annotator2"],
+        label=["label1", "label2"],
     )
 
-    assert label == ["label1", "label2"]
-    assert annotator == ["annotator1", "annotator2"]
-    assert len(datetimes) == 2  # noqa: PLR2004
-    assert all(isinstance(df, Series) for df in datetimes)
+    assert isinstance(filtered_data, DataFrame)
+    assert sorted(set(filtered_data["annotation"])) == ["label1", "label2"]
+    assert sorted(set(filtered_data["annotator"])) == ["annotator1", "annotator2"]
+    assert not filtered_data.empty
 
 
 def test_filter_df_invalid_annotator(df_strong_and_weak_detections: DataFrame) -> None:
@@ -47,7 +46,39 @@ def test_filter_df_invalid_annotator(df_strong_and_weak_detections: DataFrame) -
         ValueError,
         match='Annotator "wrong_annotator" not in APLOSE DataFrame',
     ):
-        data._filter_df("wrong_annotator", "label1")
+        data.filter_df(annotator="wrong_annotator", label="label1")
+
+
+def test_filter_df_invalid_label(df_strong_and_weak_detections: DataFrame) -> None:
+    data = DataAplose(df_strong_and_weak_detections)
+    with pytest.raises(
+        ValueError,
+        match='Label "wrong_label" not in APLOSE DataFrame',
+    ):
+        data.filter_df(annotator="annotator2", label="wrong_label")
+
+
+def test_filter_df_invalid_combination(
+    df_strong_and_weak_detections: DataFrame,
+) -> None:
+    data = DataAplose(df_strong_and_weak_detections)
+    with pytest.raises(
+        ValueError,
+        match="DataFrame with annotator 'annotator1' /"
+        " label 'label2' contains no weak detection.",
+    ):
+        data.filter_df(annotator="annotator1", label="label2")
+
+
+def test_filter_df_invalid_lists_size(
+    df_strong_and_weak_detections: DataFrame,
+) -> None:
+    data = DataAplose(df_strong_and_weak_detections)
+    with pytest.raises(
+        ValueError,
+        match=r"Length of annotator \(2\) and label \(1\) must match.",
+    ):
+        data.filter_df(annotator=["annotator1", "annotator2"], label=["label2"])
 
 
 def test_set_ax_uses_2hour_locator(df_strong_and_weak_detections: DataFrame) -> None:

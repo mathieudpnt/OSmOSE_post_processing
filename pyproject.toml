@@ -24,6 +24,7 @@ dependencies = [
 
 [tool.ruff]
 select = ["ALL"]
+exclude = ["scripts/**/*.py"]
 
 [build-system]
 requires = ["hatchling"]
