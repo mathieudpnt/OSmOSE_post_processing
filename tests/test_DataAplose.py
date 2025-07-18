@@ -110,4 +110,10 @@ def test_histo_methods_dont_crash(df_strong_and_weak_detections: DataFrame) -> N
         x_ticks_res=tick_freq,
         date_format="%y-%m-%d",
     )
-    data.histo(ax=ax, annotator="annotator1", label="label1")
+    data.plot(
+        mode="histogram",
+        ax=ax,
+        annotator="annotator1",
+        label="label1",
+        bin_size=bin_size,
+    )

@@ -7,11 +7,9 @@ from pathlib import Path
 
 import astral
 import easygui
-import matplotlib as mpl
 import matplotlib.pyplot as plt
 import yaml
 from astral.sun import sun
-from matplotlib.axes import Axes
 from osekit.config import TIMESTAMP_FORMAT_AUDIO_FILE
 from osekit.utils.timestamp_utils import strptime_from_text
 from pandas import (
@@ -110,7 +108,9 @@ def reshape_timebin(
                 rank = idx if ts_detect_beg[i] in time_vector else max(0, idx - 1)
 
                 inc = 0
-                while (rank + inc) < len(time_vector) and time_vector[rank + inc] < ts_detect_end[i]:
+                while (rank + inc) < len(time_vector) and time_vector[
+                    rank + inc
+                ] < ts_detect_end[i]:
                     detect_vec[rank + inc] = 1
                     inc += 1
 
@@ -477,7 +477,7 @@ def read_yaml(file: Path) -> dict:
             and parameters[filename]["datetime_begin"]
             >= parameters[filename]["datetime_end"]
         ):
-            msg = f'{parameters[filename]["datetime_begin"]} >= {parameters[filename]["datetime_end"]}'
+            msg = f"{parameters[filename]['datetime_begin']} >= {parameters[filename]['datetime_end']}"
             raise ValueError(msg)
 
         if parameters[filename]["annotator"] and not (
@@ -566,6 +566,8 @@ def t_rounder(t: Timestamp, res: Timedelta | int) -> Timestamp:
         res_seconds = res.total_seconds()
     elif isinstance(res, int) and res > 0:
         res_seconds = res
+    elif isinstance(res, DateOffset):
+        res_seconds = Timedelta(str(res.n) + res.freqstr).total_seconds()
     else:
         msg = "Resolution must be a positive timedelta or a positive integer"
         raise ValueError(msg)
@@ -950,23 +952,24 @@ def json2df(json_path: Path) -> DataFrame:
     return metadatax_df
 
 
-def add_season_period(ax: Axes = None, bar_height: int = 10, northern: bool = True) -> None:
+def add_season_period(
+    ax: plt.Axes,
+    bar_height: int = 10,
+    *,
+    northern: bool = True,
+) -> None:
     """Add a bar at the top of the plot to seasons.
 
     Parameters
     ----------
     northern: boolean, default True.
         Specify if the seasons are northern or austral
-    ax: Axes
-        Figure plot
-
+    ax: plt.Axes
+        Matplotlib Axes to add the bar to.
     bar_height: int
         Bar height in pixels
 
     """
-    if not ax:
-        ax = plt.gca()
-
     if not ax.has_data():
         msg = "Axes have no data"
         raise ValueError(msg)
@@ -1010,10 +1013,10 @@ def add_season_period(ax: Axes = None, bar_height: int = 10, northern: bool = Tr
             alpha=0.6,
         )
 
-    plt.ylim(ax.dataLim.ymin, ax.dataLim.ymax)
+    ax.set_ylim(ax.dataLim.ymin, ax.dataLim.ymax)
 
 
-def set_bar_height(ax: Axes = None, pixel_height: int = 10) -> float:
+def set_bar_height(ax: plt.Axes, pixel_height: int = 10) -> float:
     """Convert pixel height to data coordinates.
 
     Parameters
@@ -1025,11 +1028,8 @@ def set_bar_height(ax: Axes = None, pixel_height: int = 10) -> float:
         In pixel
 
     """
-    if not ax:
-        ax = plt.gca()
-
     if not ax.has_data():
-        msg = "Axes have no data"
+        msg = "Axe has no data"
         raise ValueError(msg)
 
     display_to_data = ax.transData.inverted().transform
@@ -1041,7 +1041,7 @@ def set_bar_height(ax: Axes = None, pixel_height: int = 10) -> float:
 
 def add_recording_period(
     df: DataFrame,
-    ax: mpl.axes.Axes = None,
+    ax: plt.Axes,
     bar_height: int = 10,
 ) -> None:
     """Add a bar at the bottom on plot to show recording periods.
@@ -1050,7 +1050,7 @@ def add_recording_period(
     ----------
     df: DataFrame
         Includes the recording campaign deployment
-        and recovery dates (typically extracted from metadatax)
+        and recovery dates (typically extracted from Metadatax)
 
     ax: Axes
         Figure plot
@@ -1059,11 +1059,8 @@ def add_recording_period(
         Bar height in pixels
 
     """
-    if not ax:
-        ax = plt.gca()
-
     if not ax.has_data():
-        msg = "Axes have no data"
+        msg = "Axe has no data"
         raise ValueError(msg)
 
     recorder_intervals = [
@@ -1079,4 +1076,4 @@ def add_recording_period(
         facecolors="red",
         alpha=0.6,
     )
-    plt.ylim(ax.dataLim.ymin, ax.dataLim.ymax)
+    ax.set_ylim(ax.dataLim.ymin, ax.dataLim.ymax)

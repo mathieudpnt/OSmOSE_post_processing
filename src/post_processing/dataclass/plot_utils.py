@@ -2,47 +2,36 @@
 
 from __future__ import annotations
 
-import logging
 from collections import Counter
 from itertools import cycle
 
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.axes import Axes  # noqa: TC002
-from numpy import ceil, histogram, integer, ndarray, polyfit, zeros
+from numpy import ceil, histogram, ndarray, polyfit, zeros
 from pandas import DataFrame, Timedelta, date_range
-from pandas.tseries import offsets  # noqa: TC002
+from pandas.tseries import offsets
 from scipy.stats import pearsonr
 from seaborn import scatterplot
 
-from post_processing.def_func import get_coordinates, get_sun_times, t_rounder
+from post_processing import logger
+from post_processing.def_func import (
+    add_season_period,
+    get_coordinates,
+    get_sun_times,
+    t_rounder,
+)
 from post_processing.premiers_resultats_utils import get_resolution_str
 
 default_colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
-from post_processing import logger
-
-
-def _get_legend(annotator: str | list[str], label: str | list[str]) -> list[str]:
-    """Return plot legend."""
-    if len(annotator) > 1 and len(label) > 1:
-        legend = [f"{ant} - {lbl}" for ant, lbl in zip(annotator, label, strict=False)]
-    elif len(annotator) == 1:
-        legend = label
-    elif len(label) == 1:
-        legend = annotator
-    else:
-        msg = "Legend error"
-        raise ValueError(msg)
-    return legend
 
 
 def histo(
     df: DataFrame,
     ax: plt.Axes,
-    res_bin: int | offsets.BaseOffset,
-    color: str | None = None,
     *,
-    legend: bool = True,
+    bin_size: Timedelta | offsets.BaseOffset,
+    **kwargs: bool | str | list[str] | tuple[float, float],
 ) -> None:
     """Seasonality plot.
 
@@ -50,41 +39,50 @@ def histo(
     ----------
     df: DataFrame
         Data to plot.
-    res_bin: int | offsets.BaseOffset
-        The size of the histogram bins.
     ax : matplotlib.axes.Axes
         Matplotlib Axes object on which to draw the histogram.
-    color : str or list of str, optional
-        Color or list of colors for the histogram bars.
-        If not provided, default colors will be used.
-    legend : bool, default=True
-        Whether to display the legend on the plot.
+    bin_size: Timedelta | offsets.BaseOffset
+        The size of the histogram bins.
+    **kwargs: Additional keyword arguments depending on the mode.
+        - legend: bool
+            Whether to show the legend.
+        - color: str | list[str]
+            Color or list of colors for the histogram bars.
+            If not provided, default colors will be used.
+        - season: bool
+            Whether to show the season.
+        - coordinates: tuple[float, float]
+            The coordinates of the plotted detections.
 
     """
+    if not bin_size:
+        msg = "bin_size argument not provided"
+        raise ValueError(msg)
+    legend = kwargs.get("legend")
+    color = kwargs.get("color")
+    season = kwargs.get("season", False)
+    lat, lon = kwargs.get("coordinates")
+
     datetime_list = df["start_datetime"]
     annotator = list(set(df["annotator"]))
     label = list(set(df["annotation"]))
     time_bin = df["end_time"].iloc[0].astype(int)
     begin = min(datetime_list) - Timedelta("1d")
     end = max(datetime_list) + Timedelta(time_bin, "s") + Timedelta("1d")
+    freq = (
+        bin_size if isinstance(bin_size, Timedelta) else str(bin_size.n) + bin_size.name
+    )
     grouped_by_annotator = [
         (annotator, group["start_datetime"])
         for annotator, group in df.groupby("annotator")
     ]
     annotators_list, series_list = zip(*grouped_by_annotator, strict=False)
 
-    if isinstance(res_bin, (int, integer)):
-        bins = date_range(
-            start=t_rounder(t=begin, res=res_bin),
-            end=t_rounder(t=end, res=res_bin),
-            freq=str(res_bin) + "s",
-        )
-    else:
-        bins = date_range(
-            start=begin.normalize(),
-            end=end.normalize(),
-            freq=str(res_bin.n) + res_bin.name,
-        )
+    bins = date_range(
+        start=t_rounder(t=begin, res=bin_size),
+        end=t_rounder(t=end, res=bin_size),
+        freq=freq,
+    )
 
     color = (
         color
@@ -107,9 +105,9 @@ def histo(
 
     time_bin_str = get_resolution_str(time_bin)
     resolution_bin_str = (
-        str(res_bin.n) + res_bin.name
-        if not isinstance(res_bin, int)
-        else get_resolution_str(res_bin)
+        str(bin_size.n) + bin_size.name
+        if isinstance(bin_size, offsets.BaseOffset)
+        else get_resolution_str(int(bin_size.total_seconds()))
     )
 
     ax.set_ylabel(
@@ -128,14 +126,20 @@ def histo(
         f"annotator: {', '.join(set(annotator))}\nlabel: {', '.join(set(label))}",
     )
 
+    if season:
+        if not lat or not lon:
+            get_coordinates()
+        northern = lat >= 0
+        add_season_period(ax, northern=northern)
+
 
 def map_detection_timeline(
     df: DataFrame,
-    ax: Axes = None,
-    coordinates: tuple[float, float] | None = None,
+    ax: Axes,
     *,
+    coordinates: tuple[float, float] | None = None,
     mode: str = "scatter",
-    show_rise_set: bool = True,
+    **kwargs: bool,
 ) -> None:
     """Plot daily detection patterns for a given annotator and label.
 
@@ -150,16 +154,19 @@ def map_detection_timeline(
     mode : {'scatter', 'heatmap'}
         'scatter': Plot each detection as a point by time of day.
         'heatmap': Plot hourly detection rate as a heatmap.
-    show_rise_set : bool, default True
-        Whether to overlay sunrise and sunset lines.
+    **kwargs: Additional keyword arguments depending on the mode.
+        -show_rise_set : bool, default True
+            Whether to overlay sunrise and sunset lines.
+        -season: bool
+            Whether to show the season.
 
     """
-    if ax is None:
-        fig, ax = plt.subplots()
-
     lat, lon = coordinates
     if lat is None or lon is None:
         lat, lon = get_coordinates()
+
+    show_rise_set = kwargs.get("show_rise_set", False)
+    season = kwargs.get("season", False)
 
     datetime_list = df["start_datetime"]
     annotator = list(set(df["annotator"]))
@@ -179,16 +186,34 @@ def map_detection_timeline(
     dates = date_range(begin.normalize(), end.normalize(), freq="D")
 
     if mode == "scatter":
-        detect_time_dec = [
-            ts.hour + ts.minute / 60 + ts.second / 3600 for ts in datetime_list
-        ]
-        ax.scatter(
-            datetime_list,
-            detect_time_dec,
-            marker="x",
-            linewidths=1,
-            color="silver",
+        for ann in annotator:
+            for lbl in label:
+                group = df[(df["annotator"] == ann) & (df["annotation"] == lbl)]
+
+                if group.empty:
+                    continue
+
+                detect_time_dec = [
+                    ts.hour + ts.minute / 60 + ts.second / 3600
+                    for ts in group["start_datetime"]
+                ]
+
+                ax.scatter(
+                    group["start_datetime"],
+                    detect_time_dec,
+                    label=f"{ann} - {lbl}",
+                    marker="x",
+                    linewidths=1,
+                    alpha=0.7,
+                )
+
+        ax.legend(
+            loc="upper left",
+            bbox_to_anchor=(1.01, 1),
+            frameon=True,
+            framealpha=0.6,
         )
+
     elif mode == "heatmap":
         mat = zeros((24, len(dates)))
         date_to_index = {date: i for i, date in enumerate(dates)}
@@ -240,6 +265,10 @@ def map_detection_timeline(
         f"timezone: {begin.tz}",
     )
 
+    if season:
+        northern = lat >= 0
+        add_season_period(ax, northern=northern)
+
 
 def overview(df: DataFrame) -> None:
     """Overview of an APLOSE formatted DataFrame.
@@ -250,8 +279,6 @@ def overview(df: DataFrame) -> None:
         The Dataframe to analyse.
 
     """
-    logging.basicConfig(level=logging.INFO, format="%(message)s")
-
     summary_label = (
         df.groupby("annotation")["annotator"]  # noqa: PD010
         .apply(Counter)
@@ -263,9 +290,6 @@ def overview(df: DataFrame) -> None:
         .apply(Counter)
         .unstack(fill_value=0)
     )
-
-    msg = f"- Overview of the detections -\n\n {summary_label}"
-    logger.info(msg)
 
     fig, axs = plt.subplots(2, 1)
     axs[0] = summary_label.plot(
@@ -301,6 +325,10 @@ def overview(df: DataFrame) -> None:
     axs[0].set_title("Number of annotations per label")
     axs[1].set_title("Number of annotations per annotator")
 
+    # log
+    msg = f"- Overview of the detections -\n {summary_label}"
+    logger.info(msg)
+
 
 def _wrap_xtick_labels(ax: plt.Axes, max_chars: int = 10) -> None:
     """Wrap x-axis tick labels at max_chars per line."""
@@ -322,7 +350,7 @@ def _wrap_xtick_labels(ax: plt.Axes, max_chars: int = 10) -> None:
 
 def agreement(
     df: DataFrame,
-    bin_size: Timedelta,
+    bin_size: Timedelta | offsets.BaseOffset,
     ax: plt.Axes,
 ) -> None:
     """Compute and visualize agreement between two annotators.
@@ -337,7 +365,7 @@ def agreement(
         APLOSE-formatted DataFrame.
         It must contain The annotations of two annotators.
 
-    bin_size : Timedelta
+    bin_size : Timedelta | offsets.BaseOffset
         The size of each time bin for aggregating annotation timestamps.
 
     ax : matplotlib.axes.Axes
@@ -373,14 +401,19 @@ def agreement(
 
     start = df["start_datetime"].min()
     stop = df["start_datetime"].max()
-    time_bins = date_range(
-        start=t_rounder(t=start, res=bin_size),
-        end=t_rounder(t=stop, res=bin_size),
-        freq=bin_size,
+
+    freq = (
+        bin_size if isinstance(bin_size, Timedelta) else str(bin_size.n) + bin_size.name
     )
 
-    hist1, _ = histogram(datetimes1, bins=time_bins)
-    hist2, _ = histogram(datetimes2, bins=time_bins)
+    bins = date_range(
+        start=t_rounder(t=start, res=bin_size),
+        end=t_rounder(t=stop, res=bin_size),
+        freq=freq,
+    )
+
+    hist1, _ = histogram(datetimes1, bins=bins)
+    hist2, _ = histogram(datetimes2, bins=bins)
 
     df_hist = (
         DataFrame(

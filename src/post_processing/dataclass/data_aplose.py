@@ -241,7 +241,6 @@ class DataAplose:
         date_format = date_format if date_format else get_datetime_format()
         date_formatter = mdates.DateFormatter(fmt=date_format, tz=self.begin.tz)
         ax.xaxis.set_major_formatter(date_formatter)
-        ax.set_xlim(self.begin, self.end)
         ax.grid(linestyle="--", linewidth=0.2, axis="both", zorder=1)
 
         return ax
@@ -293,84 +292,6 @@ class DataAplose:
         """Overview of an APLOSE formatted DataFrame."""
         overview(self.df)
 
-    def map_detection_timeline(
-        self,
-        ax: plt.Axes,
-        annotator: str | list[str],
-        label: str | list[str],
-        mode: str = "scatter",
-        *,
-        show_rise_set: bool = True,
-    ) -> None:
-        """Plot daily detection patterns for a given annotator and label.
-
-        Parameters
-        ----------
-        ax : plt.Axes
-            The matplotlib axis to draw on.
-        annotator : str
-            The selected annotator or list of annotators.
-        label : str
-            The selected label or list of labels.
-        mode : {'scatter', 'heatmap'}
-            'scatter': Plot each detection as a point by time of day.
-            'heatmap': Plot hourly detection rate as a heatmap.
-        show_rise_set : bool, default True
-            Whether to overlay sunrise and sunset lines.
-
-        """
-        df_filtered = self.filter_df(
-            annotator,
-            label,
-        )
-
-        return map_detection_timeline(
-            df=df_filtered,
-            ax=ax,
-            coordinates=(self.lat, self.lon),
-            mode=mode,
-            show_rise_set=show_rise_set,
-        )
-
-    def histo(
-        self,
-        ax: plt.Axes,
-        annotator: str | list[str],
-        label: str | list[str],
-        *,
-        color: str | list[str] | None = None,
-        legend: bool = True,
-    ) -> None:
-        """Seasonality plot.
-
-        Parameters
-        ----------
-        ax : matplotlib.axes.Axes
-            Matplotlib Axes object on which to draw the histogram.
-        annotator : str
-            The selected annotator or list of annotators.
-        label : str
-            The selected label or list of labels.
-        color : str or list of str, optional
-            Color or list of colors for the histogram bars.
-            If not provided, default colors will be used.
-        legend : bool, default=True
-            Whether to display the legend on the plot.
-
-        """
-        df_filtered = self.filter_df(
-            annotator,
-            label,
-        )
-
-        return histo(
-            df=df_filtered,
-            res_bin=self._resolution_bin,
-            ax=ax,
-            legend=legend,
-            color=color,
-        )
-
     def detection_perf(
         self,
         annotators: [str, str],
@@ -392,8 +313,6 @@ class DataAplose:
         labels: [str, str]
             List of the two labels to compare.
             First label is chosen as reference.
-        verbose: bool
-            Display detailed metric information.
         timestamps: list[Timestamp], optional
             A list of Timestamps to base the computation on.
 
@@ -419,34 +338,82 @@ class DataAplose:
             timestamps=timestamps,
         )
 
-    def agreement(
+    def plot(
         self,
-        annotators: [str, str],
-        labels: [str, str],
-        bin_size: Timedelta,
+        mode: str,
         ax: plt.Axes,
-    ) -> (float, float, float):
-        """Compute and visualize agreement between two annotators.
+        *,
+        annotator: str | list[str],
+        label: str | list[str],
+        **kwargs: bool | Timedelta | offsets.BaseOffset | str | list[str],
+    ) -> None:
+        """Plot filtered annotation data using the specified mode.
 
-        This function compares annotation timestamps from two annotators over a time range.
-        It also fits and plots a linear regression line and displays the coefficient
-        of determination (R²) on the plot.
+        Supports multiple plot types depending on the mode:
+          - "histogram": Plots a histogram of annotation data.
+          - "scatter" / "heatmap": Maps detections on a timeline.
+          - "agreement": Plots inter-annotator agreement regression.
 
-        Parameters
-        ----------
-        annotators: [str, str]
-            List of the two annotators to compare.
-        labels: [str, str]
-            List of the two labels to compare.
-        bin_size : Timedelta
-            The size of each time bin for aggregating annotation timestamps.
-        ax : matplotlib.axes.Axes
-            The Matplotlib axes object to plot on.
+        Args:
+            mode: str
+                Type of plot to generate.
+                Must be one of {"histogram", "scatter", "heatmap", "agreement"}.
+            ax: plt.Axes
+                Matplotlib Axes object to plot on.
+            annotator: str | list[str]
+                The selected annotator or list of annotators.
+            label: str | list[str]
+                The selected label or list of labels.
+            **kwargs: Additional keyword arguments depending on the mode.
+                - legend: bool
+                    Whether to show the legend.
+                - season: bool
+                    Whether to show the season.
+                - show_rise_set: bool
+                    Whether to show sunrise and sunset times.
+                - color: str | list[str]
+                    Color(s) for the bars.
+                - bin_size: Timedelta | offsets.BaseOffset
+                    Bin size for the histogram.
 
         """
         df_filtered = self.filter_df(
-            annotators,
-            labels,
+            annotator,
+            label,
         )
 
-        return agreement(df=df_filtered, bin_size=bin_size, ax=ax)
+        if mode == "histogram":
+            legend = kwargs.get("legend", True)
+            color = kwargs.get("color")
+            bin_size = kwargs.get("bin_size")
+            season = kwargs.get("season", False)
+
+            return histo(
+                df=df_filtered,
+                ax=ax,
+                bin_size=bin_size,
+                legend=legend,
+                color=color,
+                season=season,
+                coordinates=(self.lat, self.lon),
+            )
+
+        if mode in {"scatter", "heatmap"}:
+            show_rise_set = kwargs.get("show_rise_set", True)
+            season = kwargs.get("season", False)
+
+            return map_detection_timeline(
+                df=df_filtered,
+                ax=ax,
+                coordinates=(self.lat, self.lon),
+                mode=mode,
+                show_rise_set=show_rise_set,
+                season=season,
+            )
+
+        if mode == "agreement":
+            bin_size = kwargs.get("bin_size")
+            return agreement(df=df_filtered, bin_size=bin_size, ax=ax)
+
+        msg = f"Unsupported plot mode: {mode}"
+        raise ValueError(msg)
