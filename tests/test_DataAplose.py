@@ -89,7 +89,6 @@ def test_set_ax_uses_2hour_locator(df_strong_and_weak_detections: DataFrame) -> 
 
     ax = data.set_ax(
         ax=ax,
-        bin_size=bin_size,
         x_ticks_res=tick_freq,
         date_format="%y-%m-%d",
     )
@@ -106,7 +105,6 @@ def test_histo_methods_dont_crash(df_strong_and_weak_detections: DataFrame) -> N
     tick_freq = frequencies.to_offset("2h")
     ax = data.set_ax(
         ax=ax,
-        bin_size=bin_size,
         x_ticks_res=tick_freq,
         date_format="%y-%m-%d",
     )

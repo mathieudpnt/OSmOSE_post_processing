@@ -567,7 +567,10 @@ def t_rounder(t: Timestamp, res: Timedelta | int) -> Timestamp:
     elif isinstance(res, int) and res > 0:
         res_seconds = res
     elif isinstance(res, DateOffset):
-        res_seconds = Timedelta(str(res.n) + res.freqstr).total_seconds()
+        try:
+            res_seconds = t.round(res.freqstr)
+        except (ValueError, TypeError):
+            res_seconds = Timedelta("1D").total_seconds()
     else:
         msg = "Resolution must be a positive timedelta or a positive integer"
         raise ValueError(msg)

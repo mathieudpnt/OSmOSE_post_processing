@@ -8,9 +8,10 @@ from itertools import cycle
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.axes import Axes  # noqa: TC002
+from matplotlib.ticker import PercentFormatter
 from numpy import ceil, histogram, ndarray, polyfit, zeros
-from pandas import DataFrame, Timedelta, date_range
-from pandas.tseries import offsets
+from pandas import DataFrame, Series, Timedelta, Timestamp, cut, date_range
+from pandas.tseries import frequencies, offsets
 from scipy.stats import pearsonr
 from seaborn import scatterplot
 
@@ -31,7 +32,7 @@ def histo(
     ax: plt.Axes,
     *,
     bin_size: Timedelta | offsets.BaseOffset,
-    **kwargs: bool | str | list[str] | tuple[float, float],
+    **kwargs: bool | str | list[str] | tuple[float, float] | list[Timestamp],
 ) -> None:
     """Seasonality plot.
 
@@ -53,6 +54,9 @@ def histo(
             Whether to show the season.
         - coordinates: tuple[float, float]
             The coordinates of the plotted detections.
+        - effort: list[Timestamp]
+            The list of timestamps corresponding to the observation effort.
+            If provided, data will be normalized by observation effort.
 
     """
     if not bin_size:
@@ -61,47 +65,80 @@ def histo(
     legend = kwargs.get("legend")
     color = kwargs.get("color")
     season = kwargs.get("season", False)
+    effort = kwargs.get("effort")
     lat, lon = kwargs.get("coordinates")
 
+    labels, annotators = _get_labels_and_annotators(df)
     datetime_list = df["start_datetime"]
-    annotator = list(set(df["annotator"]))
-    label = list(set(df["annotation"]))
     time_bin = df["end_time"].iloc[0].astype(int)
     begin = min(datetime_list) - Timedelta("1d")
     end = max(datetime_list) + Timedelta(time_bin, "s") + Timedelta("1d")
     freq = (
         bin_size if isinstance(bin_size, Timedelta) else str(bin_size.n) + bin_size.name
     )
-    grouped_by_annotator = [
-        (annotator, group["start_datetime"])
-        for annotator, group in df.groupby("annotator")
+    date_range_offset = (
+        Timedelta(f"1{bin_size.resolution_string}")
+        if isinstance(bin_size, Timedelta)
+        else frequencies.to_offset(f"1{bin_size.name}")
+    )
+    series_list = [
+        df[(df["annotation"] == label) & (df["annotator"] == annotator)][
+            "start_datetime"
+        ]
+        for label, annotator in zip(labels, annotators, strict=False)
     ]
-    annotators_list, series_list = zip(*grouped_by_annotator, strict=False)
 
     bins = date_range(
-        start=t_rounder(t=begin, res=bin_size),
-        end=t_rounder(t=end, res=bin_size),
+        start=t_rounder(t=begin, res=bin_size) - date_range_offset,
+        end=t_rounder(t=end, res=bin_size) + date_range_offset,
         freq=freq,
     )
 
     color = (
         color
         if color
-        else [c for _, c in zip(range(len(annotator)), cycle(default_colors))]
+        else [c for _, c in zip(range(len(annotators)), cycle(default_colors))]
     )
 
-    val1, _, _ = ax.hist(
-        series_list,
-        bins=bins,
-        edgecolor="black",
-        zorder=2,
-        histtype="bar",
-        stacked=False,
-        color=color,
-    )
+    hist_kwargs = {
+        "bins": bins,
+        "edgecolor": "black",
+        "zorder": 2,
+        "histtype": "bar",
+        "stacked": False,
+        "color": color,
+    }
+
+    if effort is not None:
+        recorded_timebin_per_bin = cut(
+            Series(effort),
+            bins=bins,
+            right=False,
+        ).value_counts(
+            sort=False,
+        )
+        weights_list = []
+        for series in series_list:
+            # For each timestamp in series, find which interval it belongs to
+            bin_indices = recorded_timebin_per_bin.index.get_indexer(series)
+            counts_for_each_timestamp = recorded_timebin_per_bin.values[bin_indices]
+            weights_list.append(1 / counts_for_each_timestamp)
+
+        hist_kwargs["weights"] = weights_list
+        ax.yaxis.set_major_formatter(PercentFormatter(xmax=1.0))
+
+    val1, _, _ = ax.hist(series_list, **hist_kwargs)
 
     if val1.ndim > 1 and legend:
-        ax.legend(labels=annotators_list, loc="upper right")
+        if len(set(labels)) > 1 and len(set(annotators)) == 1:
+            legend_labels = labels
+        elif len(set(annotators)) > 1 and len(set(labels)) == 1:
+            legend_labels = annotators
+        else:
+            legend_labels = [
+                f"{a}\n{l}" for a, l in zip(annotators, labels, strict=False)
+            ]
+        ax.legend(labels=legend_labels, bbox_to_anchor=(1.01, 1), loc="upper left")
 
     time_bin_str = get_resolution_str(time_bin)
     resolution_bin_str = (
@@ -110,20 +147,26 @@ def histo(
         else get_resolution_str(int(bin_size.total_seconds()))
     )
 
-    ax.set_ylabel(
-        f"Detections\n(resolution: {time_bin_str} - bin size: {resolution_bin_str})",
+    title = (
+        f"Detections{(' normalized by effort' if effort else '')}"
+        f"\n(resolution: {time_bin_str} - bin size: {resolution_bin_str})"
     )
+    ax.set_ylabel(title)
 
-    ax.set_ylim(0, int(ceil(1.05 * ndarray.max(val1))))
-    ax.set_yticks(
-        range(
-            0,
-            int(ceil(ndarray.max(val1))) + 1,
-            max(1, int(ceil(ndarray.max(val1))) // 4),
-        ),
-    )
+    if isinstance(ax.yaxis.get_major_formatter(), PercentFormatter):
+        ax.set_ylim(0, 1)
+        ax.set_yticks(np.arange(0, 1.1, 0.2))
+    else:
+        ax.set_ylim(0, int(ceil(1.05 * ndarray.max(val1))))
+        ax.set_yticks(
+            range(
+                0,
+                int(ceil(ndarray.max(val1))) + 1,
+                max(1, int(ceil(ndarray.max(val1))) // 4),
+            ),
+        )
     ax.title.set_text(
-        f"annotator: {', '.join(set(annotator))}\nlabel: {', '.join(set(label))}",
+        f"annotator: {', '.join(set(annotators))}\nlabel: {', '.join(set(labels))}",
     )
 
     if season:
@@ -169,8 +212,7 @@ def map_detection_timeline(
     season = kwargs.get("season", False)
 
     datetime_list = df["start_datetime"]
-    annotator = list(set(df["annotator"]))
-    label = list(set(df["annotation"]))
+    labels, annotators = _get_labels_and_annotators(df)
     time_bin = df["end_time"].iloc[0]
     begin = min(datetime_list) - Timedelta("1d")
     end = max(datetime_list) + Timedelta(time_bin, "s") + Timedelta("1d")
@@ -186,8 +228,8 @@ def map_detection_timeline(
     dates = date_range(begin.normalize(), end.normalize(), freq="D")
 
     if mode == "scatter":
-        for ann in annotator:
-            for lbl in label:
+        for ann in set(annotators):
+            for lbl in set(labels):
                 group = df[(df["annotator"] == ann) & (df["annotation"] == lbl)]
 
                 if group.empty:
@@ -260,8 +302,8 @@ def map_detection_timeline(
 
     ax.set_title(
         f"Time of detections ({mode})\n"
-        f"annotator: {', '.join(set(annotator))} - "
-        f"label: {', '.join(set(label))}\n "
+        f"annotator: {', '.join(set(annotators))} - "
+        f"label: {', '.join(set(labels))}\n "
         f"timezone: {begin.tz}",
     )
 
@@ -372,18 +414,7 @@ def agreement(
         Matplotlib axes object where the scatterplot and regression line will be drawn.
 
     """
-    annotators = df["annotator"].unique().tolist()
-    labels = df["annotation"].unique().tolist()
-    if len(labels) == 1:
-        labels = [labels[0]] * 2
-
-    num_annotators, num_labels = 2, 2
-    if len(annotators) != num_annotators:
-        msg = f"Two annotators needed, DataFrame contains {len(annotators)} annotators"
-        raise ValueError(msg)
-    if len(labels) != num_labels:
-        msg = f"Two labels needed, DataFrame contains {len(labels)} labels"
-        raise ValueError(msg)
+    labels, annotators = _get_labels_and_annotators(df)
 
     datetimes1 = list(
         df[(df["annotator"] == annotators[0]) & (df["annotation"] == labels[0])][
@@ -438,3 +469,34 @@ def agreement(
     # Pearson correlation (R²)
     r, _ = pearsonr(df_hist[annotators[0]], df_hist[annotators[1]])
     ax.text(0.05, 0.85, f"R² = {r**2:.2f}", transform=ax.transAxes)
+
+
+def _get_labels_and_annotators(df: DataFrame) -> tuple[list, list]:
+    """Extract and align annotation labels and annotators from a DataFrame.
+
+    If only one label is present, it is duplicated to match the number of annotators.
+    Similarly, if one annotator is present, it is duplicated to match the labels.
+
+    Parameters
+    ----------
+    df : DataFrame
+        The APLOSE-formatted DataFrame.
+
+    Returns
+    -------
+    tuple[list, list]
+        A tuple containing the labels and annotators lists.
+
+    """
+    annotators = df["annotator"].unique().tolist()
+    labels = df["annotation"].unique().tolist()
+    if len(labels) == 1:
+        labels = [labels[0]] * len(annotators)
+    if len(annotators) == 1:
+        annotators = [annotators[0]] * len(labels)
+
+    if len(annotators) != len(labels):
+        msg = f"{len(annotators)} annotators and {len(labels)} labels must match."
+        raise ValueError(msg)
+
+    return labels, annotators

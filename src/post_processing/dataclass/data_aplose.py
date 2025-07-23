@@ -189,7 +189,6 @@ class DataAplose:
     def set_ax(
         self,
         ax: plt.Axes,
-        bin_size: Timedelta | offsets.BaseOffset = None,
         x_ticks_res: Timedelta | offsets.BaseOffset = None,
         date_format: str | None = None,
     ) -> plt.Axes:
@@ -202,9 +201,6 @@ class DataAplose:
         ----------
         ax : matplotlib.axes.Axes
             The Axes object to configure.
-        bin_size : Timedelta | offsets.BaseOffset, optional
-            Resolution of the histogram bins.
-            If a `Timedelta`, it is converted to seconds.
         x_ticks_res : Timedelta | offsets.BaseOffset, optional
             Resolution of the x-axis major ticks.
             If not provided, user will be prompted.
@@ -220,12 +216,6 @@ class DataAplose:
         """
         self._time_bin = int(
             select_reference(self.df[self.df["is_box"] == 0]["end_time"], "time bin"),
-        )
-
-        self._resolution_bin = (
-            int(bin_size.total_seconds())
-            if isinstance(bin_size, Timedelta)
-            else bin_size
         )
 
         if not x_ticks_res:
@@ -375,6 +365,9 @@ class DataAplose:
                     Color(s) for the bars.
                 - bin_size: Timedelta | offsets.BaseOffset
                     Bin size for the histogram.
+                - effort: list[Timestamp]
+                    The list of timestamps corresponding to the observation effort.
+                    If provided, data will be normalized by observation effort.
 
         """
         df_filtered = self.filter_df(
@@ -387,6 +380,7 @@ class DataAplose:
             color = kwargs.get("color")
             bin_size = kwargs.get("bin_size")
             season = kwargs.get("season", False)
+            effort = kwargs.get("effort")
 
             return histo(
                 df=df_filtered,
@@ -395,6 +389,7 @@ class DataAplose:
                 legend=legend,
                 color=color,
                 season=season,
+                effort=effort,
                 coordinates=(self.lat, self.lon),
             )
 
