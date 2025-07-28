@@ -438,11 +438,12 @@ def merging_tab(meta: pd.DataFrame, data: pd.DataFrame) -> pd.DataFrame:
     df_filtered = meta[meta["name"].isin(deploy_detec)]
 
     output = df_filtered.merge(
-        data[["name", "start_datetime", "DPM"]],
+        data[["name", "start_datetime", "DPM", "Nfiltered"]],
         on=["name", "start_datetime"],
         how="outer",
     )
     output["DPM"] = output["DPM"].fillna(0)
+    output["Nfiltered"] = output["Nfiltered"].fillna(0)
 
     output["Day"] = output["start_datetime"].dt.day
     output["Month"] = output["start_datetime"].dt.month
