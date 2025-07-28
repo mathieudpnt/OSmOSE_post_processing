@@ -1,10 +1,12 @@
 import logging
 from pathlib import Path
+import os
 
 import pandas as pd
 import pytz
 from OSmOSE.config import TIMESTAMP_FORMAT_AUDIO_FILE
 from OSmOSE.utils.timestamp_utils import strftime_osmose_format, strptime_from_text
+from src.post_processing.def_func import get_coordinates, get_sun_times
 
 
 def fpod2aplose(
@@ -448,3 +450,147 @@ def merging_tab(meta: pd.DataFrame, data: pd.DataFrame) -> pd.DataFrame:
     output["hour"] = output["start_datetime"].dt.hour
 
     return output
+
+
+def feeding_buzz(df:pd.DataFrame, species:str) -> pd.DataFrame:
+    """Process a CPOD/FPOD feeding buzz detection file.
+    Gives the feeding buzz duration, depending on the studied species.
+
+    Parameters
+    ----------
+    df: pd.DataFrame
+        Path to cpod.exe feeding buzz file
+    species: str
+        Select the species to use between porpoise and commerson's dolphin
+
+    Returns
+    -------
+    pd.DataFrame
+        Containing all ICIs for every positive minutes to clicks
+    """
+    df.columns = df.columns.str.upper()
+    df['MICROSEC'] = df['MICROSEC'] / 1e6
+    col = 'DATE HEURE MINUTE'
+    col2 = 'HEURE MINUTE'
+    if col in df.columns:
+        df[['DATE', 'HEURE', 'MINUTE']] = df[col].str.split(' ', expand=True)
+        df['Time'] = (df['DATE'].astype(str) + ' ' +
+                      df['HEURE'].astype(str) + ':' +
+                      df['MINUTE'].astype(str) + ':' +
+                      df['MICROSEC'].astype(str))
+        df['Time'] = pd.to_datetime(df['Time'], dayfirst=True)
+    elif col2 in df.columns:
+        df[['HEURE', 'MINUTE']] = df[col2].str.split(' ', expand=True)
+        df['Time'] = (df['DATE'].astype(str) + ' ' +
+                      df['HEURE'].astype(str) + ':' +
+                      df['MINUTE'].astype(str) + ':' +
+                      df['MICROSEC'].astype(str))
+        df['Time'] = pd.to_datetime(df['Time'], dayfirst=True)
+    else :
+        df['Time'] = (df['MINUTE'].astype(str) + ':' + df['MICROSEC'].astype(str))
+        df['Time'] = pd.to_datetime(df['Time'], dayfirst=True)
+
+    df = df.sort_values(by='Time').reset_index(drop=True)
+    df['ICI'] = df['Time'].diff().dt.total_seconds()
+
+    df['Buzz'] = 0
+    if species == "Porpoise":
+        feeding_idx = df.index[df['ICI'] < 0.01]
+    else :
+        feeding_idx = df.index[df['ICI'] >= 0.005]
+
+    df.loc[feeding_idx, 'Buzz'] = 1
+    df.loc[feeding_idx - 1, 'Buzz'] = 1
+    df.loc[df.index < 0, 'Buzz'] = 0
+
+    df['start_datetime'] = df['Time'].dt.floor('min')
+    df['start_datetime'] = pd.to_datetime(df['start_datetime'], dayfirst=False, utc=True)
+    f = df.groupby(['start_datetime'])['Buzz'].sum().reset_index()
+
+    f['Foraging'] = (f['Buzz'] != 0).astype(int)
+
+    return f
+
+
+def assign_daytime(
+        df: pd.DataFrame,
+) -> pd.DataFrame:
+    """Assign datetime categories to events. Categorize daytime of the detection (among 4 categories).
+
+    Parameters
+    ----------
+    df: pd.DataFrame
+        Dataframe containing positive hours to detections.
+
+    Returns
+    -------
+    pd.DataFrame
+        The same dataframe with the column daytime.
+
+    """
+    start = df.iloc[0]["Time"]
+    stop = df.iloc[-1]["Time"]
+    lat, lon = get_coordinates()
+    _, _,dawn,day,dusk,night  = get_sun_times(start, stop, lat, lon)
+    dawn = pd.Series(dawn, name='dawn')
+    day = pd.Series(day, name='day')
+    dusk = pd.Series(dusk, name='dusk')
+    night = pd.Series(night, name='night')
+    jour = pd.concat([day, night, dawn, dusk], axis=1)
+
+    for i, row in df.iterrows():
+        dpm_i = row['Time']
+        if pd.notna(dpm_i):  # Check if time is not NaN
+            jour_i = jour[
+                (jour['dusk'].dt.year == dpm_i.year) &
+                (jour['dusk'].dt.month == dpm_i.month) &
+                (jour['dusk'].dt.day == dpm_i.day)
+                ]
+            if not jour_i.empty:  # Ensure there's a matching row
+                jour_i = jour_i.iloc[0]  # Extract first match
+                if dpm_i <= jour_i['day']:
+                    df.at[i, 'REGIME'] = 1
+                elif dpm_i < jour_i['dawn']:
+                    df.at[i, 'REGIME'] = 2
+                elif dpm_i < jour_i['dusk']:
+                    df.at[i, 'REGIME'] = 3
+                elif dpm_i > jour_i['night']:
+                    df.at[i, 'REGIME'] = 1
+                elif dpm_i > jour_i['dusk']:
+                    df.at[i, 'REGIME'] = 4
+                else:
+                    df.at[i, 'REGIME'] = 1
+
+    return df
+
+
+def process_files_in_folder(folder_path:Path, species:str) -> pd.DataFrame:
+    """Process a folder containing all CPOD/FPOD feeding buzz detection files for one site of a project.
+    Apply the feeding buzz function to these files.
+
+    Parameters
+    ----------
+    folder_path: Path
+        Path to the folder.
+    species: str
+        Select the species to use between porpoise and commerson's dolphin
+
+    Returns
+    -------
+    pd.DataFrame
+        A dataframe with all compiled feeding buzz detection positive minutes for one site of a project.
+
+    """
+    all_files = [f for f in os.listdir(folder_path) if f.endswith(".txt")]
+    all_data = []
+
+    for file in all_files:
+        file_path = os.path.join(folder_path, file)
+        df = pd.read_csv(file_path, sep="\t")
+        processed_df = feeding_buzz(df, species)
+        processed_df["file"] = file
+        all_data.append(processed_df)
+
+    final_df = pd.concat(all_data, ignore_index=True)
+    print(final_df)
+    return final_df
