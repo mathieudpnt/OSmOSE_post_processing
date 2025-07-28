@@ -1,9 +1,11 @@
 import logging
-from pathlib import Path
+import matplotlib.pyplot as plt
 import os
+from pathlib import Path
 
 import pandas as pd
 import pytz
+import seaborn as sns
 from OSmOSE.config import TIMESTAMP_FORMAT_AUDIO_FILE
 from OSmOSE.utils.timestamp_utils import strftime_osmose_format, strptime_from_text
 from src.post_processing.def_func import get_coordinates, get_sun_times
@@ -595,3 +597,206 @@ def process_files_in_folder(folder_path:Path, species:str) -> pd.DataFrame:
     final_df = pd.concat(all_data, ignore_index=True)
     print(final_df)
     return final_df
+
+
+colors = {
+    'DY1': '#118B50',
+    'DY2': '#5DB996',
+    'DY3': '#B0DB9C',
+    'DY4': '#E3F0AF',
+    'CA4': '#5EABD6',
+    'Walde': '#FFB4B4',
+}
+
+
+def extract_site(df:pd.DataFrame):
+    """
+    Create 2 new columns : site.name and campaign.name, in order to match the metadata.
+
+    Parameters
+    ----------
+    df: pd.DataFrame
+        All values concatenated
+
+    Returns
+    -------
+    pd.DataFrame
+        The same dataframe with two additional columns.
+    """
+    df[["site.name", "campaign.name"]] = df["name"].str.split("_", expand=True)
+    return df
+
+
+def percent_calc(data:pd.DataFrame, time_unit:str | None = None):
+    """
+    Calculate the percentages of clics, feeding buzzes and positive hours to detection on the entire effort,
+    for every site.
+
+    Parameters
+    ----------
+    data: pd.DataFrame
+        All values concatenated
+    time_unit: Time unit you want to group your data in
+
+    Returns
+    -------
+    pd.DataFrame
+    """
+    group_cols = ["site.name"]
+    if time_unit is not None:
+        group_cols.insert(0, time_unit)
+
+    # Aggregate and compute metrics
+    df = data.groupby(group_cols).agg({
+        "DPH": "sum",
+        "DPM": "sum",
+        "Day": "size",
+        "Foraging": "sum"
+    }).reset_index()
+
+    df["%clics"] = df["DPM"] * 100 / (df["Day"] * 60)
+    df["%DPH"] = df["DPH"] * 100 / df["Day"]
+    df["FBR"] = df["Foraging"] * 100 / df["DPM"]
+    df['%buzzes'] = df['Foraging'] * 100 / (df['Day'] * 60)
+    return df
+
+
+def site_percent(df:pd.DataFrame, metric:str):
+    """
+    Create a graph with the percentage of minutes positive to detection for every site.
+
+    Parameters
+    ----------
+    df: pd.DataFrame
+        All percentages grouped by site
+    metric: str
+        Type of percentage you want to show on the graph
+
+    Returns
+    -------
+    Graphs
+    """
+    ax = sns.barplot(data=df, x="site.name", y=metric, hue="site.name", dodge=False, palette=colors)
+    # Set the title and labels directly on the Axes
+    ax.set_title(f"{metric} per site")
+    ax.set_ylabel(f"{metric}")
+    # Add hatching to each bar
+    if metric == "%buzzes":
+        for i, thisbar in enumerate(ax.patches):
+            thisbar.set_hatch('/')
+    plt.show()
+
+
+def year_percent(df:pd.DataFrame, metric:str):
+    """
+    Create a graph with the percentage of minutes positive to detection for every site and year.
+
+    Parameters
+    ----------
+    df: pd.DataFrame
+        All percentages grouped by site and year
+    metric: str
+        Type of percentage you want to show on the graph
+
+    Returns
+    -------
+
+    """
+    sites = df['site.name'].unique()
+    n_sites = len(sites)
+    fig, axs = plt.subplots(n_sites, 1, figsize=(14, 2.5 * n_sites), sharex=True)
+    if n_sites == 1:
+        axs = [axs]
+    for i, site in enumerate(sorted(sites)):
+        site_data = df[df['site.name'] == site]
+        ax = axs[i]
+        ax.bar(site_data['Year'], site_data[metric], label=f"Site {site}", color=colors.get(site, 'gray'))
+        ax.set_title(f"Site {site}")
+        ax.set_ylim(0,max(df[metric]) + 0.2)
+        ax.set_ylabel(metric)
+        if i != 3:
+            ax.set_xlabel("")
+        else:
+            ax.set_xlabel("Year")
+        if metric == "%buzzes":
+            for i,thisbar in enumerate(ax.patches):
+                thisbar.set_hatch('/')
+    fig.suptitle(f"{metric} per year", fontsize=16)
+    plt.show()
+
+
+def month_percent(df:pd.DataFrame, metric:str):
+    """
+    Create a graph with the percentage of minutes positive to detection for every site and month.
+    Parameters
+    ----------
+    df: pd.DataFrame
+        All percentages grouped by site and month
+    metric: str
+        Type of percentage you want to show on the graph
+
+    Returns
+    -------
+
+    """
+    sites = df['site.name'].unique()
+    n_sites = len(sites)
+    fig, axs = plt.subplots(n_sites, 1, figsize=(14, 2.5 * n_sites), sharex=True)
+    if n_sites == 1:
+        axs = [axs]
+    for i, site in enumerate(sorted(sites)):
+        site_data = df[df['site.name'] == site]
+        ax = axs[i]
+        ax.bar(site_data["Month"], site_data[metric], label=f"Site {site}", color=colors.get(site, 'gray'))
+        ax.set_title(f"{site} - Percentage of postitive to detection minutes per month")
+        ax.set_ylim(0,max(df[metric]) + 0.2)
+        ax.set_ylabel(metric)
+        ax.set_xticks([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+                      ['Jan', 'Feb', 'Mar', 'Apr', 'May','Jun', 'Jul', 'Agu', 'Sep', 'Oct', 'Nov', 'Dec'])
+        if i != 3:
+            ax.set_xlabel("")
+        else:
+            ax.set_xlabel("Months")
+        if metric == "%buzzes":
+            for i,thisbar in enumerate(ax.patches):
+                thisbar.set_hatch('/')
+    fig.suptitle(f"{metric} per month", fontsize=16)
+    plt.show()
+
+
+def hour_percent(df:pd.DataFrame, metric:str):
+    """
+    Create a graph with the percentage of minutes positive to detection for every site and hour.
+
+    Parameters
+    ----------
+    df: pd.DataFrame
+        All percentages grouped by site and hour
+    metric: str
+        Type of percentage you want to show on the graph
+
+    Returns
+    -------
+
+    """
+    sites = df['site.name'].unique()
+    n_sites = len(sites)
+    fig, axs = plt.subplots(n_sites, 1, figsize=(14, 2.5 * n_sites), sharex=True)
+    if n_sites == 1:
+        axs = [axs]
+    for i, site in enumerate(sorted(sites)):
+        site_data = df[df['site.name'] == site]
+        ax = axs[i]
+        ax.bar(site_data['hour'], site_data[metric], label=f"Site {site}", color=colors.get(site, 'gray'))
+        ax.set_title(f"Site {site} - Percentage of positive to detection per hour")
+        ax.set_ylim(0,max(df[metric]) + 0.2)
+        ax.set_ylabel(metric)
+        if i != 3:
+            ax.set_xlabel("")
+        else:
+            ax.set_xlabel("Hour")
+        if metric == "%buzzes":
+            for i,thisbar in enumerate(ax.patches):
+                thisbar.set_hatch('/')
+    fig.suptitle(f"{metric} per hour", fontsize=16)
+    plt.show()
