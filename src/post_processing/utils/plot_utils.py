@@ -4,25 +4,30 @@ from __future__ import annotations
 
 from collections import Counter
 from itertools import cycle
+from typing import TYPE_CHECKING
 
+import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.axes import Axes  # noqa: TC002
 from matplotlib.ticker import PercentFormatter
-from numpy import ceil, histogram, ndarray, polyfit, zeros
-from pandas import DataFrame, Series, Timedelta, Timestamp, cut, date_range
-from pandas.tseries import frequencies, offsets
+from numpy import ceil, histogram, polyfit, zeros
+from pandas import DataFrame, Series, Timedelta, Timestamp, date_range
 from scipy.stats import pearsonr
 from seaborn import scatterplot
 
 from post_processing import logger
-from post_processing.def_func import (
+from post_processing.utils.def_func import (
     add_season_period,
     get_coordinates,
+    get_labels_and_annotators,
     get_sun_times,
-    t_rounder,
+    shade_no_effort,
 )
-from post_processing.premiers_resultats_utils import get_resolution_str
+from post_processing.utils.premiers_resultats_utils import timedelta_to_str
+
+if TYPE_CHECKING:
+    from matplotlib.axes import Axes
+    from pandas.tseries import offsets
 
 default_colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
 
@@ -30,9 +35,9 @@ default_colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
 def histo(
     df: DataFrame,
     ax: plt.Axes,
-    *,
     bin_size: Timedelta | offsets.BaseOffset,
-    **kwargs: bool | str | list[str] | tuple[float, float] | list[Timestamp],
+    time_bin: Timedelta,
+    **kwargs: bool | str | list[str] | tuple[float, float] | list[Timestamp] | Series,
 ) -> None:
     """Seasonality plot.
 
@@ -44,6 +49,8 @@ def histo(
         Matplotlib Axes object on which to draw the histogram.
     bin_size: Timedelta | offsets.BaseOffset
         The size of the histogram bins.
+    time_bin: Timedelta | offsets.BaseOffset
+        The size of detections.
     **kwargs: Additional keyword arguments depending on the mode.
         - legend: bool
             Whether to show the legend.
@@ -54,127 +61,120 @@ def histo(
             Whether to show the season.
         - coordinates: tuple[float, float]
             The coordinates of the plotted detections.
-        - effort: list[Timestamp]
+        - effort: Series
             The list of timestamps corresponding to the observation effort.
             If provided, data will be normalized by observation effort.
 
     """
-    if not bin_size:
-        msg = "bin_size argument not provided"
-        raise ValueError(msg)
-    legend = kwargs.get("legend")
-    color = kwargs.get("color")
+    legend = kwargs.get("legend", False)
+    color = kwargs.get("color", False)
     season = kwargs.get("season", False)
-    effort = kwargs.get("effort")
+    effort = kwargs.get("effort", False)
     lat, lon = kwargs.get("coordinates")
 
-    labels, annotators = _get_labels_and_annotators(df)
-    datetime_list = df["start_datetime"]
-    time_bin = df["end_time"].iloc[0].astype(int)
-    begin = min(datetime_list) - Timedelta("1d")
-    end = max(datetime_list) + Timedelta(time_bin, "s") + Timedelta("1d")
-    freq = (
-        bin_size if isinstance(bin_size, Timedelta) else str(bin_size.n) + bin_size.name
-    )
-    date_range_offset = (
-        Timedelta(f"1{bin_size.resolution_string}")
-        if isinstance(bin_size, Timedelta)
-        else frequencies.to_offset(f"1{bin_size.name}")
-    )
-    series_list = [
-        df[(df["annotation"] == label) & (df["annotator"] == annotator)][
-            "start_datetime"
-        ]
-        for label, annotator in zip(labels, annotators, strict=False)
-    ]
+    labels, annotators = zip(*[col.rsplit("-", 1) for col in df.columns], strict=False)
+    labels = list(labels)
+    annotators = list(annotators)
 
-    bins = date_range(
-        start=t_rounder(t=begin, res=bin_size) - date_range_offset,
-        end=t_rounder(t=end, res=bin_size) + date_range_offset,
-        freq=freq,
-    )
+    if isinstance(bin_size, Timedelta):
+        begin = min(df.index).floor(bin_size)
+        end = max(df.index + bin_size).ceil(bin_size)
+        freq = bin_size
+    else:
+        begin = bin_size.rollback(min(df.index)).normalize()
+        end = bin_size.rollforward(max(df.index)).normalize()
+        bin_str = str(bin_size.n) + bin_size.name
+        freq = Timedelta(bin_str.split("-")[0])
 
-    color = (
-        color
-        if color
-        else [c for _, c in zip(range(len(annotators)), cycle(default_colors))]
-    )
+    if not color:
+        color = get_colors(df)
 
-    hist_kwargs = {
-        "bins": bins,
-        "edgecolor": "black",
-        "zorder": 2,
-        "histtype": "bar",
-        "stacked": False,
-        "color": color,
-    }
+    if len(df.columns) > 1 and legend:
+        legend_labels = get_legend(labels, annotators)
+    else:
+        legend_labels = None
 
-    if effort is not None:
-        recorded_timebin_per_bin = cut(
-            Series(effort),
-            bins=bins,
-            right=False,
-        ).value_counts(
-            sort=False,
+    if effort:
+        effort_df, origin_timebin = effort
+        effort_series = Series(
+            data=effort_df.iloc[:, 0].values,
+            index=[interval.left for interval in effort_df.iloc[:, 0].index]
         )
-        weights_list = []
-        for series in series_list:
-            # For each timestamp in series, find which interval it belongs to
-            bin_indices = recorded_timebin_per_bin.index.get_indexer(series)
-            counts_for_each_timestamp = recorded_timebin_per_bin.values[bin_indices]
-            weights_list.append(1 / counts_for_each_timestamp)
+        for col in df.columns:
+            effort_ratio = effort_series * (origin_timebin / time_bin)
+            effort_ratio = Series(
+                np.where((effort_ratio > 0) & (effort_ratio < 1), 1.0, effort_ratio),
+                index=effort_series.index,
+                name=effort_series.name
+            )
+            df[f"{col}"] = (df[col] / effort_ratio.reindex(df[col].index)).clip(upper=1)
 
-        hist_kwargs["weights"] = weights_list
-        ax.yaxis.set_major_formatter(PercentFormatter(xmax=1.0))
 
-    val1, _, _ = ax.hist(series_list, **hist_kwargs)
+    n_groups = len(labels) if legend_labels else 1
+    bar_width = freq / n_groups
+    bin_starts = mdates.date2num(df.index)
 
-    if val1.ndim > 1 and legend:
-        if len(set(labels)) > 1 and len(set(annotators)) == 1:
-            legend_labels = labels
-        elif len(set(annotators)) > 1 and len(set(labels)) == 1:
-            legend_labels = annotators
-        else:
-            legend_labels = [
-                f"{a}\n{l}" for a, l in zip(annotators, labels, strict=False)
-            ]
+    for i in range(n_groups):
+        offset = i * bar_width.total_seconds() / 86400  # convert to days for plot
+
+        bar_kwargs = {
+            "width": bar_width.total_seconds() / 86400,
+            "align": "edge",
+            "edgecolor": "black",
+            "color": color[i],
+            "zorder": 2,
+        }
+        if legend_labels:
+            bar_kwargs["label"] = legend_labels[i]
+
+        ax.bar(bin_starts + offset, df.iloc[:, i], **bar_kwargs)
+
+    if len(df.columns) > 1 and legend:
         ax.legend(labels=legend_labels, bbox_to_anchor=(1.01, 1), loc="upper left")
 
-    time_bin_str = get_resolution_str(time_bin)
-    resolution_bin_str = (
-        str(bin_size.n) + bin_size.name
-        if isinstance(bin_size, offsets.BaseOffset)
-        else get_resolution_str(int(bin_size.total_seconds()))
-    )
-
+    bin_size_str = timedelta_to_str(bin_size) if isinstance(bin_size, Timedelta) else bin_str
     title = (
         f"Detections{(' normalized by effort' if effort else '')}"
-        f"\n(resolution: {time_bin_str} - bin size: {resolution_bin_str})"
+        f"\n(detections: {timedelta_to_str(time_bin)}"
+        f" - bin size: {bin_size_str})"
     )
     ax.set_ylabel(title)
 
-    if isinstance(ax.yaxis.get_major_formatter(), PercentFormatter):
-        ax.set_ylim(0, 1)
-        ax.set_yticks(np.arange(0, 1.1, 0.2))
+    if effort:
+        ax.yaxis.set_major_formatter(PercentFormatter(xmax=1.0))
+        ax.set_yticks(np.arange(0, 1.02, 0.2))
     else:
-        ax.set_ylim(0, int(ceil(1.05 * ndarray.max(val1))))
+        max_val = df.to_numpy().max()
+        ax.set_ylim(0, int(ceil(1.05 * max_val)))
         ax.set_yticks(
             range(
                 0,
-                int(ceil(ndarray.max(val1))) + 1,
-                max(1, int(ceil(ndarray.max(val1))) // 4),
+                int(ceil(max_val)) + 1,
+                max(1, int(ceil(max_val)) // 4),
             ),
         )
+
     ax.title.set_text(
         f"annotator: {', '.join(set(annotators))}\nlabel: {', '.join(set(labels))}",
     )
+    ax.set_xlim(begin, end)
 
     if season:
         if not lat or not lon:
             get_coordinates()
-        northern = lat >= 0
-        add_season_period(ax, northern=northern)
+        add_season_period(ax, northern=lat >= 0)
 
+    if effort:
+        if not isinstance(bin_size, Timedelta):
+            bar_width = Timedelta(bin_str.split("-")[0])
+        else:
+            bar_width = bin_size
+        shade_no_effort(
+            ax=ax,
+            bin_starts=df.index,
+            observed=effort_series,
+            bar_width=bar_width,
+        )
 
 def map_detection_timeline(
     df: DataFrame,
@@ -212,7 +212,7 @@ def map_detection_timeline(
     season = kwargs.get("season", False)
 
     datetime_list = df["start_datetime"]
-    labels, annotators = _get_labels_and_annotators(df)
+    labels, annotators = get_labels_and_annotators(df)
     time_bin = df["end_time"].iloc[0]
     begin = min(datetime_list) - Timedelta("1d")
     end = max(datetime_list) + Timedelta(time_bin, "s") + Timedelta("1d")
@@ -333,6 +333,8 @@ def overview(df: DataFrame) -> None:
         .unstack(fill_value=0)
     )
 
+    dataset = df["dataset"].iloc[0]
+
     fig, axs = plt.subplots(2, 1)
     axs[0] = summary_label.plot(
         kind="bar",
@@ -366,6 +368,7 @@ def overview(df: DataFrame) -> None:
     # titles
     axs[0].set_title("Number of annotations per label")
     axs[1].set_title("Number of annotations per annotator")
+    fig.suptitle(f"{dataset}")
 
     # log
     msg = f"- Overview of the detections -\n {summary_label}"
@@ -414,7 +417,7 @@ def agreement(
         Matplotlib axes object where the scatterplot and regression line will be drawn.
 
     """
-    labels, annotators = _get_labels_and_annotators(df)
+    labels, annotators = get_labels_and_annotators(df)
 
     datetimes1 = list(
         df[(df["annotator"] == annotators[0]) & (df["annotation"] == labels[0])][
@@ -438,8 +441,8 @@ def agreement(
     )
 
     bins = date_range(
-        start=t_rounder(t=start, res=bin_size),
-        end=t_rounder(t=stop, res=bin_size),
+        start=start.floor(bin_size),
+        end=stop.ceil(bin_size),
         freq=freq,
     )
 
@@ -471,32 +474,60 @@ def agreement(
     ax.text(0.05, 0.85, f"R² = {r**2:.2f}", transform=ax.transAxes)
 
 
-def _get_labels_and_annotators(df: DataFrame) -> tuple[list, list]:
-    """Extract and align annotation labels and annotators from a DataFrame.
-
-    If only one label is present, it is duplicated to match the number of annotators.
-    Similarly, if one annotator is present, it is duplicated to match the labels.
+def timeline(
+    df: DataFrame,
+    ax: plt.Axes,
+    **kwargs: list[str],
+) -> None:
+    """Plot detections on a timeline.
 
     Parameters
     ----------
-    df : DataFrame
-        The APLOSE-formatted DataFrame.
-
-    Returns
-    -------
-    tuple[list, list]
-        A tuple containing the labels and annotators lists.
+    df: DataFrame
+        APLOSE DataFrame
+    ax : matplotlib.axes.Axes
+        Matplotlib axes object where the scatterplot and regression line will be drawn.
+    **kwargs: Additional keyword arguments depending on the mode.
+        - color: str | list[str]
+            Color or list of colors for the histogram bars.
+            If not provided, default colors will be used.
 
     """
-    annotators = df["annotator"].unique().tolist()
-    labels = df["annotation"].unique().tolist()
-    if len(labels) == 1:
-        labels = [labels[0]] * len(annotators)
-    if len(annotators) == 1:
-        annotators = [annotators[0]] * len(labels)
+    color = kwargs.get("color")
 
-    if len(annotators) != len(labels):
-        msg = f"{len(annotators)} annotators and {len(labels)} labels must match."
-        raise ValueError(msg)
+    labels, _ = get_labels_and_annotators(df)
 
-    return labels, annotators
+    color = (
+        color
+        if color
+        else [c for _, c in zip(range(len(labels)), cycle(default_colors))]
+    )
+
+    for i, label in enumerate(labels):
+        time_det = df[(df["annotation"] == label)]["start_datetime"].to_list()
+        l_data = len(time_det)
+        x = np.ones((l_data, 1), int) * i
+        ax.scatter(time_det, x, color=color[i])
+
+    ax.grid(color="k", linestyle="-", linewidth=0.2)
+    ax.set_yticks(np.arange(0, len(labels), 1))
+    ax.set_yticklabels(labels[::-1])
+    ax.set_xlabel("Date")
+    ax.set_xlim(
+        df["start_datetime"].min().floor("1d"),
+        df["end_datetime"].max().ceil("1d"),
+    )
+
+def get_colors(df: DataFrame) -> list[str]:
+    """Return default plot colors."""
+    return [c for _, c in zip(range(len(df.columns)), cycle(default_colors))]
+
+def get_legend(annotators: str | list[str], labels: str | list[str]) -> list[str]:
+    """Return plot legend."""
+    if len(set(labels)) > 1 and len(set(annotators)) == 1:
+        return labels
+    if len(set(annotators)) > 1 and len(set(labels)) == 1:
+        return annotators
+    return [f"{ant}\n{lbl}" for ant, lbl in zip(annotators, labels, strict=False)]
+
+bin_size = Timedelta()

@@ -1,10 +1,16 @@
+from __future__ import annotations
+
 import logging
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pandas as pd
-import pytz
 from osekit.config import TIMESTAMP_FORMAT_AUDIO_FILE
 from osekit.utils.timestamp_utils import strftime_osmose_format, strptime_from_text
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    import pytz
 
 
 def fpod2aplose(
@@ -100,7 +106,8 @@ def cpod2aplose(
 
     # remove lines where the C-POD stopped working
     df_cpod.drop(
-        df_cpod.loc[df_cpod["Date heure"] == " at minute "].index, inplace=True,
+        df_cpod.loc[df_cpod["Date heure"] == " at minute "].index,
+        inplace=True,
     )
     data = fpod2aplose(df_cpod, tz, dataset_name, annotation, bin_size)
     data["annotator"] = data.loc[data["annotator"] == "FPOD"] = "CPOD"
@@ -195,7 +202,8 @@ def meta_cut_aplose(
         ["deployment_date", "recovery_date"]
     ].apply(pd.to_datetime)
     df["start_datetime"] = pd.to_datetime(
-        df["start_datetime"], format=TIMESTAMP_FORMAT_AUDIO_FILE,
+        df["start_datetime"],
+        format=TIMESTAMP_FORMAT_AUDIO_FILE,
     )
 
     # Add DPM column
@@ -240,7 +248,11 @@ def format_calendar(path: Path) -> pd.DataFrame:
     df_calendar = df_calendar[df_calendar["Site group"] == "Data"].copy()
 
     return df_calendar.rename(
-        columns={"Start": "start_datetime", "Stop": "end_datetime", "Site": "site.name"},
+        columns={
+            "Start": "start_datetime",
+            "Stop": "end_datetime",
+            "Site": "site.name",
+        },
     )
 
 
@@ -403,7 +415,9 @@ def generate_hourly_detections(meta: pd.DataFrame, site: str) -> pd.DataFrame:
     for _, row in df_meta.iterrows():
         name = row["name"]
         period = pd.date_range(
-            start=row["deployment_date"], end=row["recovery_date"], freq="h",
+            start=row["deployment_date"],
+            end=row["recovery_date"],
+            freq="h",
         )
         for date in period:
             records.append({"name": name, "start_datetime": date})

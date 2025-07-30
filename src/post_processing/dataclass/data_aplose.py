@@ -3,38 +3,31 @@
 DataAplose class is used for handling, analyzing, and visualizing
 APLOSE-formatted annotation data. It includes utilities to bin detections,
 plot time-based distributions, and manage metadata such as annotators and labels.
-
-Features
---------
-- Load and validate APLOSE-formatted annotations.
-- Set up matplotlib axes with time-based formatting.
-- Plot detection profiles (scatter, heatmap).
-- Compute detection rates by time of day.
-- Filter annotations by label and annotator.
-
 """
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
-from pandas import DataFrame, Series, Timedelta, Timestamp
+from pandas import DataFrame, Series, Timedelta, Timestamp, concat
 from pandas.tseries import offsets
 
-from post_processing.dataclass.metrics_utils import detection_perf
-from post_processing.dataclass.plot_utils import (
+from post_processing.dataclass.detection_filters import DetectionFilters
+from post_processing.utils.def_func import get_count
+from post_processing.utils.filtering_utils import load_detections
+from post_processing.utils.metrics_utils import detection_perf
+from post_processing.utils.plot_utils import (
     agreement,
     histo,
     map_detection_timeline,
     overview,
+    timeline,
 )
-from post_processing.def_func import (
-    get_datetime_format,
-    get_duration,
-)
-from post_processing.premiers_resultats_utils import (
-    select_reference,
-)
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 default_colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
 
@@ -45,6 +38,14 @@ def _get_locator_from_offset(
     """Map a pandas offset object to the appropriate matplotlib DateLocator."""
     if isinstance(offset, int):
         return mdates.SecondLocator(interval=offset)
+
+    if isinstance(offset, Timedelta):
+        total_seconds = int(offset.total_seconds())
+        if total_seconds % 3600 == 0:
+            return mdates.HourLocator(interval=total_seconds // 3600)
+        if total_seconds % 60 == 0:
+            return mdates.MinuteLocator(interval=total_seconds // 60)
+        return mdates.SecondLocator(interval=total_seconds)
 
     offset_to_locator = {
         (
@@ -73,7 +74,7 @@ def _get_locator_from_offset(
 class DataAplose:
     """A class to handle APLOSE formatted data."""
 
-    def __init__(self, df: DataFrame) -> None:
+    def __init__(self, df: DataFrame = None) -> None:
         """Initialize a DataAplose object from a DataFrame.
 
         Parameters
@@ -83,14 +84,13 @@ class DataAplose:
 
         """
         self.df = df
-        self.annotators = list(set(self.df["annotator"]))
-        self.labels = list(set(self.df["annotation"]))
-        self.begin = min(self.df["start_datetime"])
-        self.end = max(self.df["end_datetime"])
-        self.dataset = list(set(self.df["dataset"]))
+        self.annotators = list(set(self.df["annotator"])) if df is not None else None
+        self.labels = list(set(self.df["annotation"])) if df is not None else None
+        self.begin = min(self.df["start_datetime"]) if df is not None else None
+        self.end = max(self.df["end_datetime"]) if df is not None else None
+        self.dataset = list(set(self.df["dataset"])) if df is not None else None
         self.lat = None
         self.lon = None
-        self._time_bin = None
         self._resolution_bin = None
         self._resolution_x_ticks = None
 
@@ -181,16 +181,16 @@ class DataAplose:
                     f" contains no weak detection."
                 )
                 raise ValueError(msg)
-        pairs = list(zip(annotator, label, strict=False))
+        config = list(zip(annotator, label, strict=False))
         return self.df[
-            self.df[["annotator", "annotation"]].apply(tuple, axis=1).isin(pairs)
+            self.df[["annotator", "annotation"]].apply(tuple, axis=1).isin(config)
         ]
 
     def set_ax(
         self,
         ax: plt.Axes,
-        x_ticks_res: Timedelta | offsets.BaseOffset = None,
-        date_format: str | None = None,
+        x_ticks_res: Timedelta | offsets.BaseOffset,
+        date_format: str,
     ) -> plt.Axes:
         """Configure a Matplotlib axis for time-based plot.
 
@@ -201,12 +201,10 @@ class DataAplose:
         ----------
         ax : matplotlib.axes.Axes
             The Axes object to configure.
-        x_ticks_res : Timedelta | offsets.BaseOffset, optional
+        x_ticks_res : Timedelta | offsets.BaseOffset
             Resolution of the x-axis major ticks.
-            If not provided, user will be prompted.
-        date_format : str, optional
+        date_format : str
             Date format string for x-axis tick labels (e.g., "%b", "%Y-%m-%d %H:%M").
-            If not provided, user will be prompted.
 
         Returns
         -------
@@ -214,69 +212,14 @@ class DataAplose:
             The configured Axes object, ready for plotting.
 
         """
-        self._time_bin = int(
-            select_reference(self.df[self.df["is_box"] == 0]["end_time"], "time bin"),
-        )
-
-        if not x_ticks_res:
-            self._resolution_x_ticks = get_duration(
-                msg="Enter x-axis tick resolution",
-                default="2h",
-            )
-        self._resolution_x_ticks = x_ticks_res
-
         ax.xaxis.set_major_locator(
-            _get_locator_from_offset(offset=self._resolution_x_ticks),
+            _get_locator_from_offset(offset=x_ticks_res),
         )
-        date_format = date_format if date_format else get_datetime_format()
         date_formatter = mdates.DateFormatter(fmt=date_format, tz=self.begin.tz)
         ax.xaxis.set_major_formatter(date_formatter)
         ax.grid(linestyle="--", linewidth=0.2, axis="both", zorder=1)
 
         return ax
-
-    def copy_ax(self, source_ax: plt.Axes, target_ax: plt.Axes) -> None:
-        """Duplicate axis configuration.
-
-        Attributes of source_ax are copied to target_ax
-
-        Parameters
-        ----------
-        source_ax : matplotlib.axes.Axes
-            The Axes object to duplicate.
-        target_ax : matplotlib.axes.Axes
-            The Axes object to configure.
-
-        """
-        # x-axis properties
-        target_ax.set_xticks(source_ax.get_xticks())
-        target_ax.set_xlim(source_ax.get_xlim())
-        target_ax.xaxis.set_major_locator(source_ax.xaxis.get_major_locator())
-        target_ax.xaxis.set_major_formatter(source_ax.xaxis.get_major_formatter())
-
-        # labels
-        target_ax.set_ylabel(source_ax.get_ylabel())
-        target_ax.set_xlabel(source_ax.get_xlabel())
-
-        # grid properties
-        for dim in ["x", "y"]:
-            gridlines = getattr(source_ax, f"{dim}axis").get_gridlines()
-
-            if gridlines:
-                line = gridlines[0]
-                visible = line.get_visible()
-                line_style = line.get_linestyle()
-                line_width = line.get_linewidth()
-                color = line.get_color()
-                z_order = line.get_zorder()
-
-                getattr(target_ax, f"{dim}axis").grid(
-                    visible=visible,
-                    linestyle=line_style,
-                    linewidth=line_width,
-                    color=color,
-                    zorder=z_order,
-                )
 
     def overview(self) -> None:
         """Overview of an APLOSE formatted DataFrame."""
@@ -335,7 +278,7 @@ class DataAplose:
         *,
         annotator: str | list[str],
         label: str | list[str],
-        **kwargs: bool | Timedelta | offsets.BaseOffset | str | list[str],
+        **kwargs: bool | Timedelta | offsets.BaseOffset | str | list[str] | tuple[Series, Timedelta],  # noqa: E501
     ) -> None:
         """Plot filtered annotation data using the specified mode.
 
@@ -365,8 +308,8 @@ class DataAplose:
                     Color(s) for the bars.
                 - bin_size: Timedelta | offsets.BaseOffset
                     Bin size for the histogram.
-                - effort: list[Timestamp]
-                    The list of timestamps corresponding to the observation effort.
+                - effort: Series
+                    The timestamps intervals corresponding to the observation effort.
                     If provided, data will be normalized by observation effort.
 
         """
@@ -376,16 +319,24 @@ class DataAplose:
         )
 
         if mode == "histogram":
+            bin_size = kwargs.get("bin_size")
             legend = kwargs.get("legend", True)
             color = kwargs.get("color")
-            bin_size = kwargs.get("bin_size")
             season = kwargs.get("season", False)
-            effort = kwargs.get("effort")
+            effort = kwargs.get("effort", False)
+
+            if not bin_size:
+                msg = "'bin_size' missing for histogram plot."
+                raise ValueError(msg)
+
+            df_counts = get_count(df_filtered, bin_size)
+            detection_size = Timedelta(max(df_filtered["end_time"]), "s")
 
             return histo(
-                df=df_filtered,
+                df=df_counts,
                 ax=ax,
                 bin_size=bin_size,
+                time_bin=detection_size,
                 legend=legend,
                 color=color,
                 season=season,
@@ -410,5 +361,65 @@ class DataAplose:
             bin_size = kwargs.get("bin_size")
             return agreement(df=df_filtered, bin_size=bin_size, ax=ax)
 
+        if mode == "timeline":
+            color = kwargs.get("color")
+
+            df_filtered = self.filter_df(
+                annotator,
+                label,
+            )
+
+            return timeline(df=df_filtered, ax=ax, color=color)
+
         msg = f"Unsupported plot mode: {mode}"
         raise ValueError(msg)
+
+    @classmethod
+    def from_yaml(
+        cls,
+        file: Path,
+    ) -> DataAplose:
+        """Return a DataAplose object from a yaml file.
+
+        Parameters
+        ----------
+        file: Path
+            The path to a yaml configuration file.
+
+        Returns
+        -------
+        DataAplose:
+        The DataAplose object.
+
+        """
+        files, filters = DetectionFilters.from_yaml(file=file)
+        cls_list = []
+        for f, fil in zip(files, filters, strict=False):
+            cls_list.append(cls(load_detections(f, fil)))
+        if len(cls_list) == 1:
+            return cls_list[0]
+        return cls_list
+
+    @classmethod
+    def from_filters(
+        cls,
+        config: tuple[list[Path], list[DetectionFilters]],
+    ) -> DataAplose:
+        """Return a DataAplose object from a yaml file.
+
+        Parameters
+        ----------
+        config: DetectionFilters
+            Object containing the detection filters.
+
+        Returns
+        -------
+        DataAplose:
+        The DataAplose object.
+
+        """
+        files, filters = config
+        df_concat = DataFrame()
+        for f, fil in zip(files, filters, strict=False):
+            df_concat = concat([df_concat, load_detections(f, fil)])
+        return cls(df=df_concat)

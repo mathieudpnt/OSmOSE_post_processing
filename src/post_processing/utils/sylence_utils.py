@@ -1,8 +1,8 @@
-import pandas as pd
 from osekit.utils.timestamp_utils import strptime_from_text
+from pandas import DataFrame
 
 
-def clean_pamguard_false_detection(df: pd.DataFrame) -> pd.DataFrame:
+def clean_pamguard_false_detection(df: DataFrame) -> DataFrame:
     """Clean PAMGuard false detections.
 
     The first detection on each audio file corresponds to the detection of
@@ -12,7 +12,7 @@ def clean_pamguard_false_detection(df: pd.DataFrame) -> pd.DataFrame:
 
     Parameters
     ----------
-    df: pd.DataFrame
+    df: DataFrame
         APLOSE DataFrame (presumably from PAMGuard)
 
     Returns

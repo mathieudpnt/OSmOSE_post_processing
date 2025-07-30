@@ -1,8 +1,12 @@
+from __future__ import annotations
+
 import logging
 from pathlib import Path
 
 import numpy as np
 import soundfile as sf
+
+from post_processing import logger
 
 
 def normalize_audio(file: Path, output_folder: Path | None = None) -> None:
@@ -16,7 +20,7 @@ def normalize_audio(file: Path, output_folder: Path | None = None) -> None:
         The path to output destination
 
     """
-    logging.basicConfig(level=logging.INFO, format="%(message)s")
+    logger.basicConfig(level=logging.INFO, format="%(message)s")
     try:
         data, fs = sf.read(file)
     except ValueError as e:
@@ -45,7 +49,7 @@ def normalize_audio(file: Path, output_folder: Path | None = None) -> None:
         format=format_file,
     )
 
-    logging.info("File '%s' exported in '%s'", new_fn, file.parent)
+    logger.info("File '%s' exported in '%s'", new_fn, file.parent)
 
 
 def create_raven_file_list(directory: Path) -> None:
@@ -71,4 +75,4 @@ def create_raven_file_list(directory: Path) -> None:
         for item in files:
             f.write(f"{item}\n")
 
-    logging.info("File list saved in '%s'", directory)
+    logger.info("File list saved in '%s'", directory)

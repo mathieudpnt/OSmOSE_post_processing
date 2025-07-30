@@ -1,13 +1,14 @@
 import datetime as dt
 
 import numpy as np
-import pandas as pd
 import pytz
+from pandas import DataFrame, Series, Timedelta, Timestamp, notna
+from pandas.io import api
 
-from post_processing.def_func import get_sun_times
+from post_processing.utils.def_func import get_sun_times
 
 
-def stats_diel_pattern(deployment: pd.Series, detector: str):
+def stats_diel_pattern(deployment: Series, detector: str):
     """Compute and return the diel pattern of detections.
 
     This function analyzes detections recorded by a specified detector and
@@ -17,12 +18,12 @@ def stats_diel_pattern(deployment: pd.Series, detector: str):
 
     Parameters
     ----------
-    deployment : pd.Series
+    deployment : Series
         A pandas Series containing deployment metadata and detection data.
         It must include the following keys:
-        - "datetime deployment" (pd.Timestamp): Start time of the deployment.
-        - "datetime recovery" (pd.Timestamp): End time of the deployment.
-        - f"df {detector}" (pd.DataFrame): A DataFrame containing detections
+        - "datetime deployment" (Timestamp): Start time of the deployment.
+        - "datetime recovery" (Timestamp): End time of the deployment.
+        - f"df {detector}" (DataFrame): A DataFrame containing detections
           with a "start_datetime" column.
         - "latitude" (float): Deployment latitude.
         - "longitude" (float): Deployment longitude.
@@ -33,7 +34,7 @@ def stats_diel_pattern(deployment: pd.Series, detector: str):
 
     Returns
     -------
-    pd.DataFrame
+    DataFrame
         A DataFrame containing normalized detection rates for each light regime.
         The rows represent individual days in the deployment period, and the
         columns correspond to the different light regimes:
@@ -41,27 +42,27 @@ def stats_diel_pattern(deployment: pd.Series, detector: str):
         - "Day"
 
     """
-    assert isinstance(deployment, pd.Series), "Not a Series passed"
+    assert isinstance(deployment, Series), "Not a Series passed"
     assert "datetime deployment" in deployment.index and isinstance(
         deployment["datetime deployment"],
-        pd.Timestamp,
+        Timestamp,
     ), "Error datetime deployment"
     assert "datetime recovery" in deployment.index and isinstance(
         deployment["datetime recovery"],
-        pd.Timestamp,
+        Timestamp,
     ), "Error datetime recovery"
     assert "datetime recovery" in deployment.index and isinstance(
         deployment["datetime recovery"],
-        pd.Timestamp,
+        Timestamp,
     ), "Error datetime recovery"
     assert f"df {detector}" in deployment.index and isinstance(
         deployment[f"df {detector}"],
-        pd.DataFrame,
+        DataFrame,
     ), f"Error 'df {detector}'"
-    assert "latitude" in deployment.index and pd.api.types.is_numeric_dtype(
+    assert "latitude" in deployment.index and api.types.is_numeric_dtype(
         deployment["latitude"],
     ), "Error latitude"
-    assert "longitude" in deployment.index and pd.api.types.is_numeric_dtype(
+    assert "longitude" in deployment.index and api.types.is_numeric_dtype(
         deployment["longitude"],
     ), "Error longitude"
 
@@ -85,8 +86,8 @@ def stats_diel_pattern(deployment: pd.Series, detector: str):
     dawn_duration, dusk_duration, day_duration, night_duration = [], [], [], []
     for idx, day in enumerate(list_day):
         # duration effort on day
-        beg_day = timezone.localize(pd.Timestamp(day).normalize())  # midnight
-        end_day = beg_day + pd.Timedelta(days=1)  # midnight the following day
+        beg_day = timezone.localize(Timestamp(day).normalize())  # midnight
+        end_day = beg_day + Timedelta(days=1)  # midnight the following day
 
         light_regime_day = [
             ("Night1", beg_day, dt_dawn[idx]),
@@ -116,16 +117,10 @@ def stats_diel_pattern(deployment: pd.Series, detector: str):
         night2_duration = durations.get("Night2")
 
         # Combine Night1 and Night2 if both are not NaN
-        if pd.notna(night1_duration) or pd.notna(night2_duration):
+        if notna(night1_duration) or notna(night2_duration):
             night_combine = (
-                night1_duration
-                if pd.notna(night1_duration)
-                else pd.Timedelta(0, "seconds")
-            ) + (
-                night2_duration
-                if pd.notna(night2_duration)
-                else pd.Timedelta(0, "seconds")
-            )
+                night1_duration if notna(night1_duration) else Timedelta(0, "seconds")
+            ) + (night2_duration if notna(night2_duration) else Timedelta(0, "seconds"))
             durations["Night"] = night_combine
         else:
             durations["Night"] = float("NaN")
@@ -141,19 +136,19 @@ def stats_diel_pattern(deployment: pd.Series, detector: str):
 
     # Convert to decimal hour
     dawn_duration_dec = [
-        (dawn_d.total_seconds() / 3600) if pd.notna(dawn_d) else float("NaN")
+        (dawn_d.total_seconds() / 3600) if notna(dawn_d) else float("NaN")
         for dawn_d in dawn_duration
     ]
     day_duration_dec = [
-        (day_d.total_seconds() / 3600) if pd.notna(day_d) else float("NaN")
+        (day_d.total_seconds() / 3600) if notna(day_d) else float("NaN")
         for day_d in day_duration
     ]
     dusk_duration_dec = [
-        (dusk_d.total_seconds() / 3600) if pd.notna(dusk_d) else float("NaN")
+        (dusk_d.total_seconds() / 3600) if notna(dusk_d) else float("NaN")
         for dusk_d in dusk_duration
     ]
     night_duration_dec = [
-        (night_d.total_seconds() / 3600) if pd.notna(night_d) else float("NaN")
+        (night_d.total_seconds() / 3600) if notna(night_d) else float("NaN")
         for night_d in night_duration
     ]
 
@@ -245,4 +240,4 @@ def stats_diel_pattern(deployment: pd.Series, detector: str):
     light_regime = [nb_det_night_corr_norm, nb_det_day_corr_norm]
     box_name = ["Night", "Day"]
 
-    return pd.DataFrame(light_regime, index=box_name).transpose()
+    return DataFrame(light_regime, index=box_name).transpose()

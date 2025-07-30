@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 import gzip
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
@@ -7,10 +9,14 @@ import numpy as np
 import pandas as pd
 from def_func import get_datetime_format, get_duration
 from glider_config import NAV_STATE
-from numpy.lib.npyio import NpzFile
 from pandas import DataFrame
 from tqdm import tqdm
 from trajectoryFda import TrajectoryFda
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from numpy.lib.npyio import NpzFile
 
 
 def set_trajectory(nav: pd.DataFrame) -> TrajectoryFda:
@@ -66,8 +72,8 @@ def get_loc_from_time(
 
 
 def plot_detections_with_nav_data_single_label(
-    df: pd.DataFrame,
-    nav: pd.DataFrame,
+    df: DataFrame,
+    nav: DataFrame,
     criterion: str,
     annotation: str,
 ) -> None:
@@ -75,10 +81,11 @@ def plot_detections_with_nav_data_single_label(
 
     Parameters
     ----------
-    df: pd.DataFrame
+    df: DataFrame
         APLOSE formatted detection file
-    nav: pd.DataFrame
-        navigation data comprised of criteria (latitude, longitude, depth...) and associated datetimes
+    nav: DataFrame
+        navigation data comprised of criteria
+        (latitude, longitude, depth...) and associated datetimes
     criterion: string
         User selected navigation parameter from nav (latitude, longitude, depth...)
     annotation: string
@@ -124,17 +131,17 @@ def plot_detections_with_nav_data_single_label(
 
 
 def plot_detections_with_nav_data_all_labels(
-    df: pd.DataFrame,
-    nav: pd.DataFrame,
+    df: DataFrame,
+    nav: DataFrame,
     criterion: str,
 ) -> None:
     """Plot detections of all annotation types according to a navigation data criterion.
 
     Parameters
     ----------
-    df: pd.DataFrame
+    df: DataFrame
         APLOSE formatted detection file
-    nav: pd.DataFrame
+    nav: DataFrame
         Navigation data comprised of criteria (latitude, longitude, depth...) and associated datetimes
     criterion: string
         User selected navigation parameter from nav (latitude, longitude, depth...)
@@ -255,7 +262,7 @@ def load_glider_nav(directory: Path) -> DataFrame:
 
     df_nav["file"] = data
     df_nav = df_nav.drop(
-        df_nav[(df_nav["Lat"] == 0) & (df_nav["Lon"] == 0)].index
+        df_nav[(df_nav["Lat"] == 0) & (df_nav["Lon"] == 0)].index,
     ).reset_index(drop=True)
 
     df_nav["Lat"] = [
@@ -276,7 +283,7 @@ def load_glider_nav(directory: Path) -> DataFrame:
     return df_nav.sort_values(by=["Timestamp"]).reset_index(drop=True)
 
 
-def plot_nav_state(df: pd.DataFrame, npz: NpzFile) -> None:
+def plot_nav_state(df: DataFrame, npz: NpzFile) -> None:
     """Plot the LTAS from a npz file and the associated glider state of navigation.
 
     Parameters
@@ -324,17 +331,17 @@ def plot_nav_state(df: pd.DataFrame, npz: NpzFile) -> None:
 
 
 def compute_acoustic_diversity(
-    df: pd.DataFrame,
-    nav: pd.DataFrame,
+    df: DataFrame,
+    nav: DataFrame,
     time_vector: list[int | float],
-) -> pd.DataFrame:
+) -> DataFrame:
     """Compute the number of different annotations at given positions and timestamps.
 
     Parameters
     ----------
-    df: pd.DataFrame
+    df: DataFrame
         APLOSE formatted result file
-    nav: pd.DataFrame
+    nav: DataFrame
         Navigation data comprised of positions and associated timestamps
     time_vector: list[int | float]
         List of timestamps used to check for annotations from df.
