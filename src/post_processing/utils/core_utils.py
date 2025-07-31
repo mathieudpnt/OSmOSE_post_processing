@@ -7,16 +7,13 @@ from typing import TYPE_CHECKING
 
 import astral
 import easygui
-import matplotlib.dates as mdates
 from astral.sun import sun
+from matplotlib import pyplot as plt
 from osekit.config import TIMESTAMP_FORMAT_AUDIO_FILE
 from osekit.utils.timestamp_utils import strptime_from_text
 from pandas import (
     DataFrame,
     DatetimeIndex,
-    Index,
-    IntervalIndex,
-    Series,
     Timedelta,
     Timestamp,
     cut,
@@ -24,7 +21,8 @@ from pandas import (
     json_normalize,
     to_datetime,
 )
-from pandas.tseries import frequencies, offsets
+from pandas.tseries import offsets
+from pandas.tseries.offsets import BaseOffset
 
 from post_processing.utils.filtering_utils import (
     get_annotators,
@@ -36,6 +34,7 @@ from post_processing.utils.filtering_utils import (
 )
 
 if TYPE_CHECKING:
+    from datetime import tzinfo
     from pathlib import Path
 
     import matplotlib.pyplot as plt
@@ -84,7 +83,7 @@ def get_season(ts: Timestamp, *, northern: bool = True) -> tuple[str, int]:
         msg = "Invalid timestamp"
         raise ValueError(msg)
 
-    return season, ts.year if ts.month == 12 else ts.year - 1
+    return season, ts.year if ts.month == 12 else ts.year - 1  # noqa: PLR2004
 
 
 def get_sun_times(
@@ -412,46 +411,7 @@ def add_recording_period(
     ax.set_ylim(ax.dataLim.ymin, ax.dataLim.ymax)
 
 
-def shade_no_effort(
-    ax: plt.Axes,
-    bin_starts: Index,
-    observed: Series,
-    bar_width: Timedelta,
-) -> None:
-    """Shade areas of the plot where no observation effort was made.
-
-    Parameters
-    ----------
-    ax : plt.Axes
-        The axes on which to draw the shaded regions.
-    bin_starts : Index
-        A datetime index representing the start times of each bin.
-    observed : Series
-        A Series with observation counts or flags, indexed by datetime.
-        Should be aligned or re-indexable to `bin_starts`.
-    bar_width : Timedelta
-        Width of each time bin. Used to compute the span of the shaded areas.
-
-
-    """
-    width_days = bar_width.total_seconds() / 86400
-    no_effort_bins = bin_starts[observed.reindex(bin_starts) == 0]
-    for ts in no_effort_bins:
-        start = mdates.date2num(ts)
-        ax.axvspan(start, start + width_days, color="grey", alpha=0.08, zorder=1.5)
-
-    x_min, x_max = ax.get_xlim()
-    data_min = mdates.date2num(bin_starts[0])
-    data_max = mdates.date2num(bin_starts[-1]) + width_days
-
-    if x_min < data_min:
-        ax.axvspan(x_min, data_min, color="grey", alpha=0.08, zorder=1.5)
-    if x_max > data_max:
-        ax.axvspan(data_max, x_max, color="grey", alpha=0.08, zorder=1.5)
-    ax.set_xlim(x_min, x_max)
-
-
-def get_count(df: DataFrame, bin_size: Timedelta | offsets.BaseOffset) -> DataFrame:
+def get_count(df: DataFrame, bin_size: Timedelta | BaseOffset) -> DataFrame:
     """Count observations per label and annotator.
 
     This function groups a DataFrame of events into uniform time bins and counts the
@@ -461,7 +421,7 @@ def get_count(df: DataFrame, bin_size: Timedelta | offsets.BaseOffset) -> DataFr
     ----------
     df : DataFrame
         APLOSE-formatted DataFrame.
-    bin_size : Timedelta | offsets.BaseOffset
+    bin_size : Timedelta | offsets
         Width or frequency of bins.
 
     Returns
@@ -473,23 +433,17 @@ def get_count(df: DataFrame, bin_size: Timedelta | offsets.BaseOffset) -> DataFr
     """
     datetime_list = df["start_datetime"]
 
-    if isinstance(bin_size, Timedelta):
-        begin = min(datetime_list).floor(bin_size)
-        end = max(datetime_list).ceil(bin_size)
-        freq = bin_size
-    else:
-        begin = bin_size.rollback(min(datetime_list)).normalize()
-        end = bin_size.rollforward(max(datetime_list)).normalize()
-        freq = Timedelta((str(bin_size.n) + bin_size.name).split("-")[0])
+    bins, bin_size = get_time_range_and_bin_size(datetime_list, bin_size)
 
-    bins = date_range(start=begin, end=end, freq=freq)
     labels, annotators = get_labels_and_annotators(df)
+
     series_list = [
         df[(df["annotation"] == label) & (df["annotator"] == annotator)][
             "start_datetime"
         ]
         for label, annotator in zip(labels, annotators, strict=False)
     ]
+
     counts_df = DataFrame(index=bins[:-1])
     for i, series in enumerate(series_list):
         binned = cut(series, bins=bins, right=False)
@@ -528,11 +482,65 @@ def get_labels_and_annotators(df: DataFrame) -> tuple[list, list]:
     return labels, annotators
 
 
-def is_non_fixed_frequency(offset_str: str) -> bool:
-    """Return whether an offset string is a non-fixed frequency."""
-    offset = frequencies.to_offset(offset_str)
-    try:
-        _ = Timedelta(offset.nanos)
-        return False
-    except (AttributeError, ValueError):
-        return True
+def localize_timestamps(timestamps: list[Timestamp], tz: tzinfo) -> list[Timestamp]:
+    """Localize timestamps if necessary."""
+    if any(
+            ts.tzinfo is None or ts.tzinfo.utcoffset(ts) is None
+            for ts in timestamps
+    ):
+        return [
+            ts.tz_localize(tz) for ts in timestamps
+        ]
+    return timestamps
+
+
+def get_time_range_and_bin_size(timestamp_list: list[Timestamp],
+                    bin_size: Timedelta | BaseOffset,
+                    ) -> (DatetimeIndex, Timedelta):
+    """Return time vector given a bin size."""
+    start, end, _ = round_begin_end_timestamps(timestamp_list, bin_size)
+    timestamp_range = date_range(start=start, end=end, freq=bin_size)
+    if isinstance(bin_size, Timedelta):
+        return timestamp_range, bin_size
+    if isinstance(bin_size, BaseOffset):
+        return timestamp_range, timestamp_range[1] - timestamp_range[0]
+
+    msg = "Could not get time range."
+    raise ValueError(msg)
+
+
+
+def round_begin_end_timestamps(timestamp_list: list[Timestamp],
+                    bin_size: Timedelta | BaseOffset,
+                    ) -> (Timestamp, Timestamp, Timedelta):
+    """"Return time vector given a bin size."""
+    if isinstance(bin_size, Timedelta):
+        start = min(timestamp_list).floor(bin_size)
+        end = max(timestamp_list).ceil(bin_size)
+        return start, end, bin_size
+
+    if isinstance(bin_size, BaseOffset):
+        start = bin_size.rollback(min(timestamp_list))
+        end = bin_size.rollforward(max(timestamp_list))
+        if not isinstance(bin_size, (offsets.Hour, offsets.Minute, offsets.Second)):
+            start = Timestamp(start).normalize()
+            end = Timestamp(end).normalize()
+        timestamp_range = date_range(start=start, end=end, freq=bin_size)
+        bin_size = timestamp_range[1] - timestamp_range[0]
+        return start.floor(bin_size), end.ceil(bin_size), bin_size
+
+    msg = "Could not get start/end timestamps."
+    raise ValueError(msg)
+
+
+def timedelta_to_str(td: Timedelta) -> str:
+    """From a Timedelta to corresponding string."""
+    seconds = int(td.total_seconds())
+
+    if seconds % 86400 == 0:
+        return f"{seconds // 86400}D"
+    if seconds % 3600 == 0:
+        return f"{seconds // 3600}h"
+    if seconds % 60 == 0:
+        return f"{seconds // 60}min"
+    return f"{seconds}s"

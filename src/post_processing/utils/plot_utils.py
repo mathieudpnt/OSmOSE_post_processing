@@ -6,28 +6,35 @@ from collections import Counter
 from itertools import cycle
 from typing import TYPE_CHECKING
 
-import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib import dates as mdates
+from matplotlib.dates import num2date
 from matplotlib.ticker import PercentFormatter
 from numpy import ceil, histogram, polyfit, zeros
-from pandas import DataFrame, Series, Timedelta, Timestamp, date_range
+from pandas import DataFrame, Index, Timedelta, Timestamp, date_range
+from pandas.tseries import frequencies
+from pkg_resources import non_empty_lines
 from scipy.stats import pearsonr
 from seaborn import scatterplot
 
 from post_processing import logger
-from post_processing.utils.def_func import (
+from post_processing.utils.core_utils import (
     add_season_period,
     get_coordinates,
     get_labels_and_annotators,
     get_sun_times,
-    shade_no_effort,
+    get_time_range_and_bin_size,
+    round_begin_end_timestamps,
+    timedelta_to_str,
 )
-from post_processing.utils.premiers_resultats_utils import timedelta_to_str
+from post_processing.utils.metrics_utils import normalize_counts_by_effort
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
-    from pandas.tseries import offsets
+    from pandas.tseries.offsets import BaseOffset
+
+    from post_processing.dataclass.recording_period import RecordingPeriod
 
 default_colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
 
@@ -35,9 +42,9 @@ default_colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
 def histo(
     df: DataFrame,
     ax: plt.Axes,
-    bin_size: Timedelta | offsets.BaseOffset,
+    bin_size: Timedelta | BaseOffset,
     time_bin: Timedelta,
-    **kwargs: bool | str | list[str] | tuple[float, float] | list[Timestamp] | Series,
+    **kwargs: bool | str | list[str] | tuple[float, float] | list[Timestamp] | RecordingPeriod,  # noqa: E501
 ) -> None:
     """Seasonality plot.
 
@@ -47,9 +54,9 @@ def histo(
         Data to plot.
     ax : matplotlib.axes.Axes
         Matplotlib Axes object on which to draw the histogram.
-    bin_size: Timedelta | offsets.BaseOffset
+    bin_size: Timedelta | BaseOffset
         The size of the histogram bins.
-    time_bin: Timedelta | offsets.BaseOffset
+    time_bin: Timedelta
         The size of detections.
     **kwargs: Additional keyword arguments depending on the mode.
         - legend: bool
@@ -61,33 +68,34 @@ def histo(
             Whether to show the season.
         - coordinates: tuple[float, float]
             The coordinates of the plotted detections.
-        - effort: Series
-            The list of timestamps corresponding to the observation effort.
+        - effort: RecordingPeriod
+            Object corresponding to the observation effort.
             If provided, data will be normalized by observation effort.
 
     """
+    labels, annotators = zip(*[col.rsplit("-", 1) for col in df.columns], strict=False)
+    labels = list(labels)
+    annotators = list(annotators)
+
+    if len(df) <= 1:
+        msg = (f"DataFrame with annotators '{", ".join(annotators)}'"
+               f" / labels '{", ".join(labels)}'"
+               f" do not contains enough detections.")
+        logger.warn(msg)
+        return
+
     legend = kwargs.get("legend", False)
     color = kwargs.get("color", False)
     season = kwargs.get("season", False)
     effort = kwargs.get("effort", False)
     lat, lon = kwargs.get("coordinates")
 
-    labels, annotators = zip(*[col.rsplit("-", 1) for col in df.columns], strict=False)
-    labels = list(labels)
-    annotators = list(annotators)
 
-    if isinstance(bin_size, Timedelta):
-        begin = min(df.index).floor(bin_size)
-        end = max(df.index + bin_size).ceil(bin_size)
-        freq = bin_size
-    else:
-        begin = bin_size.rollback(min(df.index)).normalize()
-        end = bin_size.rollforward(max(df.index)).normalize()
-        bin_str = str(bin_size.n) + bin_size.name
-        freq = Timedelta(bin_str.split("-")[0])
+    bin_size_str = get_bin_size_str(bin_size)
 
-    if not color:
-        color = get_colors(df)
+    begin, end, bin_size = round_begin_end_timestamps(df.index, bin_size)
+
+    color = color if color else get_colors(df)
 
     if len(df.columns) > 1 and legend:
         legend_labels = get_legend(labels, annotators)
@@ -95,27 +103,14 @@ def histo(
         legend_labels = None
 
     if effort:
-        effort_df, origin_timebin = effort
-        effort_series = Series(
-            data=effort_df.iloc[:, 0].values,
-            index=[interval.left for interval in effort_df.iloc[:, 0].index]
-        )
-        for col in df.columns:
-            effort_ratio = effort_series * (origin_timebin / time_bin)
-            effort_ratio = Series(
-                np.where((effort_ratio > 0) & (effort_ratio < 1), 1.0, effort_ratio),
-                index=effort_series.index,
-                name=effort_series.name
-            )
-            df[f"{col}"] = (df[col] / effort_ratio.reindex(df[col].index)).clip(upper=1)
-
+        normalize_counts_by_effort(df, effort, time_bin)
 
     n_groups = len(labels) if legend_labels else 1
-    bar_width = freq / n_groups
+    bar_width = bin_size / n_groups
     bin_starts = mdates.date2num(df.index)
 
     for i in range(n_groups):
-        offset = i * bar_width.total_seconds() / 86400  # convert to days for plot
+        offset = i * bar_width.total_seconds() / 86400
 
         bar_kwargs = {
             "width": bar_width.total_seconds() / 86400,
@@ -132,31 +127,14 @@ def histo(
     if len(df.columns) > 1 and legend:
         ax.legend(labels=legend_labels, bbox_to_anchor=(1.01, 1), loc="upper left")
 
-    bin_size_str = timedelta_to_str(bin_size) if isinstance(bin_size, Timedelta) else bin_str
-    title = (
+    y_label = (
         f"Detections{(' normalized by effort' if effort else '')}"
         f"\n(detections: {timedelta_to_str(time_bin)}"
         f" - bin size: {bin_size_str})"
     )
-    ax.set_ylabel(title)
-
-    if effort:
-        ax.yaxis.set_major_formatter(PercentFormatter(xmax=1.0))
-        ax.set_yticks(np.arange(0, 1.02, 0.2))
-    else:
-        max_val = df.to_numpy().max()
-        ax.set_ylim(0, int(ceil(1.05 * max_val)))
-        ax.set_yticks(
-            range(
-                0,
-                int(ceil(max_val)) + 1,
-                max(1, int(ceil(max_val)) // 4),
-            ),
-        )
-
-    ax.title.set_text(
-        f"annotator: {', '.join(set(annotators))}\nlabel: {', '.join(set(labels))}",
-    )
+    ax.set_ylabel(y_label)
+    set_y_axis_to_percentage(ax) if effort else set_dynamic_ylim(ax, df)
+    set_plot_title(ax, annotators, labels)
     ax.set_xlim(begin, end)
 
     if season:
@@ -165,23 +143,20 @@ def histo(
         add_season_period(ax, northern=lat >= 0)
 
     if effort:
-        if not isinstance(bin_size, Timedelta):
-            bar_width = Timedelta(bin_str.split("-")[0])
-        else:
-            bar_width = bin_size
         shade_no_effort(
             ax=ax,
             bin_starts=df.index,
-            observed=effort_series,
-            bar_width=bar_width,
+            observed=effort,
+            bar_width=bin_size,
         )
+
 
 def map_detection_timeline(
     df: DataFrame,
     ax: Axes,
+    mode: str,
     *,
     coordinates: tuple[float, float] | None = None,
-    mode: str = "scatter",
     **kwargs: bool,
 ) -> None:
     """Plot daily detection patterns for a given annotator and label.
@@ -212,86 +187,20 @@ def map_detection_timeline(
     season = kwargs.get("season", False)
 
     datetime_list = df["start_datetime"]
-    labels, annotators = get_labels_and_annotators(df)
-    time_bin = df["end_time"].iloc[0]
-    begin = min(datetime_list) - Timedelta("1d")
-    end = max(datetime_list) + Timedelta(time_bin, "s") + Timedelta("1d")
-
-    # compute sunrise and sunset decimal hour at dataset location
-    sunrise, sunset, _, _, _, _ = get_sun_times(
-        start=begin,
-        stop=end,
-        lat=lat,
-        lon=lon,
-    )
-
-    dates = date_range(begin.normalize(), end.normalize(), freq="D")
+    freq = frequencies.to_offset("1D")
+    begin, end, _ = round_begin_end_timestamps(datetime_list, freq)
+    annotators, labels = get_labels_and_annotators(df)
 
     if mode == "scatter":
-        for ann in set(annotators):
-            for lbl in set(labels):
-                group = df[(df["annotator"] == ann) & (df["annotation"] == lbl)]
-
-                if group.empty:
-                    continue
-
-                detect_time_dec = [
-                    ts.hour + ts.minute / 60 + ts.second / 3600
-                    for ts in group["start_datetime"]
-                ]
-
-                ax.scatter(
-                    group["start_datetime"],
-                    detect_time_dec,
-                    label=f"{ann} - {lbl}",
-                    marker="x",
-                    linewidths=1,
-                    alpha=0.7,
-                )
-
-        ax.legend(
-            loc="upper left",
-            bbox_to_anchor=(1.01, 1),
-            frameon=True,
-            framealpha=0.6,
-        )
-
+        scatter(df=df, ax=ax)
     elif mode == "heatmap":
-        mat = zeros((24, len(dates)))
-        date_to_index = {date: i for i, date in enumerate(dates)}
-
-        for dt in datetime_list:
-            date = dt.normalize()
-            hour = dt.hour
-            if date in date_to_index:
-                j = date_to_index[date]
-                mat[hour, j] += 1  # count detections per hour per day
-
-        im = ax.imshow(
-            mat,
-            extent=(begin, end, 0, 24),
-            vmin=0,
-            vmax=3600 / time_bin,
-            aspect="auto",
-            origin="lower",
-        )
-        fig = ax.get_figure()
-        cbar = fig.colorbar(im, ax=ax, pad=0.1)
-        cbar.ax.set_ylabel(f"Detections per {time_bin!s}s bin")
-
+        heatmap(df=df, ax=ax)
     else:
-        msg = f"Unsupported mode '{mode}'. Use 'scatter' or 'heatmap'."
+        msg = f"Unsupported plot mode: {mode}"
         raise ValueError(msg)
 
     if show_rise_set:
-        ax.plot(dates, sunrise, color="darkorange", label="Sunrise")
-        ax.plot(dates, sunset, color="royalblue", label="Sunset")
-        ax.legend(
-            loc="center left",
-            frameon=1,
-            framealpha=0.6,
-            bbox_to_anchor=(1.01, 0.95),
-        )
+        add_sunrise_sunset(ax, lat, lon)
 
     ax.set_xlim(begin, end)
     ax.set_ylim(0, 24)
@@ -300,16 +209,95 @@ def map_detection_timeline(
     ax.set_xlabel("Date")
     ax.grid(color="k", linestyle="-", linewidth=0.2)
 
-    ax.set_title(
-        f"Time of detections ({mode})\n"
-        f"annotator: {', '.join(set(annotators))} - "
-        f"label: {', '.join(set(labels))}\n "
-        f"timezone: {begin.tz}",
-    )
+    set_plot_title(ax, annotators, labels)
 
     if season:
         northern = lat >= 0
         add_season_period(ax, northern=northern)
+
+
+def scatter(
+    df: DataFrame,
+    ax: Axes,
+) -> Axes:
+    """Scatter-plot of detections for a given annotator and label.
+
+    Parameters
+    ----------
+    df: DataFrame
+        data to plot
+    ax : plt.Axes
+        The matplotlib axis to draw on.
+
+    """
+    labels, annotators = get_labels_and_annotators(df)
+    for ann in set(annotators):
+        for lbl in set(labels):
+            group = df[(df["annotator"] == ann) & (df["annotation"] == lbl)]
+
+            if group.empty:
+                continue
+
+            detect_time_dec = [
+                ts.hour + ts.minute / 60 + ts.second / 3600
+                for ts in group["start_datetime"]
+            ]
+
+            ax.scatter(
+                group["start_datetime"],
+                detect_time_dec,
+                label=f"{ann} - {lbl}",
+                marker="x",
+                linewidths=1,
+                alpha=0.7,
+            )
+
+    ax.legend(
+        loc="upper left",
+        bbox_to_anchor=(1.01, 1),
+        frameon=True,
+        framealpha=0.6,
+    )
+
+    return ax
+
+def heatmap(df: DataFrame, ax: Axes) -> None:
+    """Heatmap of detections for a given annotator and label.
+
+    Parameters
+    ----------
+    df: DataFrame
+        data to plot
+    ax : plt.Axes
+        The matplotlib axis to draw on.
+
+    """
+    datetime_list = df["start_datetime"]
+    freq = frequencies.to_offset("1D")
+    begin, end, time_bin = round_begin_end_timestamps(datetime_list, freq)
+    dates, _ = get_time_range_and_bin_size(datetime_list, freq)
+
+    mat = zeros((24, len(dates)))
+    date_to_index = {date: i for i, date in enumerate(dates)}
+
+    for dt in datetime_list:
+        date = dt.normalize()
+        hour = dt.hour
+        if date in date_to_index:
+            j = date_to_index[date]
+            mat[hour, j] += 1  # count detections per hour per day
+
+    im = ax.imshow(
+        mat,
+        extent=(begin, end, 0, 24),
+        vmin=0,
+        vmax=1,
+        aspect="auto",
+        origin="lower",
+    )
+    fig = ax.get_figure()
+    cbar = fig.colorbar(im, ax=ax, pad=0.1)
+    cbar.ax.set_ylabel(f"Detections per {time_bin!s}s bin")
 
 
 def overview(df: DataFrame) -> None:
@@ -395,7 +383,7 @@ def _wrap_xtick_labels(ax: plt.Axes, max_chars: int = 10) -> None:
 
 def agreement(
     df: DataFrame,
-    bin_size: Timedelta | offsets.BaseOffset,
+    bin_size: Timedelta | BaseOffset,
     ax: plt.Axes,
 ) -> None:
     """Compute and visualize agreement between two annotators.
@@ -410,7 +398,7 @@ def agreement(
         APLOSE-formatted DataFrame.
         It must contain The annotations of two annotators.
 
-    bin_size : Timedelta | offsets.BaseOffset
+    bin_size : Timedelta | BaseOffset
         The size of each time bin for aggregating annotation timestamps.
 
     ax : matplotlib.axes.Axes
@@ -530,4 +518,130 @@ def get_legend(annotators: str | list[str], labels: str | list[str]) -> list[str
         return annotators
     return [f"{ant}\n{lbl}" for ant, lbl in zip(annotators, labels, strict=False)]
 
-bin_size = Timedelta()
+def get_bin_size_str(bin_size: Timedelta | BaseOffset) -> str:
+    """Return bin size as a string."""
+    if isinstance(bin_size, Timedelta):
+        return timedelta_to_str(bin_size)
+    return str(bin_size.n) + bin_size.freqstr
+
+
+def set_y_axis_to_percentage(
+    ax: plt.Axes,
+) -> None:
+    """Set y-axis to percentage."""
+    ax.yaxis.set_major_formatter(PercentFormatter(xmax=1.0))
+    ax.set_yticks(np.arange(0, 1.02, 0.2))
+
+
+def set_dynamic_ylim(ax: plt.Axes,
+                     df: DataFrame,
+                     padding:float=0.05,
+                     nticks: int=4,
+                     ) -> None:
+    """Set y-axis limits and ticks dynamically based on DataFrame values."""
+    max_val = np.nanmax(df.to_numpy())
+    upper_lim = int(ceil((1 + padding) * max_val))
+    ax.set_ylim(0, upper_lim)
+
+    step = int(max(1, ceil(max_val / (nticks - 1))))
+    ax.set_yticks(range(0, upper_lim + 1, step))
+
+
+def set_plot_title(ax: plt.Axes, annotators: list[str], labels: list[str]) -> None:
+    """Set plot title."""
+    title = (
+        f"annotator: {', '.join(set(annotators))}\n"
+        f"label: {', '.join(set(labels))}"
+    )
+    ax.set_title(title)
+
+
+def shade_no_effort(
+    ax: plt.Axes,
+    bin_starts: Index,
+    observed: RecordingPeriod,
+    bar_width: Timedelta,
+) -> None:
+    """Shade areas of the plot where no observation effort was made.
+
+    Parameters
+    ----------
+    ax : plt.Axes
+        The axes on which to draw the shaded regions.
+    bin_starts : Index
+        A datetime index representing the start times of each bin.
+    observed : RecordingPeriod
+        A Series with observation counts or flags, indexed by datetime.
+        Should be aligned or re-indexable to `bin_starts`.
+    bar_width : Timedelta
+        Width of each time bin. Used to compute the span of the shaded areas.
+
+
+    """
+    width_days = bar_width.total_seconds() / 86400
+    no_effort_bins = bin_starts[observed.counts.reindex(bin_starts) == 0]
+    for ts in no_effort_bins:
+        start = mdates.date2num(ts)
+        ax.axvspan(start, start + width_days, color="grey", alpha=0.08, zorder=1.5)
+
+    x_min, x_max = ax.get_xlim()
+    data_min = mdates.date2num(bin_starts[0])
+    data_max = mdates.date2num(bin_starts[-1]) + width_days
+
+    if x_min < data_min:
+        ax.axvspan(x_min, data_min, color="grey", alpha=0.08, zorder=1.5)
+    if x_max > data_max:
+        ax.axvspan(data_max, x_max, color="grey", alpha=0.08, zorder=1.5)
+    ax.set_xlim(x_min, x_max)
+
+
+# def add_sunrise_sunset(ax: Axes, lat: float, lon: float) -> None:
+#     """Display sunrise and sunset times on plot."""
+#     x_min, x_max = ax.get_xlim()
+#
+#     start_date = Timestamp(num2date(x_min))
+#     end_date = Timestamp(num2date(x_max))
+#
+#     # Generate daily datetime values
+#     num_days = (end_date - start_date).days + 1
+#     dates = [start_date + Timedelta(days=i) for i in range(num_days)]
+#
+#     # compute sunrise and sunset times
+#     sunrise, sunset, _, _, _, _ = get_sun_times(
+#         start=start_date,
+#         stop=end_date,
+#         lat=lat,
+#         lon=lon,
+#     )
+#
+#     ax.plot(dates, sunrise, color="darkorange", label="Sunrise")
+#     ax.plot(dates, sunset, color="royalblue", label="Sunset")
+#     ax.legend(
+#         loc="center left",
+#         frameon=1,
+#         framealpha=0.6,
+#         bbox_to_anchor=(1.01, 0.95),
+#     )
+def add_sunrise_sunset(ax: Axes, lat: float, lon: float) -> None:
+    x_min, x_max = ax.get_xlim()
+    start_date = Timestamp(num2date(x_min))
+    end_date = Timestamp(num2date(x_max))
+
+    num_days = (end_date.date() - start_date.date()).days + 1
+    dates = [start_date.date() + Timedelta(days=i) for i in range(num_days)]
+
+    sunrise, sunset, *_ = get_sun_times(
+        start=start_date,
+        stop=end_date,
+        lat=lat,
+        lon=lon,
+    )
+
+    ax.plot(dates, sunrise, color="darkorange", label="Sunrise")
+    ax.plot(dates, sunset, color="royalblue", label="Sunset")
+    ax.legend(
+        loc="center left",
+        frameon=True,
+        framealpha=0.6,
+        bbox_to_anchor=(1.01, 0.95),
+    )

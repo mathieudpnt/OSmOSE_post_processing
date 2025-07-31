@@ -7,7 +7,7 @@ import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from def_func import get_datetime_format, get_duration
+from core_utils import get_datetime_format, get_duration
 from glider_config import NAV_STATE
 from pandas import DataFrame
 from tqdm import tqdm

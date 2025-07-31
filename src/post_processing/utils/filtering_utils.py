@@ -123,11 +123,15 @@ def filter_by_score(df: DataFrame, score: float) -> DataFrame:
     return df
 
 
-def read_dataframe(file: Path) -> DataFrame:
+def read_dataframe(file: Path, nrows: int = None) -> DataFrame:
     """Read csv file."""
     delimiter = find_delimiter(file)
     return (
-        read_csv(file, sep=delimiter, parse_dates=["start_datetime", "end_datetime"])
+        read_csv(file,
+                 sep=delimiter,
+                 parse_dates=["start_datetime", "end_datetime"],
+                 nrows=nrows
+                 )
         .drop_duplicates()
         .dropna(subset=["annotation"])
         .sort_values(by=["start_datetime", "end_datetime"])
@@ -286,17 +290,12 @@ def ensure_no_invalid(invalid: list[str], label: str) -> None:
         raise ValueError(msg)
 
 
-def load_detections(
-    file: Path,
-    filters: DetectionFilters,
-) -> DataFrame:
+def load_detections(filters: DetectionFilters) -> DataFrame:
     """Load and filter an APLOSE-formatted detection file.
 
     Parameters
     ----------
-    file : Path
-        Detection file.
-    filters : DetectionFilters
+    filter : DetectionFilters
         All selection / filtering options.
 
     Returns
@@ -305,7 +304,7 @@ def load_detections(
         Detections that match the selected filters.
 
     """
-    df = read_dataframe(file)
+    df = read_dataframe(filters.detection_file)
     df = filter_by_time(df, filters.begin, filters.end)
     df = filter_by_annotator(df, annotator=filters.annotator)
     df = filter_by_label(df, label=filters.annotation)

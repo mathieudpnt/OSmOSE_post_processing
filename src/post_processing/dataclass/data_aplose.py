@@ -11,11 +11,11 @@ from typing import TYPE_CHECKING
 
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
-from pandas import DataFrame, Series, Timedelta, Timestamp, concat
+from pandas import DataFrame, Series, Timedelta, Timestamp
 from pandas.tseries import offsets
 
 from post_processing.dataclass.detection_filters import DetectionFilters
-from post_processing.utils.def_func import get_count
+from post_processing.utils.core_utils import get_count
 from post_processing.utils.filtering_utils import load_detections
 from post_processing.utils.metrics_utils import detection_perf
 from post_processing.utils.plot_utils import (
@@ -29,11 +29,15 @@ from post_processing.utils.plot_utils import (
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from pandas.tseries.offsets import BaseOffset
+
+    from post_processing.dataclass.recording_period import RecordingPeriod
+
 default_colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
 
 
 def _get_locator_from_offset(
-    offset: int | Timedelta | offsets.BaseOffset,
+    offset: int | Timedelta | BaseOffset,
 ) -> mdates.DateLocator:
     """Map a pandas offset object to the appropriate matplotlib DateLocator."""
     if isinstance(offset, int):
@@ -91,10 +95,18 @@ class DataAplose:
         self.dataset = list(set(self.df["dataset"])) if df is not None else None
         self.lat = None
         self.lon = None
-        self._resolution_bin = None
-        self._resolution_x_ticks = None
 
     def __str__(self) -> str:
+        """Return string representation of DataAplose object."""
+        return (
+            f"annotators: {self.annotators}\n"
+            f"labels: {self.labels}\n"
+            f"begin: {self.begin}\n"
+            f"end: {self.end}\n"
+            f"dataset: {', '.join(self.dataset)}"
+        )
+
+    def __repr__(self) -> str:
         """Return string representation of DataAplose object."""
         return (
             f"annotators: {self.annotators}\n"
@@ -278,7 +290,7 @@ class DataAplose:
         *,
         annotator: str | list[str],
         label: str | list[str],
-        **kwargs: bool | Timedelta | offsets.BaseOffset | str | list[str] | tuple[Series, Timedelta],  # noqa: E501
+        **kwargs: bool | Timedelta | BaseOffset | str | list[str] | RecordingPeriod,
     ) -> None:
         """Plot filtered annotation data using the specified mode.
 
@@ -306,7 +318,7 @@ class DataAplose:
                     Whether to show sunrise and sunset times.
                 - color: str | list[str]
                     Color(s) for the bars.
-                - bin_size: Timedelta | offsets.BaseOffset
+                - bin_size: Timedelta | BaseOffset
                     Bin size for the histogram.
                 - effort: Series
                     The timestamps intervals corresponding to the observation effort.
@@ -322,13 +334,12 @@ class DataAplose:
             bin_size = kwargs.get("bin_size")
             legend = kwargs.get("legend", True)
             color = kwargs.get("color")
-            season = kwargs.get("season", False)
-            effort = kwargs.get("effort", False)
+            season = kwargs.get("season")
+            effort = kwargs.get("effort")
 
             if not bin_size:
                 msg = "'bin_size' missing for histogram plot."
                 raise ValueError(msg)
-
             df_counts = get_count(df_filtered, bin_size)
             detection_size = Timedelta(max(df_filtered["end_time"]), "s")
 
@@ -378,7 +389,7 @@ class DataAplose:
     def from_yaml(
         cls,
         file: Path,
-    ) -> DataAplose:
+    ) -> DataAplose | list[DataAplose]:
         """Return a DataAplose object from a yaml file.
 
         Parameters
@@ -392,24 +403,19 @@ class DataAplose:
         The DataAplose object.
 
         """
-        files, filters = DetectionFilters.from_yaml(file=file)
-        cls_list = []
-        for f, fil in zip(files, filters, strict=False):
-            cls_list.append(cls(load_detections(f, fil)))
-        if len(cls_list) == 1:
-            return cls_list[0]
-        return cls_list
+        filters = DetectionFilters.from_yaml(file=file)
+        return cls.from_filters(filters)
 
     @classmethod
     def from_filters(
         cls,
-        config: tuple[list[Path], list[DetectionFilters]],
-    ) -> DataAplose:
+        filters: DetectionFilters | list[DetectionFilters],
+    ) -> DataAplose | list[DataAplose]:
         """Return a DataAplose object from a yaml file.
 
         Parameters
         ----------
-        config: DetectionFilters
+        filters: DetectionFilters | list[DetectionFilters]
             Object containing the detection filters.
 
         Returns
@@ -418,8 +424,9 @@ class DataAplose:
         The DataAplose object.
 
         """
-        files, filters = config
-        df_concat = DataFrame()
-        for f, fil in zip(files, filters, strict=False):
-            df_concat = concat([df_concat, load_detections(f, fil)])
-        return cls(df=df_concat)
+        if isinstance(filters, DetectionFilters):
+            filters = [filters]
+        cls_list = [cls(load_detections(fil)) for fil in filters]
+        if len(cls_list) == 1:
+            return cls_list[0]
+        return cls_list

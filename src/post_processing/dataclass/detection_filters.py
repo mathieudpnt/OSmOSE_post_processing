@@ -7,11 +7,14 @@ It supports filtering annotations based on time, frequency, annotators, and othe
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import tzinfo
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
 import yaml
-from pandas import Timedelta, Timestamp
+from pandas import Timedelta, Timestamp, read_csv
+
+from post_processing.utils.filtering_utils import find_delimiter, read_dataframe, get_timezone
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -21,9 +24,12 @@ if TYPE_CHECKING:
 class DetectionFilters:
     """A class to handle filters applied to APLOSE formatted DataFrame."""
 
+    detection_file: Path = None
+    timebin_origin: Timedelta = None
     timebin_new: Timedelta = None
     begin: Timestamp | None = None
     end: Timestamp | None = None
+    timezone: tzinfo = None
     annotator: str | Iterable[str] | None = None
     annotation: str | Iterable[str] | None = None
     timestamp_file: Path | None = None
@@ -37,7 +43,7 @@ class DetectionFilters:
     def from_yaml(
         cls,
         file: Path,
-    ) -> tuple[list[Path], list[DetectionFilters]]:
+    ) -> DetectionFilters | list[DetectionFilters]:
         """Return a DetectionFilters object from a yaml file.
 
         Parameters
@@ -53,11 +59,14 @@ class DetectionFilters:
         """
         with file.open(encoding="utf-8") as yaml_file:
             parameters = yaml.safe_load(yaml_file)
-
-            paths: list[Path] = []
-            filters: list[DetectionFilters] = []
+            filters = []
 
             for detection_file, filters_dict in parameters.items():
+                df_preview = read_dataframe(Path(detection_file), nrows=5)
+
+                filters_dict["timebin_origin"] = Timedelta(max(df_preview["end_time"]), "s")
+                filters_dict["timezone"] = get_timezone(df_preview)
+                filters_dict["detection_file"] = Path(detection_file)
                 if filters_dict.get("timebin_new"):
                     filters_dict["timebin_new"] = Timedelta(
                         filters_dict["timebin_new"],
@@ -70,7 +79,9 @@ class DetectionFilters:
                 if filters_dict.get("timestamp_file"):
                     filters_dict["timestamp_file"] = Path(filters_dict["timestamp_file"])
 
-                paths.append(Path(detection_file))
-                filters.append(DetectionFilters(**filters_dict))
+                filters.append(cls(**filters_dict))
 
-        return paths, filters
+        if len(filters)==1:
+            return filters[0]
+
+        return filters

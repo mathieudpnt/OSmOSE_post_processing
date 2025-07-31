@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import numpy as np
 from numpy import ndarray
-from pandas import DataFrame, Timestamp, date_range
+from pandas import DataFrame, Series, Timedelta, Timestamp, date_range
 
 from post_processing import logger
+
+if TYPE_CHECKING:
+    from post_processing.dataclass.recording_period import RecordingPeriod
 
 
 def detection_perf(
@@ -72,12 +77,12 @@ def detection_perf(
     # df2
     selected_annotator2 = (
         next(ant for ant in annotators if ant != selected_annotator1)
-        if len(annotators) == 2
+        if len(annotators) == 2  # noqa: PLR2004
         else selected_annotator1
     )
     selected_label2 = (
         next(lbl for lbl in labels if lbl != selected_label1)
-        if len(labels) == 2
+        if len(labels) == 2  # noqa: PLR2004
         else selected_label1
     )
     selected_annotations2 = df[
@@ -156,3 +161,25 @@ def _map_datetimes_to_vector(df: DataFrame, timestamps: list[int]) -> ndarray:
         vec[overlap] = 1
 
     return vec
+
+
+def normalize_counts_by_effort(counts: DataFrame,
+                               effort: RecordingPeriod,
+                               time_bin: Timedelta,
+                               ) -> DataFrame:
+    """Normalize detection counts given the observation effort."""
+    timebin_origin = effort.timebin_origin
+    effort_series = effort.counts
+    effort_intervals = effort_series.index
+    effort_series.index = [interval.left for interval in effort_series.index]
+    for col in counts.columns:
+        effort_ratio = effort_series * (timebin_origin / time_bin)
+        effort_ratio = Series(
+            np.where((effort_ratio > 0) & (effort_ratio < 1), 1.0, effort_ratio),
+            index=effort_series.index,
+            name=effort_series.name,
+        )
+        counts[f"{col}"] = ((counts[col] / effort_ratio.reindex(counts[col].index))
+                            .clip(upper=1))
+        effort_series.index = effort_intervals
+    return counts
