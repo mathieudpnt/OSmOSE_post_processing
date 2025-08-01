@@ -1,3 +1,5 @@
+"""Functions used to filter APLOSE-formatted DataFrame."""
+
 from __future__ import annotations
 
 import bisect
@@ -123,14 +125,14 @@ def filter_by_score(df: DataFrame, score: float) -> DataFrame:
     return df
 
 
-def read_dataframe(file: Path, nrows: int = None) -> DataFrame:
+def read_dataframe(file: Path, nrows: int | None = None) -> DataFrame:
     """Read csv file."""
     delimiter = find_delimiter(file)
     return (
         read_csv(file,
                  sep=delimiter,
                  parse_dates=["start_datetime", "end_datetime"],
-                 nrows=nrows
+                 nrows=nrows,
                  )
         .drop_duplicates()
         .dropna(subset=["annotation"])
@@ -213,7 +215,7 @@ def reshape_timebin(
             if timestamp is not None:
                 # I do not remember if this is a regular case or not
                 # might need to be deleted
-                origin_timebin = (timestamp[1] - timestamp[0]).total_seconds()
+                origin_timebin = timestamp[1] - timestamp[0]
                 step = int(timebin_new / origin_timebin)
                 time_vector = timestamp[0::step]
             else:
@@ -277,14 +279,14 @@ def reshape_timebin(
 
 
 def ensure_in_list(value: str, candidates: list[str], label: str) -> None:
-    """"""
+    """Check for non-valid elements of a list."""
     if value not in candidates:
         msg = f"'{value}' not present in {label}, upload aborted"
         raise ValueError(msg)
 
 
 def ensure_no_invalid(invalid: list[str], label: str) -> None:
-    """"""
+    """Return non-valid elements of a list."""
     if invalid:
         msg = f"'{invalid}' not present in {label}, upload aborted"
         raise ValueError(msg)
@@ -295,7 +297,7 @@ def load_detections(filters: DetectionFilters) -> DataFrame:
 
     Parameters
     ----------
-    filter : DetectionFilters
+    filters : DetectionFilters
         All selection / filtering options.
 
     Returns

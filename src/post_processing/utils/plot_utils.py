@@ -14,7 +14,6 @@ from matplotlib.ticker import PercentFormatter
 from numpy import ceil, histogram, polyfit, zeros
 from pandas import DataFrame, Index, Timedelta, Timestamp, date_range
 from pandas.tseries import frequencies
-from pkg_resources import non_empty_lines
 from scipy.stats import pearsonr
 from seaborn import scatterplot
 
@@ -78,8 +77,8 @@ def histo(
     annotators = list(annotators)
 
     if len(df) <= 1:
-        msg = (f"DataFrame with annotators '{", ".join(annotators)}'"
-               f" / labels '{", ".join(labels)}'"
+        msg = (f"DataFrame with annotators '{', '.join(annotators)}'"
+               f" / labels '{', '.join(labels)}'"
                f" do not contains enough detections.")
         logger.warn(msg)
         return
@@ -595,34 +594,8 @@ def shade_no_effort(
     ax.set_xlim(x_min, x_max)
 
 
-# def add_sunrise_sunset(ax: Axes, lat: float, lon: float) -> None:
-#     """Display sunrise and sunset times on plot."""
-#     x_min, x_max = ax.get_xlim()
-#
-#     start_date = Timestamp(num2date(x_min))
-#     end_date = Timestamp(num2date(x_max))
-#
-#     # Generate daily datetime values
-#     num_days = (end_date - start_date).days + 1
-#     dates = [start_date + Timedelta(days=i) for i in range(num_days)]
-#
-#     # compute sunrise and sunset times
-#     sunrise, sunset, _, _, _, _ = get_sun_times(
-#         start=start_date,
-#         stop=end_date,
-#         lat=lat,
-#         lon=lon,
-#     )
-#
-#     ax.plot(dates, sunrise, color="darkorange", label="Sunrise")
-#     ax.plot(dates, sunset, color="royalblue", label="Sunset")
-#     ax.legend(
-#         loc="center left",
-#         frameon=1,
-#         framealpha=0.6,
-#         bbox_to_anchor=(1.01, 0.95),
-#     )
 def add_sunrise_sunset(ax: Axes, lat: float, lon: float) -> None:
+    """Display sunrise/sunset times on plot."""
     x_min, x_max = ax.get_xlim()
     start_date = Timestamp(num2date(x_min))
     end_date = Timestamp(num2date(x_max))
