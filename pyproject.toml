@@ -22,6 +22,12 @@ dependencies = [
     "tqdm >=4.67.1"
 ]
 
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "notebook >=7.4.4",
+    "setuptools <66.2"]
+
 [tool.ruff]
 select = ["ALL"]
 exclude = ["scripts/**/*.py"]
