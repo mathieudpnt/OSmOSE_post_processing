@@ -1,4 +1,4 @@
-"""`recording_period` module provides the `RecordingPeriod` dataclass.
+"""`recording_period` module provides `RecordingPeriod` dataclass.
 
 RecordingPeriod class returns a Timestamp list corresponding to recording periods.
 """
