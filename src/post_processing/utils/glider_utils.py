@@ -1,17 +1,20 @@
+"""Functions to exploit glider data."""
+
 from __future__ import annotations
 
 import gzip
 from typing import TYPE_CHECKING
 
+import gpxpy
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from core_utils import get_datetime_format, get_duration
-from glider_config import NAV_STATE
-from pandas import DataFrame
+from pandas import DataFrame, Timedelta, Timestamp, concat
 from tqdm import tqdm
-from trajectoryFda import TrajectoryFda
+
+from post_processing.dataclass.trajectory import Trajectory
+from post_processing.glider_config import NAV_STATE
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -19,8 +22,8 @@ if TYPE_CHECKING:
     from numpy.lib.npyio import NpzFile
 
 
-def set_trajectory(nav: pd.DataFrame) -> TrajectoryFda:
-    """Create a trajectory object in order to track data.
+def set_trajectory(nav: pd.DataFrame) -> Trajectory:
+    """Create a Trajectory object in order to track data.
 
     Parameters
     ----------
@@ -29,111 +32,56 @@ def set_trajectory(nav: pd.DataFrame) -> TrajectoryFda:
 
     Returns
     -------
-    TrajectoryFda object
+    Trajectory object
 
     """
-    traj = TrajectoryFda()
-    for _, row in tqdm(nav.iterrows(), total=len(nav), desc="Tracking data"):
-        traj.setNewData(
-            timestamp=row["Timestamp_unix"],
+    traj = Trajectory()
+    for _, row in tqdm(nav.iterrows(), total=len(nav), desc="Setting trajectory"):
+        traj.add_position(
+            timestamp=row["Timestamp"].timestamp(),
             latitude=row["Lat"],
             longitude=row["Lon"],
         )
     return traj
 
 
-def get_loc_from_time(
-    traj: TrajectoryFda,
-    time_vector: list[int | float],
+def get_position_from_timestamp(
+    traj: Trajectory,
+    time_vector: list[Timestamp],
 ) -> (list[float], list[float], list[float]):
     """Compute location for at a given datetime for a given trajectory.
 
     Parameters
     ----------
-    traj: TrajectoryFda
-        Trajectory object
-
+    traj: Trajectory
+        Approximate trajectory data using polynomial fitting
     time_vector:  list
-        Datetimes to associate a location to, in unix time
+        Timestamps to associate a location to
 
     Returns
     -------
     (latitude, longitude, timestamp)
 
     """
-    latitude, longitude, timestamp = [], [], []
-    for ts in tqdm(time_vector):
-        if min(traj.timestamp) <= ts <= max(traj.timestamp):
-            lat, lon = traj.getPosition(timestamp=ts)
-            latitude.append(lat)
-            longitude.append(lon)
-            timestamp.append(ts)
-    return latitude, longitude, timestamp
+    time_vector_unix = [ts.timestamp() for ts in time_vector]
+    latitudes, longitudes, timestamps = [], [], []
+
+    for ts in time_vector_unix:
+        if traj.timestamps.min() <= ts <= traj.timestamps.max():
+            lat, lon = traj.get_position(ts)
+            latitudes.append(lat)
+            longitudes.append(lon)
+            timestamps.append(ts)
+
+    return latitudes, longitudes, timestamps
 
 
-def plot_detections_with_nav_data_single_label(
+def plot_detections_with_nav_data(
     df: DataFrame,
     nav: DataFrame,
     criterion: str,
-    annotation: str,
-) -> None:
-    """Plot detections of one annotation type according to a navigation data criterion.
-
-    Parameters
-    ----------
-    df: DataFrame
-        APLOSE formatted detection file
-    nav: DataFrame
-        navigation data comprised of criteria
-        (latitude, longitude, depth...) and associated datetimes
-    criterion: string
-        User selected navigation parameter from nav (latitude, longitude, depth...)
-    annotation: string
-        User selected annotation from df
-
-    """
-    df_1label = df[(df["annotation"] == annotation) & (df["is_box"] == 0)]
-
-    glider_timestamps_numeric = [int(ts.timestamp()) for ts in nav["Timestamp"]]
-    detections_timestamps_numeric = [
-        int(ts.timestamp()) for ts in df_1label["start_datetime"]
-    ]
-    matching_depths = np.interp(
-        detections_timestamps_numeric,
-        glider_timestamps_numeric,
-        nav[criterion].astype("float"),
-    )
-
-    fig, ax = plt.subplots()
-    plt.plot(nav["Timestamp"], nav[criterion], label=criterion, zorder=1, linewidth=0.8)
-    plt.scatter(
-        df_1label["start_datetime"],
-        matching_depths,
-        label=annotation,
-        zorder=2,
-        color="r",
-        s=8,
-    )
-    plt.grid(color="k", linestyle="--", linewidth=0.2, zorder=0)
-    plt.xlim(nav["Timestamp"].iloc[0], nav["Timestamp"].iloc[-1])
-
-    xtick_resolution = get_duration(msg="Enter x-tick resolution", default="1d")
-    locator = mdates.SecondLocator(interval=xtick_resolution)
-    ax.xaxis.set_major_locator(locator)
-
-    datetime_format = get_datetime_format(msg="Enter x-tick format", default="%d/%m/%y")
-    formatter = mdates.DateFormatter(datetime_format)
-    ax.xaxis.set_major_formatter(formatter)
-
-    plt.ylabel(criterion)
-    plt.title(f"'{annotation}' detections")
-    plt.tight_layout()
-
-
-def plot_detections_with_nav_data_all_labels(
-    df: DataFrame,
-    nav: DataFrame,
-    criterion: str,
+    ticks: Timedelta,
+    datetime_format: str = "%d/%m/%y",
 ) -> None:
     """Plot detections of all annotation types according to a navigation data criterion.
 
@@ -142,9 +90,14 @@ def plot_detections_with_nav_data_all_labels(
     df: DataFrame
         APLOSE formatted detection file
     nav: DataFrame
-        Navigation data comprised of criteria (latitude, longitude, depth...) and associated datetimes
-    criterion: string
+        Navigation data comprised of criteria (latitude, longitude, depth...)
+        and associated datetimes
+    criterion: str
         User selected navigation parameter from nav (latitude, longitude, depth...)
+    ticks: Timedelta
+        Resolution of the x-axis major ticks.
+    datetime_format : str
+        Date format string for x-axis tick labels (e.g., "%b", "%Y-%m-%d %H:%M").
 
     """
     fig, ax = plt.subplots()
@@ -179,14 +132,12 @@ def plot_detections_with_nav_data_all_labels(
         label=criterion,
         zorder=1,
         linewidth=0.5,
-        color="tab:blue",
+        color="grey",
     )
 
-    xtick_resolution = get_duration(msg="Enter x-tick resolution", default="1d")
-    locator = mdates.SecondLocator(interval=xtick_resolution)
+    locator = mdates.SecondLocator(interval=int(ticks.total_seconds()))
     ax.xaxis.set_major_locator(locator)
 
-    datetime_format = get_datetime_format(msg="Enter x-tick format", default="%d/%m")
     formatter = mdates.DateFormatter(datetime_format)
     ax.xaxis.set_major_formatter(formatter)
 
@@ -237,7 +188,7 @@ def load_glider_nav(directory: Path) -> DataFrame:
     first_file = True
     file_number = 1  # Initialize the file number
 
-    for f in tqdm(file, desc="Reading navigation data"):
+    for f in tqdm(file, desc="Reading navigation data", unit="file"):
         with gzip.open(f, "rt") as gz_file:
             delimiter = ";"  # Specify the desired delimiter
             gz_reader = pd.read_csv(gz_file, delimiter=delimiter)
@@ -246,7 +197,7 @@ def load_glider_nav(directory: Path) -> DataFrame:
                 all_rows.append(gz_reader.columns.tolist())
                 first_file = False
             # Add the rows from the current CSV file to the all_rows list
-            all_rows.extend(gz_reader.values.tolist())
+            all_rows.extend(gz_reader.to_numpy().tolist())
             # Add yo number to the yo list
             yo.extend([str(f).split(".")[-2]] * len(gz_reader))
             data.extend([f.name] * len(gz_reader))
@@ -333,7 +284,7 @@ def plot_nav_state(df: DataFrame, npz: NpzFile) -> None:
 def compute_acoustic_diversity(
     df: DataFrame,
     nav: DataFrame,
-    time_vector: list[int | float],
+    time_vector: list[Timestamp],
 ) -> DataFrame:
     """Compute the number of different annotations at given positions and timestamps.
 
@@ -343,9 +294,9 @@ def compute_acoustic_diversity(
         APLOSE formatted result file
     nav: DataFrame
         Navigation data comprised of positions and associated timestamps
-    time_vector: list[int | float]
+    time_vector: list[Timestamp]
         List of timestamps used to check for annotations from df.
-        For APLOSE user, this vector can typically be constructed from corresponding task status files.
+        For APLOSE user, this can be constructed from task status files.
 
     Returns
     -------
@@ -353,18 +304,17 @@ def compute_acoustic_diversity(
 
     """
     # track_data: glider positions at every timestamp
-    nav["Timestamp_unix"] = [ts.timestamp() for ts in nav["Timestamp"]]
-    track_data = nav[["Timestamp_unix", "Timestamp", "Lat", "Lon", "Depth"]]
+    track_data = nav[["Timestamp", "Lat", "Lon", "Depth"]]
 
     # compute trajectory object from glider navigation data
-    trajectory = set_trajectory(track_data)
+    trajectory = set_trajectory(nav=track_data)
 
     # compute localisation of each detection
-    df_acoustic_diversity = pd.DataFrame(
+    df_acoustic_diversity = DataFrame(
         columns=["Timestamp", "Latitude", "Longitude", "Acoustic Diversity"],
     )
 
-    lat_time_vector, lon_time_vector, ts_time_vector = get_loc_from_time(
+    lat_time_vector, lon_time_vector, ts_time_vector = get_position_from_timestamp(
         traj=trajectory,
         time_vector=time_vector,
     )
@@ -375,19 +325,18 @@ def compute_acoustic_diversity(
     # unix time of detections
     time_det_unix = [ts.timestamp() for ts in det["start_datetime"]]
 
-    acoustic_diversity = np.zeros(len(time_vector))
+    acoustic_diversity = np.zeros(len(time_vector), dtype=int)
     for i, ts in enumerate(time_vector[: -(len(time_vector) - len(ts_time_vector))]):
         for ts_det in time_det_unix:
-            # if ts <= ts_det <= ts + 1:
             if (
-                ts <= ts_det <= ts + 1
-                and trajectory.timestamp.min() <= ts_det <= trajectory.timestamp.max()
+                ts.timestamp() <= ts_det <= ts.timestamp() + 1
+                and trajectory.timestamps.min() <= ts_det <= trajectory.timestamps.max()
             ):
                 acoustic_diversity[i] += 1
 
-        new_row = pd.DataFrame(
+        new_row = DataFrame(
             {
-                "Timestamp": [str(pd.Timestamp(ts, unit="s").tz_localize("UTC"))],
+                "Timestamp": [ts],
                 "Latitude": [lat_time_vector[i]],
                 "Longitude": [lon_time_vector[i]],
                 "Acoustic Diversity": [acoustic_diversity[i]],
@@ -397,7 +346,50 @@ def compute_acoustic_diversity(
         df_acoustic_diversity = (
             new_row
             if df_acoustic_diversity.empty
-            else pd.concat([df_acoustic_diversity, new_row], ignore_index=True)
+            else concat([df_acoustic_diversity, new_row], ignore_index=True)
         )
 
     return df_acoustic_diversity
+
+
+def export_gpx(nav: DataFrame, output_dir: Path, output_file: str = "trace") -> None:
+    """Export a navigation DataFrame to a GPX file.
+
+    Creates a GPX track from latitude, longitude, depth, and timestamp values
+    contained in a navigation DataFrame. A waypoint is added at the start position.
+
+    Parameters
+    ----------
+    nav : DataFrame
+        Navigation data with required columns: ["Lat", "Lon", "Depth", "Timestamp"].
+    output_dir : Path
+        Directory where the GPX file will be saved.
+    output_file : str, optional
+        Base name of the GPX file (default is "trace").
+
+    """
+    gpx = gpxpy.gpx.GPX()
+    track = gpxpy.gpx.GPXTrack(name="trace")
+    segment = gpxpy.gpx.GPXTrackSegment()
+
+    for _, row in nav.iterrows():
+        point = gpxpy.gpx.GPXTrackPoint(
+            float(row["Lat"]),
+            float(row["Lon"]),
+            float(row["Depth"]),
+            time=row["Timestamp"],
+        )
+        segment.points.append(point)
+
+    track.segments.append(segment)
+    gpx.tracks.append(track)
+
+    waypoint = gpxpy.gpx.GPXWaypoint(
+        latitude=nav["Lat"].iloc[0],
+        longitude=nav["Lon"].iloc[0],
+        name="trace_start",
+    )
+    gpx.waypoints.append(waypoint)
+
+    with (output_dir / (output_file + ".gpx")).open("w") as f:
+        f.write(gpx.to_xml())
