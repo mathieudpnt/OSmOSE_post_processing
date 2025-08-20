@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
 import soundfile as sf
 
 from post_processing import logger
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def normalize_audio(file: Path, output_folder: Path | None = None) -> None:
@@ -20,15 +23,17 @@ def normalize_audio(file: Path, output_folder: Path | None = None) -> None:
         The path to output destination
 
     """
-    logger.basicConfig(level=logging.INFO, format="%(message)s")
     try:
         data, fs = sf.read(file)
-    except ValueError as e:
+    except sf.LibsndfileError as e:
         msg = f"An error occurred while reading file {file}: {e}"
         raise ValueError(msg) from e
 
     if not output_folder:
         output_folder = file.parent
+
+    if not output_folder.exists():
+        output_folder.mkdir(parents=True)
 
     format_file = sf.info(file).format
     subtype = sf.info(file).subtype

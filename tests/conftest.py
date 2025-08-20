@@ -1,22 +1,35 @@
 import pytest
-from pandas import to_datetime, DataFrame, concat
+from pandas import DataFrame, concat, to_datetime
+
 
 @pytest.fixture
 def df_weak_detections():
     data = {
         "dataset": ["dataset"] * 3,
-        "filename": ["file1.wav", "file2.wav", "file3.wav"],
+        "filename": ["file1.wav",
+                     "file2.wav",
+                     "file3.wav"
+                     ],
         "start_time": [0, 0, 0],
         "end_time": [3600, 3600, 3600],
         "start_frequency": [0, 0, 0],
         "end_frequency": [120, 120, 120],
         "annotation": ["label1", "label2", "label1"],
-        "annotator": ["annotator1", "annotator2", "annotator1"],
+        "annotator": ["annotator1",
+                      "annotator2",
+                      "annotator1"
+                      ],
         "start_datetime": to_datetime(
-            ["2022-07-13 03:00:00+00:00", "2022-07-13 04:00:00+00:00", "2022-07-13 05:00:00+00:00"]
+            ["2022-07-13 03:00:00+00:00",
+             "2022-07-13 04:00:00+00:00",
+             "2022-07-13 05:00:00+00:00"
+             ]
         ),
         "end_datetime": to_datetime(
-            ["2022-07-13 04:00:00+00:00", "2022-07-13 05:00:00+00:00", "2022-07-13 06:00:00+00:00"]
+            ["2022-07-13 04:00:00+00:00",
+             "2022-07-13 05:00:00+00:00",
+             "2022-07-13 06:00:00+00:00"
+             ]
         ),
         "is_box": [0, 0, 0],
     }

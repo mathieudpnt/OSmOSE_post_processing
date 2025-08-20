@@ -11,7 +11,7 @@ from pandas import DataFrame, Timedelta, Timestamp, concat, date_range, read_csv
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from pandas._libs.tslibs.parsing import tzoffset
+    from dateutil.tz import tzoffset
 
     from post_processing.dataclass.detection_filters import DetectionFilters
 
@@ -23,8 +23,9 @@ def find_delimiter(file: Path) -> str:
             temp_lines = csv_file.readline() + "\n" + csv_file.readline()
             dialect = csv.Sniffer().sniff(temp_lines, delimiters=",;")
             delimiter = dialect.delimiter
-        except csv.Error:
-            delimiter = ","
+        except csv.Error as err:
+            msg = "Could not determine delimiter"
+            raise ValueError(msg) from err
         return delimiter
 
 
@@ -176,7 +177,7 @@ def get_timezone(df: DataFrame) -> tzoffset | list[tzoffset]:
 
 def reshape_timebin(
     df: DataFrame,
-    timebin_new: Timedelta,
+    timebin_new: Timedelta | None,
     timestamp: list[Timestamp] | None = None,
 ) -> DataFrame:
     """Reshape an APLOSE result DataFrame according to a new time bin.
@@ -196,6 +197,10 @@ def reshape_timebin(
         The reshaped DataFrame
 
     """
+    if df.empty:
+        msg = "DataFrame is empty"
+        raise ValueError(msg)
+
     if not timebin_new:
         return df
 

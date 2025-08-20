@@ -92,7 +92,7 @@ def histo(
 
     bin_size_str = get_bin_size_str(bin_size)
 
-    begin, end, bin_size = round_begin_end_timestamps(df.index, bin_size)
+    begin, end, bin_size = round_begin_end_timestamps(list(df.index), bin_size)
 
     color = color if color else get_colors(df)
 
@@ -185,7 +185,7 @@ def map_detection_timeline(
     show_rise_set = kwargs.get("show_rise_set", False)
     season = kwargs.get("season", False)
 
-    datetime_list = df["start_datetime"]
+    datetime_list = list(df["start_datetime"])
     freq = frequencies.to_offset("1D")
     begin, end, _ = round_begin_end_timestamps(datetime_list, freq)
     annotators, labels = get_labels_and_annotators(df)
@@ -271,7 +271,7 @@ def heatmap(df: DataFrame, ax: Axes) -> None:
         The matplotlib axis to draw on.
 
     """
-    datetime_list = df["start_datetime"]
+    datetime_list = list(df["start_datetime"])
     freq = frequencies.to_offset("1D")
     begin, end, time_bin = round_begin_end_timestamps(datetime_list, freq)
     dates, _ = get_time_range_and_bin_size(datetime_list, freq)

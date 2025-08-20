@@ -1,23 +1,27 @@
 """`detection_filters` module provides the `DetectionFilters` dataclass.
 
 DetectionFilter class uses criteria applied to APLOSE-formatted DataFrames.
-It supports filtering annotations based on time, frequency, annotators, and other parameters.
+It supports filtering annotations based on time, frequency, annotators,
+and other parameters.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import tzinfo
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
 import yaml
-from pandas import Timedelta, Timestamp, read_csv
+from pandas import Timedelta, Timestamp
 
-from post_processing.utils.filtering_utils import find_delimiter, read_dataframe, get_timezone
+from post_processing.utils.filtering_utils import (
+    get_timezone,
+    read_dataframe,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
+    from datetime import tzinfo
 
 
 @dataclass(frozen=True)
@@ -64,7 +68,10 @@ class DetectionFilters:
             for detection_file, filters_dict in parameters.items():
                 df_preview = read_dataframe(Path(detection_file), nrows=5)
 
-                filters_dict["timebin_origin"] = Timedelta(max(df_preview["end_time"]), "s")
+                filters_dict["timebin_origin"] = Timedelta(
+                    max(df_preview["end_time"]),
+                    "s",
+                )
                 filters_dict["timezone"] = get_timezone(df_preview)
                 filters_dict["detection_file"] = Path(detection_file)
                 if filters_dict.get("timebin_new"):
@@ -77,7 +84,8 @@ class DetectionFilters:
                 if filters_dict.get("end"):
                     filters_dict["end"] = Timestamp(filters_dict["end"])
                 if filters_dict.get("timestamp_file"):
-                    filters_dict["timestamp_file"] = Path(filters_dict["timestamp_file"])
+                    filters_dict["timestamp_file"] = Path(
+                        filters_dict["timestamp_file"])
 
                 filters.append(cls(**filters_dict))
 

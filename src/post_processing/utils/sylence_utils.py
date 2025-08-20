@@ -1,3 +1,5 @@
+"""Functions to manipulate Sylence data."""
+
 from osekit.utils.timestamp_utils import strptime_from_text
 from pandas import DataFrame
 

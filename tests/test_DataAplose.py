@@ -84,7 +84,6 @@ def test_filter_df_invalid_lists_size(
 def test_set_ax_uses_2hour_locator(df_strong_and_weak_detections: DataFrame) -> None:
     data = DataAplose(df_strong_and_weak_detections)
     fig, ax = plt.subplots()
-    bin_size = Timedelta("1h")
     tick_freq = frequencies.to_offset("2h")
 
     ax = data.set_ax(
@@ -115,3 +114,22 @@ def test_histo_methods_dont_crash(df_strong_and_weak_detections: DataFrame) -> N
         label="label1",
         bin_size=bin_size,
     )
+
+
+@pytest.mark.parametrize("mode", ["scatter", "heatmap", "timeline"])
+def test_plot_scatter_heatmap_timeline(df_strong_and_weak_detections: DataFrame, mode: str) -> None:  # noqa: E501
+    data = DataAplose(df_strong_and_weak_detections)
+    data.lon = 0
+    data.lat = 0
+    fig, ax = plt.subplots()
+    data.plot(mode=mode, ax=ax, annotator="annotator1", label="label1", color="red")
+
+
+def test_plot_agreement(df_strong_and_weak_detections: DataFrame) -> None:
+    data = DataAplose(df_strong_and_weak_detections)
+    fig, ax = plt.subplots()
+    data.plot(mode="agreement",
+              ax=ax, annotator=["annotator1", "annotator2"],
+              label=["label1", "label2"],
+              bin_size=Timedelta("1h")
+              )

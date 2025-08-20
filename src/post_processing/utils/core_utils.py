@@ -83,7 +83,7 @@ def get_season(ts: Timestamp, *, northern: bool = True) -> tuple[str, int]:
         msg = "Invalid timestamp"
         raise ValueError(msg)
 
-    return season, ts.year if ts.month == 12 else ts.year - 1  # noqa: PLR2004
+    return season, ts.year - 1 if ts.month in [1,2] else ts.year
 
 
 def get_sun_times(
@@ -139,32 +139,37 @@ def get_sun_times(
         Night datetimes for each day between start and stop
 
     """
+    if start.tz is None or stop.tz is None:
+        msg = "start and stop must be timezone-aware"
+        raise ValueError(msg)
+
     tz = start.tz
 
-    # localisation info
     gps = astral.LocationInfo(latitude=lat, longitude=lon, timezone=tz)
 
-    # List of days during when the data were recorded
-    h_sunrise, h_sunset, dt_dusk, dt_dawn, dt_day, dt_night = [], [], [], [], [], []
+    h_sunrise, h_sunset, dt_dawn, dt_day, dt_dusk, dt_night = [], [], [], [], [], []
 
-    # For each day : find time of sunset, sun rise, begin dawn and dusk
-    for date in [
-        ts.date() for ts in date_range(start.normalize(), stop.normalize(), freq="D")
-    ]:
+    for date in [ts.date() for ts in date_range(start.normalize(),
+                                                stop.normalize(),
+                                                freq="D",
+                                                )]:
         suntime = sun(gps.observer, date=date, dawn_dusk_depression=12, tzinfo=tz)
         dawn, day, _, dusk, night = [
             Timestamp(suntime[period]).tz_convert(tz) for period in suntime
         ]
 
-        for lst, period in zip([h_sunrise, h_sunset], [day, dusk], strict=False):
-            lst.append(period.hour + period.minute / 60 + period.second / 3600)
+        if night < dusk:
+            suntime = sun(gps.observer, date=date + Timedelta("1d"), dawn_dusk_depression=12, tzinfo=tz)
+            _, _, _, _, night = [Timestamp(suntime[period]).tz_convert(tz) for period in suntime]
 
-        for lst, period in zip(
-            [dt_dawn, dt_day, dt_dusk, dt_night],
-            [dawn, day, dusk, night],
-            strict=False,
-        ):
-            lst.append(period)
+        # Convert sunrise and sunset to decimal hours
+        h_sunrise.append(day.hour + day.minute / 60 + day.second / 3600)
+        h_sunset.append(dusk.hour + dusk.minute / 60 + dusk.second / 3600)
+
+        dt_dawn.append(dawn)
+        dt_day.append(day)
+        dt_dusk.append(dusk)
+        dt_night.append(night)
 
     return h_sunrise, h_sunset, dt_dawn, dt_day, dt_dusk, dt_night
 
@@ -431,7 +436,15 @@ def get_count(df: DataFrame, bin_size: Timedelta | BaseOffset) -> DataFrame:
         "<label>-<annotator>", containing the count of observations in that bin.
 
     """
-    datetime_list = df["start_datetime"]
+    if not isinstance(df, DataFrame):
+        msg = "`df` must be a DataFrame"
+        raise TypeError(msg)
+
+    if df.empty:
+        msg = "`df` contains no data"
+        raise ValueError(msg)
+
+    datetime_list = list(df["start_datetime"])
 
     bins, bin_size = get_time_range_and_bin_size(datetime_list, bin_size)
 
@@ -468,6 +481,14 @@ def get_labels_and_annotators(df: DataFrame) -> tuple[list, list]:
         A tuple containing the labels and annotators lists.
 
     """
+    if not isinstance(df, DataFrame):
+        msg = "`df` must be a DataFrame"
+        raise TypeError(msg)
+
+    if df.empty:
+        msg = "`df` contains no data"
+        raise ValueError(msg)
+
     annotators = df["annotator"].unique().tolist()
     labels = df["annotation"].unique().tolist()
     if len(labels) == 1:
@@ -484,20 +505,28 @@ def get_labels_and_annotators(df: DataFrame) -> tuple[list, list]:
 
 def localize_timestamps(timestamps: list[Timestamp], tz: tzinfo) -> list[Timestamp]:
     """Localize timestamps if necessary."""
-    if any(
-            ts.tzinfo is None or ts.tzinfo.utcoffset(ts) is None
-            for ts in timestamps
-    ):
-        return [
-            ts.tz_localize(tz) for ts in timestamps
-        ]
-    return timestamps
+    localized = []
+    for ts in timestamps:
+        if ts.tzinfo is None or ts.tzinfo.utcoffset(ts) is None:
+            localized.append(ts.tz_localize(tz))
+        else:
+            localized.append(ts)
+    return localized
 
 
 def get_time_range_and_bin_size(timestamp_list: list[Timestamp],
                     bin_size: Timedelta | BaseOffset,
                     ) -> (DatetimeIndex, Timedelta):
     """Return time vector given a bin size."""
+    if (not isinstance(timestamp_list, list) or
+            not all(isinstance(ts, Timestamp) for ts in timestamp_list)):
+        msg = "`timestamp_list` must be a list[Timestamp]"
+        raise TypeError(msg)
+
+    if len(timestamp_list) == 0:
+        msg = "`timestamp_list` is empty"
+        raise ValueError(msg)
+
     start, end, _ = round_begin_end_timestamps(timestamp_list, bin_size)
     timestamp_range = date_range(start=start, end=end, freq=bin_size)
     if isinstance(bin_size, Timedelta):
@@ -509,11 +538,19 @@ def get_time_range_and_bin_size(timestamp_list: list[Timestamp],
     raise ValueError(msg)
 
 
-
 def round_begin_end_timestamps(timestamp_list: list[Timestamp],
                     bin_size: Timedelta | BaseOffset,
                     ) -> (Timestamp, Timestamp, Timedelta):
-    """"Return time vector given a bin size."""
+    """Return time vector given a bin size."""
+    if (not isinstance(timestamp_list, list) or
+            not all(isinstance(ts, Timestamp) for ts in timestamp_list)):
+        msg = "timestamp_list must be a list[Timestamp]"
+        raise TypeError(msg)
+
+    if not timestamp_list:
+        msg = "`timestamp_list` is empty"
+        raise ValueError(msg)
+
     if isinstance(bin_size, Timedelta):
         start = min(timestamp_list).floor(bin_size)
         end = max(timestamp_list).ceil(bin_size)
@@ -525,6 +562,9 @@ def round_begin_end_timestamps(timestamp_list: list[Timestamp],
         if not isinstance(bin_size, (offsets.Hour, offsets.Minute, offsets.Second)):
             start = Timestamp(start).normalize()
             end = Timestamp(end).normalize()
+            if start == end:
+                end += bin_size
+
         timestamp_range = date_range(start=start, end=end, freq=bin_size)
         bin_size = timestamp_range[1] - timestamp_range[0]
         return start.floor(bin_size), end.ceil(bin_size), bin_size
