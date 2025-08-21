@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 import astral
 import easygui
+import numpy as np
 from astral.sun import sun
 from matplotlib import pyplot as plt
 from osekit.config import TIMESTAMP_FORMAT_AUDIO_FILE
@@ -19,7 +20,7 @@ from pandas import (
     cut,
     date_range,
     json_normalize,
-    to_datetime,
+    to_datetime, concat,
 )
 from pandas.tseries import offsets
 from pandas.tseries.offsets import BaseOffset
@@ -223,6 +224,8 @@ def get_coordinates() -> tuple:
 def add_weak_detection(
     df: DataFrame,
     datetime_format: str = TIMESTAMP_FORMAT_AUDIO_FILE,
+    max_time: Timedelta | None = None,
+    max_freq: float | None = None,
 ) -> DataFrame:
     """Add weak detections APLOSE formatted DataFrame with only strong detections.
 
@@ -232,14 +235,21 @@ def add_weak_detection(
         An APLOSE formatted DataFrame.
     datetime_format: str
         A string corresponding to the datetime format in the `filename` column
+    max_time: Timedelta
+        Size of the weak detections
+    max_freq: float
+        Height of the weak detections
 
     """
     annotators = get_annotators(df)
     labels = get_labels(df)
-    max_freq = get_max_freq(df)
-    max_time = get_max_time(df)
     dataset_id = get_dataset(df)
     tz = get_timezone(df)
+
+    if not max_freq:
+        max_freq = get_max_freq(df)
+    if not max_time:
+        max_time = get_max_time(df)
 
     for ant in annotators:
         for lbl in labels:
@@ -269,9 +279,11 @@ def add_weak_detection(
                         end_datetime,
                         0,
                     ]
-                    df.loc[len(df.index)] = new_line
+                    if "score" in df.columns:
+                        new_line.append(np.nan)
+                    df.loc[df.index.max() + 1] = new_line
 
-    return df.sort_values("start_datetime").reset_index(drop=True)
+    return df.sort_values(by=["start_datetime", "annotator"]).reset_index(drop=True)
 
 
 def json2df(json_path: Path) -> DataFrame:

@@ -144,12 +144,12 @@ def read_dataframe(file: Path, nrows: int | None = None) -> DataFrame:
 
 def get_annotators(df: DataFrame) -> list[str]:
     """Return list of annotators."""
-    return list(set(df["annotator"]))
+    return sorted(set(df["annotator"]))
 
 
 def get_labels(df: DataFrame) -> list[str]:
     """Return list of labels."""
-    return list(set(df["annotation"]))
+    return sorted(set(df["annotation"]))
 
 
 def get_max_freq(df: DataFrame) -> float:
@@ -164,7 +164,8 @@ def get_max_time(df: DataFrame) -> float:
 
 def get_dataset(df: DataFrame) -> list[str]:
     """Return list of datasets."""
-    return list(set(df["dataset"]))
+    datasets = sorted(set(df["dataset"]))
+    return datasets if len(datasets) > 1 else datasets[0]
 
 
 def get_timezone(df: DataFrame) -> tzoffset | list[tzoffset]:
@@ -172,7 +173,7 @@ def get_timezone(df: DataFrame) -> tzoffset | list[tzoffset]:
     timezones = {ts.tz for ts in df["start_datetime"] if ts.tz is not None}
     if len(timezones) == 1:
         return next(iter(timezones))
-    return list(timezones)
+    return sorted(timezones)
 
 
 def reshape_timebin(

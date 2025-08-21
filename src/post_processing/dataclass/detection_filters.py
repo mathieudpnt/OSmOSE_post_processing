@@ -63,33 +63,52 @@ class DetectionFilters:
         """
         with file.open(encoding="utf-8") as yaml_file:
             parameters = yaml.safe_load(yaml_file)
-            filters = []
+            return cls.from_dict(parameters)
 
-            for detection_file, filters_dict in parameters.items():
-                df_preview = read_dataframe(Path(detection_file), nrows=5)
+    @classmethod
+    def from_dict(
+            cls,
+            parameters: dict,
+    ) -> DetectionFilters | list[DetectionFilters]:
+        """Return a DetectionFilters object from a dict.
 
-                filters_dict["timebin_origin"] = Timedelta(
-                    max(df_preview["end_time"]),
+        Parameters
+        ----------
+        parameters: dict
+            The parameters to load DataAplose object.
+
+        Returns
+        -------
+        DataAplose:
+        The DataAplose object.
+
+        """
+        filters = []
+        for detection_file, filters_dict in parameters.items():
+            df_preview = read_dataframe(Path(detection_file), nrows=5)
+
+            filters_dict["timebin_origin"] = Timedelta(
+                max(df_preview["end_time"]),
+                "s",
+            )
+            filters_dict["timezone"] = get_timezone(df_preview)
+            filters_dict["detection_file"] = Path(detection_file)
+            if filters_dict.get("timebin_new"):
+                filters_dict["timebin_new"] = Timedelta(
+                    filters_dict["timebin_new"],
                     "s",
                 )
-                filters_dict["timezone"] = get_timezone(df_preview)
-                filters_dict["detection_file"] = Path(detection_file)
-                if filters_dict.get("timebin_new"):
-                    filters_dict["timebin_new"] = Timedelta(
-                        filters_dict["timebin_new"],
-                        "s",
-                    )
-                if filters_dict.get("begin"):
-                    filters_dict["begin"] = Timestamp(filters_dict["begin"])
-                if filters_dict.get("end"):
-                    filters_dict["end"] = Timestamp(filters_dict["end"])
-                if filters_dict.get("timestamp_file"):
-                    filters_dict["timestamp_file"] = Path(
-                        filters_dict["timestamp_file"])
+            if filters_dict.get("begin"):
+                filters_dict["begin"] = Timestamp(filters_dict["begin"])
+            if filters_dict.get("end"):
+                filters_dict["end"] = Timestamp(filters_dict["end"])
+            if filters_dict.get("timestamp_file"):
+                filters_dict["timestamp_file"] = Path(
+                    filters_dict["timestamp_file"])
 
-                filters.append(cls(**filters_dict))
+            filters.append(cls(**filters_dict))
 
-        if len(filters)==1:
+        if len(filters) == 1:
             return filters[0]
 
         return filters

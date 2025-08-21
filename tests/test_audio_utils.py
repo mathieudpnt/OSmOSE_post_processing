@@ -7,31 +7,23 @@ import soundfile as sf
 from post_processing.utils.audio_utils import create_raven_file_list, normalize_audio
 
 
-@pytest.fixture
-def dummy_wav(tmp_path: Path) -> Path:
-    file_path = tmp_path / "test.wav"
-    data = np.array([0.0, 0.24, -0.5, 0.78, -0.62], dtype=np.float32)
-    sf.write(file_path, data, samplerate=44100)
-    return file_path
+def test_normalize_audio_default_folder(sample_audio: Path, tmp_path: Path) -> None:
+    normalize_audio(sample_audio)
 
-
-def test_normalize_audio_default_folder(dummy_wav: Path, tmp_path: Path) -> None:
-    normalize_audio(dummy_wav)
-
-    normalized_file = tmp_path / "test_normalized.wav"
+    normalized_file = tmp_path / (sample_audio.stem + "_normalized.wav")
     assert normalized_file.exists()
 
     data, _ = sf.read(normalized_file)
     assert np.isclose(np.max(np.abs(data)), 1.0, rtol=1e-4)
 
 
-def test_normalize_audio_custom_folder(dummy_wav: Path, tmp_path: Path) -> None:
+def test_normalize_audio_custom_folder(sample_audio: Path, tmp_path: Path) -> None:
     out_folder = tmp_path / "output"
     out_folder.mkdir()
 
-    normalize_audio(dummy_wav, output_folder=out_folder)
+    normalize_audio(sample_audio, output_folder=out_folder)
 
-    normalized_file = out_folder / "test.wav"
+    normalized_file = out_folder / sample_audio.name
     assert normalized_file.exists()
 
     data, _ = sf.read(normalized_file)
@@ -45,20 +37,6 @@ def test_normalize_audio_invalid_file(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="An error occurred while reading file"):
         normalize_audio(invalid_file)
 
-
-@pytest.fixture
-def tmp_audio_dir(tmp_path: Path) -> Path:
-    (tmp_path / "file1.wav").write_text("dummy")
-    (tmp_path / "file2.wav").write_text("dummy")
-
-    nested = tmp_path / "nested"
-    nested.mkdir()
-    (nested / "file3.wav").write_text("dummy")
-    (nested / "file4.wav").write_text("dummy")
-
-    (tmp_path / "ignore.txt").write_text("not audio")
-
-    return tmp_path
 
 def test_create_raven_file_list(tmp_audio_dir: Path) -> None:
     create_raven_file_list(tmp_audio_dir)
@@ -79,6 +57,7 @@ def test_create_raven_file_list(tmp_audio_dir: Path) -> None:
 
     assert set(lines) == set(expected_files_str), "All WAV files should be listed"
     assert all(line.endswith(".wav") for line in lines), "Only WAV files should be listed"
+
 
 def test_create_raven_file_list_empty_dir(tmp_path: Path) -> None:
     create_raven_file_list(tmp_path)

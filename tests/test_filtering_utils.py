@@ -57,65 +57,20 @@ def test_find_delimiter_empty_file(tmp_path: Path) -> None:
 
 #%% filter utils
 
-@pytest.fixture
-def sample_df() -> DataFrame:
-    return DataFrame([
-        {
-            "dataset": "dataset1",
-            "filename": "filename1",
-            "start_time": 0,
-            "end_time": 300,
-            "start_frequency": 100,
-            "end_frequency": 500,
-            "annotation": "lbl1",
-            "annotator": "ann1",
-            "start_datetime": Timestamp("2025-01-01 12:00:00+01:00"),
-            "end_datetime": Timestamp("2025-01-01 12:05:00+01:00"),
-            "is_box": 0,
-            "score": 0.8,
-        },
-        {
-            "dataset": "dataset1",
-            "filename": "filename2",
-            "start_time": 0,
-            "end_time": 300,
-            "start_frequency": 300,
-            "end_frequency": 800,
-            "annotation": "lbl2",
-            "annotator": "ann2",
-            "start_datetime": Timestamp("2025-01-01 13:00:00+01:00"),
-            "end_datetime": Timestamp("2025-01-01 13:05:00+01:00"),
-            "is_box": 0,
-            "score": 0.4,
-        },
-        {
-            "dataset": "dataset1",
-            "filename": "filename3",
-            "start_time": 0,
-            "end_time": 300,
-            "start_frequency": 600,
-            "end_frequency": 1200,
-            "annotation": "lbl1",
-            "annotator": "ann1",
-            "start_datetime": Timestamp("2025-01-01 14:00:00+01:00"),
-            "end_datetime": Timestamp("2025-01-01 14:05:00+01:00"),
-            "is_box": 0,
-            "score": 0.9,
-        },
-    ])
-
 # filter_by_time
 def test_filter_by_time_begin(sample_df: DataFrame) -> None:
-    df = filter_by_time(sample_df, begin=Timestamp("2025-01-01 13:00:00+01:00"), end=None)
-    assert (df["start_datetime"] >= Timestamp("2025-01-01 13:00:00+01:00")).all()
+    ts = sample_df["start_datetime"].iloc[4]
+    df = filter_by_time(sample_df, begin=ts, end=None)
+    assert (df["start_datetime"] >= ts).all()
 
 def test_filter_by_time_end(sample_df: DataFrame) -> None:
-    df = filter_by_time(sample_df, begin=None, end=Timestamp("2025-01-01 13:10:00+01:00"))
-    assert (df["end_datetime"] <= Timestamp("2025-01-01 13:10:00+01:00")).all()
+    ts = sample_df["end_datetime"].iloc[4]
+    df = filter_by_time(sample_df, begin=None, end=ts)
+    assert (df["end_datetime"] <= ts).all()
 
 def test_filter_by_time_out_of_range(sample_df: DataFrame) -> None:
-    with pytest.raises(ValueError, match="No detection found after '2026"):
-        filter_by_time(sample_df, begin=Timestamp("2026-01-01 00:00:00+01:00"), end=None)
+    with pytest.raises(ValueError, match="No detection found after '2050"):
+        filter_by_time(sample_df, begin=Timestamp("2050-01-01", tz="utc"), end=None)
 
 # filter_by_annotator
 def test_filter_by_annotator_string(sample_df: DataFrame) -> None:
@@ -145,16 +100,19 @@ def test_filter_by_label_invalid(sample_df: DataFrame) -> None:
 
 # filter_by_freq
 def test_filter_by_freq_min(sample_df: DataFrame) -> None:
-    df = filter_by_freq(sample_df, f_min=500, f_max=None)
-    assert (df["start_frequency"] >= 500).all()
+    freq_min = 500
+    df = filter_by_freq(sample_df, f_min=freq_min, f_max=None)
+    assert (df["start_frequency"] >= freq_min).all()
 
 def test_filter_by_freq_max(sample_df: DataFrame) -> None:
-    df = filter_by_freq(sample_df, f_min=None, f_max=600)
-    assert (df["end_frequency"] <= 600).all()
+    freq_max = 60000
+    df = filter_by_freq(sample_df, f_min=None, f_max=freq_max)
+    assert (df["end_frequency"] <= freq_max).all()
 
 def test_filter_by_freq_no_results(sample_df: DataFrame) -> None:
-    with pytest.raises(ValueError, match="No detection found above 2000Hz"):
-        filter_by_freq(sample_df, f_min=2000, f_max=None)
+    freq_min = 144000
+    with pytest.raises(ValueError, match=f"No detection found above {int(freq_min)}Hz"):
+        filter_by_freq(sample_df, f_min=freq_min, f_max=None)
 
 # filter_by_score
 def test_filter_by_score_valid(sample_df: DataFrame) -> None:
@@ -172,21 +130,22 @@ def test_filter_by_score_missing_column(sample_df: DataFrame) -> None:
 
 def test_get_annotators(sample_df: DataFrame) -> None:
     annotators = get_annotators(sample_df)
-    assert set(annotators) == {"ann1", "ann2"}
+    expected = sorted(set(sample_df["annotator"]))
+    assert annotators == expected
 
 def test_get_labels(sample_df: DataFrame) -> None:
     labels = get_labels(sample_df)
-    assert set(labels) == {"lbl1", "lbl2"}
+    expected = sorted(set(sample_df["annotation"]))
+    assert labels == expected
 
 def test_get_max_freq(sample_df: DataFrame) -> None:
-    assert get_max_freq(sample_df) == 1_200
+    assert get_max_freq(sample_df) == sample_df["end_frequency"].max()
 
 def test_get_max_time(sample_df: DataFrame) -> None:
-    assert get_max_time(sample_df) == 300
+    assert get_max_time(sample_df) == sample_df["end_time"].max()
 
 def test_get_dataset(sample_df: DataFrame) -> None:
-    datasets = get_dataset(sample_df)
-    assert set(datasets) == {"dataset1"}
+    assert get_dataset(sample_df) == sample_df["dataset"].iloc[0]
 
 def test_get_timezone_single(sample_df: DataFrame) -> None:
     tz = get_timezone(sample_df)
@@ -250,25 +209,52 @@ def test_no_timebin_returns_original(sample_df: DataFrame) -> None:
     assert df_out.equals(sample_df)
 
 def test_no_timebin_original_timebin(sample_df: DataFrame) -> None:
-    df_out = reshape_timebin(sample_df, timebin_new=Timedelta("300s"))
+    df_out = reshape_timebin(sample_df, timebin_new=Timedelta("1min"))
     expected = DataFrame({
-        "dataset": ["dataset1"]*3,
-        "filename": [f"filename{i+1}" for i in range(3)],
-        "start_time": [0]*3,
-        "end_time": [300.0]*3,
-        "start_frequency": [0]*3,
-        "end_frequency": [1200]*3,
-        "annotation": ["lbl1", "lbl2", "lbl1"],
-        "annotator": ["ann1", "ann2", "ann1"],
-        "start_datetime": [Timestamp("2025-01-01 12:00:00+01:00"),
-                           Timestamp("2025-01-01 13:00:00+01:00"),
-                           Timestamp("2025-01-01 14:00:00+01:00")
-                           ],
-        "end_datetime": [Timestamp("2025-01-01 12:05:00+01:00"),
-                           Timestamp("2025-01-01 13:05:00+01:00"),
-                           Timestamp("2025-01-01 14:05:00+01:00")
-                           ],
-        "is_box": [0] * 3,
+        "dataset": ["sample_dataset"] * 11,
+        "filename": ["2025_01_25_06_20_00",
+                    "2025_01_25_06_20_00",
+                    "2025_01_25_06_20_00",
+                    "2025_01_25_06_20_00",
+                    "2025_01_25_06_20_00",
+                    "2025_01_25_06_20_00",
+                    "2025_01_25_06_20_00",
+                    "2025_01_25_06_20_10",
+                    "2025_01_25_06_20_10",
+                    "2025_01_25_06_20_40",
+                    "2025_01_25_06_20_30",
+                    ],
+        "start_time": [0] * 11,
+        "end_time": [60.0] * 11,
+        "start_frequency": [0] * 11,
+        "end_frequency": [72_000.0] * 11,
+        "annotation": ["lbl1",
+                        "lbl2",
+                        "lbl1",
+                        "lbl2",
+                        "lbl2",
+                        "lbl2",
+                        "lbl1",
+                        "lbl2",
+                        "lbl3",
+                        "lbl1",
+                        "lbl2",
+                       ],
+        "annotator": ["ann1",
+                        "ann1",
+                        "ann2",
+                        "ann2",
+                        "ann3",
+                        "ann4",
+                        "ann5",
+                        "ann5",
+                        "ann5",
+                        "ann6",
+                        "ann6",
+                        ],
+        "start_datetime": [Timestamp("2025-01-25 06:20:00+00:00")] * 11,
+        "end_datetime": [Timestamp("2025-01-25 06:21:00+00:00")] * 11,
+        "is_box": [0] * 11,
 
     })
 
