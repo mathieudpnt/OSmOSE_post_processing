@@ -51,6 +51,7 @@ detection_begin_adjusted = detection_begin + seconds(cumsum_adjust(idx_wav));
 beg_sec_adjusted = seconds(detection_begin_adjusted - min(binary_struct.datetime));
 
 % generate APLOSE table
+L = length(binary_data);
 annotator = repmat(info_deploy.annotator, [L,1]);
 annotation = repmat(info_deploy.annotation, [L,1]);
 dataset = repmat(info_deploy.dataset, [L,1]);
