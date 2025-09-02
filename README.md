@@ -15,7 +15,7 @@ All results and expected input data is to be formatted according [OSmOSE](https:
 
 
 ## 🛠 Installation
-The package will be installed with [uv](https://docs.astral.sh/uv/), a Python package and project manager.
+The package should be installed with [uv](https://docs.astral.sh/uv/), a Python package and project manager.
 Please refer to the [documentation](https://docs.astral.sh/uv/getting-started/installation/) for installing uv.
 
 To download the repository, simply clone it from git:
