@@ -1,37 +1,46 @@
 from __future__ import annotations
 
-import logging
-import os
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import pandas as pd
 import pytz
 import seaborn as sns
 from matplotlib import pyplot as plt
 from osekit.config import TIMESTAMP_FORMAT_AUDIO_FILE
 from osekit.utils.timestamp_utils import strftime_osmose_format, strptime_from_text
+from pandas import (
+    DataFrame,
+    Series,
+    Timedelta,
+    Timestamp,
+    concat,
+    date_range,
+    notna,
+    read_csv,
+    read_excel,
+    to_datetime,
+)
 
-from post_processing.utils.core_utils import get_sun_times, get_coordinates
+from post_processing import logger
+from post_processing.utils.core_utils import get_coordinates, get_sun_times
 
 if TYPE_CHECKING:
-    from pathlib import Path
 
     import pytz
 
 
 def fpod2aplose(
-    df: pd.DataFrame,
+    df: DataFrame,
     tz: pytz.timezone,
     dataset_name: str,
     annotation: str,
     bin_size: int = 60,
-) -> pd.DataFrame:
+) -> DataFrame:
     """Format FPOD DataFrame to match APLOSE format.
 
     Parameters
     ----------
-    df: pd.DataFrame
+    df: DataFrame
         FPOD result dataframe
     tz: pytz.timezone
         Timezone object to get non-naïve datetimes
@@ -44,7 +53,7 @@ def fpod2aplose(
 
     Returns
     -------
-    pd.DataFrame
+    DataFrame
         An APLOSE formatted DataFrame
 
     """
@@ -56,7 +65,7 @@ def fpod2aplose(
     )
 
     fpod_end_dt = sorted(
-        [entry + pd.Timedelta(seconds=bin_size) for entry in fpod_start_dt],
+        [entry + Timedelta(seconds=bin_size) for entry in fpod_start_dt],
     )
 
     data = {
@@ -73,22 +82,22 @@ def fpod2aplose(
         "is_box": [0] * len(df),
     }
 
-    return pd.DataFrame(data)
+    return DataFrame(data)
 
 
 def cpod2aplose(
-    df: pd.DataFrame,
+    df: DataFrame,
     tz: pytz.BaseTzInfo,
     dataset_name: str,
     annotation: str,
     bin_size: int = 60,
     extra_columns: list | None = None,
-) -> pd.DataFrame:
+) -> DataFrame:
     """Format CPOD DataFrame to match APLOSE format.
 
     Parameters
     ----------
-    df: pd.DataFrame
+    df: DataFrame
         CPOD result dataframe
     tz: pytz.BaseTzInfo
         Timezone object to get non-naïve datetimes
@@ -103,17 +112,15 @@ def cpod2aplose(
 
     Returns
     -------
-    pd.DataFrame
+    DataFrame
         An APLOSE formatted DataFrame
 
     """
-    logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
-
     df_cpod = df.rename(columns={"ChunkEnd": "Date heure"})
 
     # remove lines where the C-POD stopped working
-    df_cpod.drop(
-        df_cpod.loc[df_cpod["Date heure"] == " at minute "].index, inplace=True,
+    df_cpod = df_cpod.drop(
+        df_cpod.loc[df_cpod["Date heure"] == " at minute "].index,
     )
     data = fpod2aplose(df_cpod, tz, dataset_name, annotation, bin_size)
     data["annotator"] = data.loc[data["annotator"] == "FPOD"] = "CPOD"
@@ -122,44 +129,42 @@ def cpod2aplose(
             if col in df_cpod.columns:
                 data[col] = df_cpod[col].tolist()
             else:
-                msg = f"The column '{col}' does not exist and will be ignored."
-                logging.warning(msg)
+                msg = f"Column '{col}' does not exist and will be ignored."
+                logger.warning(msg)
 
-    return pd.DataFrame(data)
+    return DataFrame(data)
 
 
 def usable_data_phase(
-    d_meta: pd.DataFrame,
-    df: pd.DataFrame,
+    d_meta: DataFrame,
+    df: DataFrame,
     dpl: str,
-) -> pd.DataFrame:
+) -> DataFrame:
     """Calculate the percentage of usable data.
 
     Considering the deployment dates and the collected data.
 
     Parameters
     ----------
-    df: pd.DataFrame
+    df: DataFrame
         CPOD result DataFrame
-    d_meta: pd.DataFrame
+    d_meta: DataFrame
         Metadata DataFrame with deployments information (previously exported as json)
     dpl: str
         Deployment of interest where percentage of usable data will be calculated
 
     Returns
     -------
-    pd.DataFrame
+    DataFrame
         Returns the percentage of usable datas in the chosen phase
 
     """
-    logging.basicConfig(level=logging.INFO, format="%(message)s")
-
     d_meta.loc[:, ["deployment_date", "recovery_date"]] = d_meta[
         ["deployment_date", "recovery_date"]
     ].apply(
-        pd.to_datetime,
+        to_datetime,
     )
-    df["start_datetime"] = pd.to_datetime(df["start_datetime"])
+    df["start_datetime"] = to_datetime(df["start_datetime"])
 
     phase = d_meta.loc[d_meta["name"] == dpl].reset_index()
     data = df.loc[df["name"] == dpl].reset_index()
@@ -178,36 +183,34 @@ def usable_data_phase(
         percentage_data = act_length * 100 / p_length
         msg = f"Percentage of usable data : {percentage_data}%"
 
-    logging.info(msg)
+    logger.info(msg)
     return percentage_data
 
 
 def meta_cut_aplose(
-    d_meta: pd.DataFrame,
-    df: pd.DataFrame,
-) -> pd.DataFrame:
+    d_meta: DataFrame,
+    df: DataFrame,
+) -> DataFrame:
     """From APLOSE DataFrame with all rows to filtered DataFrame.
 
     Parameters
     ----------
-    df: pd.DataFrame
+    df: DataFrame
         CPOD result dataframe
-    d_meta: pd.DataFrame
+    d_meta: DataFrame
         Metadata dataframe with deployments information (previously exported as json)
 
     Returns
     -------
-    pd.DataFrame
+    DataFrame
         An APLOSE DataFrame with data from beginning to end of each deployment.
         Returns the percentage of usable datas.
 
     """
-    logging.basicConfig(level=logging.INFO, format="%(message)s")
-
     d_meta.loc[:, ["deployment_date", "recovery_date"]] = d_meta[
         ["deployment_date", "recovery_date"]
-    ].apply(pd.to_datetime)
-    df["start_datetime"] = pd.to_datetime(
+    ].apply(to_datetime)
+    df["start_datetime"] = to_datetime(
         df["start_datetime"],
         format=TIMESTAMP_FORMAT_AUDIO_FILE,
     )
@@ -237,11 +240,11 @@ def meta_cut_aplose(
         percentage_on = percentage_data * (on / len(df))
         msg = f"Percentage of usable data : {percentage_on}%"
 
-    logging.info(msg)
+    logger.info(msg)
     return df
 
 
-def format_calendar(path: Path) -> pd.DataFrame:
+def format_calendar(path: Path) -> DataFrame:
     """Format calendar.
 
     Parameters
@@ -250,7 +253,7 @@ def format_calendar(path: Path) -> pd.DataFrame:
         Excel calendar path
 
     """
-    df_calendar = pd.read_excel(path)
+    df_calendar = read_excel(path)
     df_calendar = df_calendar[df_calendar["Site group"] == "Data"].copy()
 
     return df_calendar.rename(
@@ -263,18 +266,18 @@ def format_calendar(path: Path) -> pd.DataFrame:
 
 
 def dpm_to_dph(
-    df: pd.DataFrame,
+    df: DataFrame,
     tz: pytz.BaseTzInfo,
     dataset_name: str,
     annotation: str,
     bin_size: int = 3600,
     extra_columns: list | None = None,
-) -> pd.DataFrame:
+) -> DataFrame:
     """From CPOD result DataFrame to APLOSE formatted DataFrame.
 
     Parameters
     ----------
-    df: pd.DataFrame
+    df: DataFrame
         CPOD result DataFrame
     tz: pytz.BaseTzInfo
         Timezone object to get timezone-aware datetimes
@@ -289,52 +292,48 @@ def dpm_to_dph(
 
     Returns
     -------
-    pd.DataFrame
+    DataFrame
         An APLOSE DataFrame
 
     """
-    df["start_datetime"] = pd.to_datetime(df["start_datetime"], utc=True)
-    df["end_datetime"] = pd.to_datetime(df["end_datetime"], utc=True)
-
-    # Truncate column
+    df["start_datetime"] = to_datetime(df["start_datetime"], utc=True)
+    df["end_datetime"] = to_datetime(df["end_datetime"], utc=True)
     df["Date heure"] = df["start_datetime"].dt.floor("h")
-
-    # Group by hour
     dph = df.groupby(["Date heure"])["DPM"].sum().reset_index()
     dph["Date heure"] = dph["Date heure"].apply(
-        lambda x: pd.Timestamp(x).strftime(format="%d/%m/%Y %H:%M:%S"),
+        lambda x: Timestamp(x).strftime(format="%d/%m/%Y %H:%M:%S"),
     )
 
     return cpod2aplose(dph, tz, dataset_name, annotation, bin_size, extra_columns)
 
 
 def assign_phase(
-    meta: pd.DataFrame,
-    data: pd.DataFrame,
+    meta: DataFrame,
+    data: DataFrame,
     site: str,
-) -> pd.DataFrame:
+) -> DataFrame:
     """Add a column to an APLOSE DataFrame to specify the name of the phase.
 
     The name of the phase is attributed according to metadata.
 
     Parameters
     ----------
-    meta: pd.DataFrame
+    meta: DataFrame
         Metadata dataframe with deployments information (previously exported as json).
-    data: pd.DataFrame
+    data: DataFrame
         Contain positive hours to detections.
     site: str
         Name of the site you wish to assign phases to.
 
     Returns
     -------
-    pd.DataFrame
+    DataFrame
         The same dataframe with the column Phase.
 
     """
-    data["start_datetime"] = pd.to_datetime(data["start_datetime"], utc=True)
-    meta["deployment_date"] = pd.to_datetime(meta["deployment_date"], utc=True)
-    meta["recovery_date"] = pd.to_datetime(meta["recovery_date"], utc=True)
+    data["start_datetime"] = to_datetime(data["start_datetime"], utc=True)
+    meta["deployment_date"] = to_datetime(meta["deployment_date"], utc=True)
+    meta["recovery_date"] = to_datetime(meta["recovery_date"], utc=True)
 
     meta = meta[meta["site.name"] == site].copy()
 
@@ -353,28 +352,28 @@ def assign_phase(
 
 
 def assign_phase_simple(
-    meta: pd.DataFrame,
-    data: pd.DataFrame,
-) -> pd.DataFrame:
-    """Add a column to an Aplose dataframe to specify the name of the phase, according to metadata.
+    meta: DataFrame,
+    data: DataFrame,
+) -> DataFrame:
+    """Add column to an Aplose DataFrame to specify the phase, according to metadata.
 
     Parameters
     ----------
-    meta: pd.DataFrame
+    meta: DataFrame
         Metadata dataframe with deployments information (previously exported as json).
-    data: pd.DataFrame
-        Dataframe containing positive hours to detections.
+    data: DataFrame
+        Contain positive hours to detections.
 
     Returns
     -------
-    pd.DataFrame
+    DataFrame
         The same dataframe with the column Phase.
 
     """
-    data["start_datetime"] = pd.to_datetime(data["start_datetime"], utc=True)
-    data["end_datetime"] = pd.to_datetime(data["end_datetime"], dayfirst=True, utc=True)
-    meta["deployment_date"] = pd.to_datetime(meta["deployment_date"], utc=True)
-    meta["recovery_date"] = pd.to_datetime(meta["recovery_date"], utc=True)
+    data["start_datetime"] = to_datetime(data["start_datetime"], utc=True)
+    data["end_datetime"] = to_datetime(data["end_datetime"], dayfirst=True, utc=True)
+    meta["deployment_date"] = to_datetime(meta["deployment_date"], utc=True)
+    meta["recovery_date"] = to_datetime(meta["recovery_date"], utc=True)
     meta["deployment_date"] = meta["deployment_date"].dt.floor("d")
     meta["recovery_date"] = meta["recovery_date"].dt.floor("d")
 
@@ -383,7 +382,7 @@ def assign_phase_simple(
         site_meta = meta[meta["site.name"] == site]
         site_data = data[data["site.name"] == site]
 
-        for i, meta_row in site_meta.iterrows():
+        for _, meta_row in site_meta.iterrows():
             time_filter = (
                 meta_row["deployment_date"] <= site_data["start_datetime"]
             ) & (site_data["start_datetime"] < meta_row["recovery_date"])
@@ -392,63 +391,62 @@ def assign_phase_simple(
     return data
 
 
-def generate_hourly_detections(meta: pd.DataFrame, site: str) -> pd.DataFrame:
+def generate_hourly_detections(meta: DataFrame, site: str) -> DataFrame:
     """Create a DataFrame with one line per hour between start and end dates.
 
     Keep the number of detections per hour between these dates.
 
     Parameters
     ----------
-    meta: pd.DataFrame
+    meta: DataFrame
         Metadata dataframe with deployments information (previously exported as json)
     site: str
         A way to isolate the site you want to work on.
 
     Returns
     -------
-    pd.DataFrame
+    DataFrame
         A full period of time with positive and negative hours to detections.
 
     """
     df_meta = meta[meta["site.name"] == site].copy()
-    df_meta["deployment_date"] = pd.to_datetime(df_meta["deployment_date"])
-    df_meta["recovery_date"] = pd.to_datetime(df_meta["recovery_date"])
+    df_meta["deployment_date"] = to_datetime(df_meta["deployment_date"])
+    df_meta["recovery_date"] = to_datetime(df_meta["recovery_date"])
     df_meta["deployment_date"] = df_meta["deployment_date"].dt.floor("h")
     df_meta["recovery_date"] = df_meta["recovery_date"].dt.floor("h")
     df_meta = df_meta.sort_values(by=["deployment_date"])
 
-    records = []
-    for _, row in df_meta.iterrows():
-        name = row["name"]
-        period = pd.date_range(
+    records = [
+        {"name": row["name"], "start_datetime": date}
+        for _, row in df_meta.iterrows()
+        for date in date_range(
             start=row["deployment_date"], end=row["recovery_date"], freq="h",
         )
-        for date in period:
-            records.append({"name": name, "start_datetime": date})
+    ]
 
-    return pd.DataFrame(records)
+    return DataFrame(records)
 
 
-def merging_tab(meta: pd.DataFrame, data: pd.DataFrame) -> pd.DataFrame:
+def merging_tab(meta: DataFrame, data: DataFrame) -> DataFrame:
     """Create a DataFrame with one line per hour between start and end dates.
 
     Keep the number of detections per hour between these dates.
 
     Parameters
     ----------
-    meta: pd.DataFrame
+    meta: DataFrame
         Metadata with deployments information (previously exported as json)
-    data: pd.DataFrame
+    data: DataFrame
         Contain positive hours to detections
 
     Returns
     -------
-    pd.DataFrame
+    DataFrame
         A full period of time with positive and negative hours to detections.
 
     """
-    data["start_datetime"] = pd.to_datetime(data["start_datetime"], utc=True)
-    meta["start_datetime"] = pd.to_datetime(meta["start_datetime"], utc=True)
+    data["start_datetime"] = to_datetime(data["start_datetime"], utc=True)
+    meta["start_datetime"] = to_datetime(meta["start_datetime"], utc=True)
 
     deploy_detec = data["name"].unique()
     df_filtered = meta[meta["name"].isin(deploy_detec)]
@@ -469,79 +467,83 @@ def merging_tab(meta: pd.DataFrame, data: pd.DataFrame) -> pd.DataFrame:
     return output
 
 
-def feeding_buzz(df:pd.DataFrame, species:str) -> pd.DataFrame:
+def feeding_buzz(df: DataFrame, species: str) -> DataFrame:
     """Process a CPOD/FPOD feeding buzz detection file.
+
     Gives the feeding buzz duration, depending on the studied species.
 
     Parameters
     ----------
-    df: pd.DataFrame
+    df: DataFrame
         Path to cpod.exe feeding buzz file
     species: str
-        Select the species to use between porpoise and commerson's dolphin
+        Select the species to use between porpoise and Commerson's dolphin
 
     Returns
     -------
-    pd.DataFrame
+    DataFrame
         Containing all ICIs for every positive minutes to clicks
+
     """
     df.columns = df.columns.str.upper()
-    df['MICROSEC'] = df['MICROSEC'] / 1e6
-    col = 'DATE HEURE MINUTE'
-    col2 = 'HEURE MINUTE'
+    df["MICROSEC"] = df["MICROSEC"] / 1e6
+    col = "DATE HEURE MINUTE"
+    col2 = "HEURE MINUTE"
     if col in df.columns:
-        df[['DATE', 'HEURE', 'MINUTE']] = df[col].str.split(' ', expand=True)
-        df['Time'] = (df['DATE'].astype(str) + ' ' +
-                      df['HEURE'].astype(str) + ':' +
-                      df['MINUTE'].astype(str) + ':' +
-                      df['MICROSEC'].astype(str))
-        df['Time'] = pd.to_datetime(df['Time'], dayfirst=True)
+        df[["DATE", "HEURE", "MINUTE"]] = df[col].str.split(" ", expand=True)
+        df["Time"] = (df["DATE"].astype(str) + " " +
+                      df["HEURE"].astype(str) + ":" +
+                      df["MINUTE"].astype(str) + ":" +
+                      df["MICROSEC"].astype(str))
+        df["Time"] = to_datetime(df["Time"], dayfirst=True)
     elif col2 in df.columns:
-        df[['HEURE', 'MINUTE']] = df[col2].str.split(' ', expand=True)
-        df['Time'] = (df['DATE'].astype(str) + ' ' +
-                      df['HEURE'].astype(str) + ':' +
-                      df['MINUTE'].astype(str) + ':' +
-                      df['MICROSEC'].astype(str))
-        df['Time'] = pd.to_datetime(df['Time'], dayfirst=True)
+        df[["HEURE", "MINUTE"]] = df[col2].str.split(" ", expand=True)
+        df["Time"] = (df["DATE"].astype(str) + " " +
+                      df["HEURE"].astype(str) + ":" +
+                      df["MINUTE"].astype(str) + ":" +
+                      df["MICROSEC"].astype(str))
+        df["Time"] = to_datetime(df["Time"], dayfirst=True)
     else :
-        df['Time'] = (df['MINUTE'].astype(str) + ':' + df['MICROSEC'].astype(str))
-        df['Time'] = pd.to_datetime(df['Time'], dayfirst=True)
+        df["Time"] = (df["MINUTE"].astype(str) + ":" + df["MICROSEC"].astype(str))
+        df["Time"] = to_datetime(df["Time"], dayfirst=True)
 
-    df = df.sort_values(by='Time').reset_index(drop=True)
-    df['ICI'] = df['Time'].diff().dt.total_seconds()
+    df = df.sort_values(by="Time").reset_index(drop=True)
+    df["ICI"] = df["Time"].diff().dt.total_seconds()
 
-    df['Buzz'] = 0
+    df["Buzz"] = 0
     if species == "Porpoise":
-        feeding_idx = df.index[df['ICI'] < 0.01]
+        feeding_idx = df.index[df["ICI"] < 0.01]
     else :
-        feeding_idx = df.index[df['ICI'] >= 0.005]
+        feeding_idx = df.index[df["ICI"] >= 0.005]
 
-    df.loc[feeding_idx, 'Buzz'] = 1
-    df.loc[feeding_idx - 1, 'Buzz'] = 1
-    df.loc[df.index < 0, 'Buzz'] = 0
+    df.loc[feeding_idx, "Buzz"] = 1
+    df.loc[feeding_idx - 1, "Buzz"] = 1
+    df.loc[df.index < 0, "Buzz"] = 0
 
-    df['start_datetime'] = df['Time'].dt.floor('min')
-    df['start_datetime'] = pd.to_datetime(df['start_datetime'], dayfirst=False, utc=True)
-    f = df.groupby(['start_datetime'])['Buzz'].sum().reset_index()
+    df["start_datetime"] = df["Time"].dt.floor("min")
+    df["start_datetime"] = to_datetime(df["start_datetime"], dayfirst=False, utc=True)
+    f = df.groupby(["start_datetime"])["Buzz"].sum().reset_index()
 
-    f['Foraging'] = (f['Buzz'] != 0).astype(int)
+    f["Foraging"] = (f["Buzz"] != 0).astype(int)
 
     return f
 
 
 def assign_daytime(
-        df: pd.DataFrame,
-) -> pd.DataFrame:
-    """Assign datetime categories to events. Categorize daytime of the detection (among 4 categories).
+        df: DataFrame,
+) -> DataFrame:
+    """Assign datetime categories to events.
+
+    Categorize daytime of the detection (among 4 categories).
 
     Parameters
     ----------
-    df: pd.DataFrame
-        Dataframe containing positive hours to detections.
+    df: DataFrame
+        Contains positive hours to detections.
 
     Returns
     -------
-    pd.DataFrame
+    DataFrame
         The same dataframe with the column daytime.
 
     """
@@ -549,40 +551,41 @@ def assign_daytime(
     stop = df.iloc[-1]["Time"]
     lat, lon = get_coordinates()
     _, _,dawn,day,dusk,night  = get_sun_times(start, stop, lat, lon)
-    dawn = pd.Series(dawn, name='dawn')
-    day = pd.Series(day, name='day')
-    dusk = pd.Series(dusk, name='dusk')
-    night = pd.Series(night, name='night')
-    jour = pd.concat([day, night, dawn, dusk], axis=1)
+    dawn = Series(dawn, name="dawn")
+    day = Series(day, name="day")
+    dusk = Series(dusk, name="dusk")
+    night = Series(night, name="night")
+    jour = concat([day, night, dawn, dusk], axis=1)
 
     for i, row in df.iterrows():
-        dpm_i = row['Time']
-        if pd.notna(dpm_i):  # Check if time is not NaN
+        dpm_i = row["Time"]
+        if notna(dpm_i):  # Check if time is not NaN
             jour_i = jour[
-                (jour['dusk'].dt.year == dpm_i.year) &
-                (jour['dusk'].dt.month == dpm_i.month) &
-                (jour['dusk'].dt.day == dpm_i.day)
+                (jour["dusk"].dt.year == dpm_i.year) &
+                (jour["dusk"].dt.month == dpm_i.month) &
+                (jour["dusk"].dt.day == dpm_i.day)
                 ]
-            if not jour_i.empty:  # Ensure there's a matching row
+            if not jour_i.empty:  # Ensure there"s a matching row
                 jour_i = jour_i.iloc[0]  # Extract first match
-                if dpm_i <= jour_i['day']:
-                    df.at[i, 'REGIME'] = 1
-                elif dpm_i < jour_i['dawn']:
-                    df.at[i, 'REGIME'] = 2
-                elif dpm_i < jour_i['dusk']:
-                    df.at[i, 'REGIME'] = 3
-                elif dpm_i > jour_i['night']:
-                    df.at[i, 'REGIME'] = 1
-                elif dpm_i > jour_i['dusk']:
-                    df.at[i, 'REGIME'] = 4
+                if dpm_i <= jour_i["day"]:
+                    df.loc[i, "REGIME"] = 1
+                elif dpm_i < jour_i["dawn"]:
+                    df.loc[i, "REGIME"] = 2
+                elif dpm_i < jour_i["dusk"]:
+                    df.loc[i, "REGIME"] = 3
+                elif dpm_i > jour_i["night"]:
+                    df.loc[i, "REGIME"] = 1
+                elif dpm_i > jour_i["dusk"]:
+                    df.loc[i, "REGIME"] = 4
                 else:
-                    df.at[i, 'REGIME'] = 1
+                    df.loc[i, "REGIME"] = 1
 
     return df
 
 
-def process_files_in_folder(folder_path:Path, species:str) -> pd.DataFrame:
-    """Process a folder containing all CPOD/FPOD feeding buzz detection files for one site of a project.
+def process_files_in_folder(folder_path:Path, species:str) -> DataFrame:
+    """Process a folder containing all CPOD/FPOD feeding buzz detection files.
+
     Apply the feeding buzz function to these files.
 
     Parameters
@@ -590,71 +593,72 @@ def process_files_in_folder(folder_path:Path, species:str) -> pd.DataFrame:
     folder_path: Path
         Path to the folder.
     species: str
-        Select the species to use between porpoise and commerson's dolphin
+        Select the species to use between porpoise and Commerson's dolphin
 
     Returns
     -------
-    pd.DataFrame
-        A dataframe with all compiled feeding buzz detection positive minutes for one site of a project.
+    DataFrame
+       Compiled feeding buzz detection positive minutes.
 
     """
-    all_files = [f for f in os.listdir(folder_path) if f.endswith(".txt")]
+    all_files = list(Path(folder_path).rglob("*.txt"))
     all_data = []
 
     for file in all_files:
-        file_path = os.path.join(folder_path, file)
-        df = pd.read_csv(file_path, sep="\t")
+        file_path = folder_path / file
+        df = read_csv(file_path, sep="\t")
         processed_df = feeding_buzz(df, species)
         processed_df["file"] = file
         all_data.append(processed_df)
 
-    final_df = pd.concat(all_data, ignore_index=True)
-    print(final_df)
-    return final_df
+    return concat(all_data, ignore_index=True)
 
 
 colors = {
-    'DY1': '#118B50',
-    'DY2': '#5DB996',
-    'DY3': '#B0DB9C',
-    'DY4': '#E3F0AF',
-    'CA4': '#5EABD6',
-    'Walde': '#FFB4B4',
+    "DY1": "#118B50",
+    "DY2": "#5DB996",
+    "DY3": "#B0DB9C",
+    "DY4": "#E3F0AF",
+    "CA4": "#5EABD6",
+    "Walde": "#FFB4B4",
 }
 
 
-def extract_site(df:pd.DataFrame):
-    """
-    Create 2 new columns : site.name and campaign.name, in order to match the metadata.
+def extract_site(df: DataFrame) -> DataFrame:
+    """Create new columns: site.name and campaign.name, in order to match the metadata.
 
     Parameters
     ----------
-    df: pd.DataFrame
+    df: DataFrame
         All values concatenated
 
     Returns
     -------
-    pd.DataFrame
+    DataFrame
         The same dataframe with two additional columns.
+
     """
     df[["site.name", "campaign.name"]] = df["name"].str.split("_", expand=True)
     return df
 
 
-def percent_calc(data:pd.DataFrame, time_unit:str | None = None):
-    """
-    Calculate the percentages of clics, feeding buzzes and positive hours to detection on the entire effort,
-    for every site.
+def percent_calc(data: DataFrame, time_unit: str | None = None) -> DataFrame:
+    """Calculate percentage of clicks, feeding buzzes and positive hours to detection.
+
+    Computed on the entire effort and for every site.
 
     Parameters
     ----------
-    data: pd.DataFrame
+    data: DataFrame
         All values concatenated
-    time_unit: Time unit you want to group your data in
+
+    time_unit: str
+        Time unit you want to group your data in
 
     Returns
     -------
-    pd.DataFrame
+    DataFrame
+
     """
     group_cols = ["site.name"]
     if time_unit is not None:
@@ -665,66 +669,65 @@ def percent_calc(data:pd.DataFrame, time_unit:str | None = None):
         "DPH": "sum",
         "DPM": "sum",
         "Day": "size",
-        "Foraging": "sum"
+        "Foraging": "sum",
     }).reset_index()
 
-    df["%clics"] = df["DPM"] * 100 / (df["Day"] * 60)
+    df["%click"] = df["DPM"] * 100 / (df["Day"] * 60)
     df["%DPH"] = df["DPH"] * 100 / df["Day"]
     df["FBR"] = df["Foraging"] * 100 / df["DPM"]
-    df['%buzzes'] = df['Foraging'] * 100 / (df['Day'] * 60)
+    df["%buzz"] = df["Foraging"] * 100 / (df["Day"] * 60)
     return df
 
 
-def site_percent(df:pd.DataFrame, metric:str):
-    """
-    Create a graph with the percentage of minutes positive to detection for every site.
+def site_percent(df: DataFrame, metric: str) -> None:
+    """Plot a graph with percentage of minutes positive to detection for every site.
 
     Parameters
     ----------
-    df: pd.DataFrame
+    df: DataFrame
         All percentages grouped by site
     metric: str
         Type of percentage you want to show on the graph
 
-    Returns
-    -------
-    Graphs
     """
-    ax = sns.barplot(data=df, x="site.name", y=metric, hue="site.name", dodge=False, palette=colors)
-    # Set the title and labels directly on the Axes
+    ax = sns.barplot(data=df, x="site.name",
+                     y=metric,
+                     hue="site.name",
+                     dodge=False,
+                     palette=colors,
+                     )
     ax.set_title(f"{metric} per site")
     ax.set_ylabel(f"{metric}")
-    # Add hatching to each bar
     if metric == "%buzzes":
-        for i, thisbar in enumerate(ax.patches):
-            thisbar.set_hatch('/')
+        for _, bar in enumerate(ax.patches):
+            bar.set_hatch("/")
     plt.show()
 
 
-def year_percent(df:pd.DataFrame, metric:str):
-    """
-    Create a graph with the percentage of minutes positive to detection for every site and year.
+def year_percent(df: DataFrame, metric: str) -> None:
+    """Plot a graph with the percentage of minutes positive to detection per site/year.
 
     Parameters
     ----------
-    df: pd.DataFrame
+    df: DataFrame
         All percentages grouped by site and year
     metric: str
         Type of percentage you want to show on the graph
 
-    Returns
-    -------
-
     """
-    sites = df['site.name'].unique()
+    sites = df["site.name"].unique()
     n_sites = len(sites)
     fig, axs = plt.subplots(n_sites, 1, figsize=(14, 2.5 * n_sites), sharex=True)
     if n_sites == 1:
         axs = [axs]
     for i, site in enumerate(sorted(sites)):
-        site_data = df[df['site.name'] == site]
+        site_data = df[df["site.name"] == site]
         ax = axs[i]
-        ax.bar(site_data['Year'], site_data[metric], label=f"Site {site}", color=colors.get(site, 'gray'))
+        ax.bar(site_data["Year"],
+               site_data[metric],
+               label=f"Site {site}",
+               color=colors.get(site, "gray"),
+               )
         ax.set_title(f"Site {site}")
         ax.set_ylim(0,max(df[metric]) + 0.2)
         ax.set_ylabel(metric)
@@ -733,75 +736,79 @@ def year_percent(df:pd.DataFrame, metric:str):
         else:
             ax.set_xlabel("Year")
         if metric == "%buzzes":
-            for i,thisbar in enumerate(ax.patches):
-                thisbar.set_hatch('/')
+            for _, bar in enumerate(ax.patches):
+                bar.set_hatch("/")
     fig.suptitle(f"{metric} per year", fontsize=16)
     plt.show()
 
 
-def month_percent(df:pd.DataFrame, metric:str):
-    """
-    Create a graph with the percentage of minutes positive to detection for every site and month.
+def month_percent(df: DataFrame, metric: str) -> None:
+    """Plot a graph with the percentage of minutes positive to detection per site/month.
+
     Parameters
     ----------
-    df: pd.DataFrame
+    df: DataFrame
         All percentages grouped by site and month
     metric: str
         Type of percentage you want to show on the graph
 
-    Returns
-    -------
-
     """
-    sites = df['site.name'].unique()
+    sites = df["site.name"].unique()
     n_sites = len(sites)
     fig, axs = plt.subplots(n_sites, 1, figsize=(14, 2.5 * n_sites), sharex=True)
     if n_sites == 1:
         axs = [axs]
     for i, site in enumerate(sorted(sites)):
-        site_data = df[df['site.name'] == site]
+        site_data = df[df["site.name"] == site]
         ax = axs[i]
-        ax.bar(site_data["Month"], site_data[metric], label=f"Site {site}", color=colors.get(site, 'gray'))
+        ax.bar(site_data["Month"],
+               site_data[metric],
+               label=f"Site {site}",
+               color=colors.get(site, "gray"),
+               )
         ax.set_title(f"{site} - Percentage of postitive to detection minutes per month")
         ax.set_ylim(0,max(df[metric]) + 0.2)
         ax.set_ylabel(metric)
         ax.set_xticks([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
-                      ['Jan', 'Feb', 'Mar', 'Apr', 'May','Jun', 'Jul', 'Agu', 'Sep', 'Oct', 'Nov', 'Dec'])
+                      ["Jan", "Feb", "Mar", "Apr", "May","Jun",
+                       "Jul", "Agu", "Sep", "Oct", "Nov", "Dec",
+                       ],
+                      )
         if i != 3:
             ax.set_xlabel("")
         else:
             ax.set_xlabel("Months")
         if metric == "%buzzes":
-            for i,thisbar in enumerate(ax.patches):
-                thisbar.set_hatch('/')
+            for _, bar in enumerate(ax.patches):
+                bar.set_hatch("/")
     fig.suptitle(f"{metric} per month", fontsize=16)
     plt.show()
 
 
-def hour_percent(df:pd.DataFrame, metric:str):
-    """
-    Create a graph with the percentage of minutes positive to detection for every site and hour.
+def hour_percent(df: DataFrame, metric: str) -> None:
+    """Plot a graph with the percentage of minutes positive to detection per site/hour.
 
     Parameters
     ----------
-    df: pd.DataFrame
+    df: DataFrame
         All percentages grouped by site and hour
     metric: str
         Type of percentage you want to show on the graph
 
-    Returns
-    -------
-
     """
-    sites = df['site.name'].unique()
+    sites = df["site.name"].unique()
     n_sites = len(sites)
     fig, axs = plt.subplots(n_sites, 1, figsize=(14, 2.5 * n_sites), sharex=True)
     if n_sites == 1:
         axs = [axs]
     for i, site in enumerate(sorted(sites)):
-        site_data = df[df['site.name'] == site]
+        site_data = df[df["site.name"] == site]
         ax = axs[i]
-        ax.bar(site_data['hour'], site_data[metric], label=f"Site {site}", color=colors.get(site, 'gray'))
+        ax.bar(site_data["hour"],
+               site_data[metric],
+               label=f"Site {site}",
+               color=colors.get(site, "gray"),
+               )
         ax.set_title(f"Site {site} - Percentage of positive to detection per hour")
         ax.set_ylim(0,max(df[metric]) + 0.2)
         ax.set_ylabel(metric)
@@ -810,7 +817,7 @@ def hour_percent(df:pd.DataFrame, metric:str):
         else:
             ax.set_xlabel("Hour")
         if metric == "%buzzes":
-            for i,thisbar in enumerate(ax.patches):
-                thisbar.set_hatch('/')
+            for _, bar in enumerate(ax.patches):
+                bar.set_hatch("/")
     fig.suptitle(f"{metric} per hour", fontsize=16)
     plt.show()
