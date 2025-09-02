@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
     from dateutil.tz import tzoffset
 
-    from post_processing.dataclass.detection_filters import DetectionFilters
+    from post_processing.dataclass.detection_filter import DetectionFilter
 
 
 def find_delimiter(file: Path) -> str:
@@ -298,12 +298,12 @@ def ensure_no_invalid(invalid: list[str], label: str) -> None:
         raise ValueError(msg)
 
 
-def load_detections(filters: DetectionFilters) -> DataFrame:
+def load_detections(filters: DetectionFilter) -> DataFrame:
     """Load and filter an APLOSE-formatted detection file.
 
     Parameters
     ----------
-    filters : DetectionFilters
+    filters : DetectionFilter
         All selection / filtering options.
 
     Returns

@@ -28,7 +28,7 @@ from post_processing.utils.filtering_utils import (
 if TYPE_CHECKING:
     from pandas.tseries.offsets import BaseOffset
 
-    from post_processing.dataclass.detection_filters import DetectionFilters
+    from post_processing.dataclass.detection_filter import DetectionFilter
 
 
 @dataclass(frozen=True)
@@ -41,7 +41,7 @@ class RecordingPeriod:
     @classmethod
     def from_path(
         cls,
-        config: DetectionFilters,
+        config: DetectionFilter,
         date_format: str = TIMESTAMP_FORMATS_EXPORTED_FILES,
         *,
         bin_size: Timedelta | BaseOffset,

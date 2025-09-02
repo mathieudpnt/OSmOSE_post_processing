@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 from pandas import DataFrame, Series, Timedelta, Timestamp
 from pandas.tseries import offsets
 
-from post_processing.dataclass.detection_filters import DetectionFilters
+from post_processing.dataclass.detection_filter import DetectionFilter
 from post_processing.utils.core_utils import get_count
 from post_processing.utils.filtering_utils import load_detections
 from post_processing.utils.metrics_utils import detection_perf
@@ -141,7 +141,7 @@ class DataAplose:
 
     @property
     def coordinates(self) -> tuple[float, float]:
-        """Shape of the audio data."""
+        """Coordinates of the audio data."""
         return self.lat, self.lon
 
     def __getitem__(self, item: int) -> Series:
@@ -403,19 +403,19 @@ class DataAplose:
         The DataAplose object.
 
         """
-        filters = DetectionFilters.from_yaml(file=file)
+        filters = DetectionFilter.from_yaml(file=file)
         return cls.from_filters(filters)
 
     @classmethod
     def from_filters(
         cls,
-        filters: DetectionFilters | list[DetectionFilters],
+        filters: DetectionFilter | list[DetectionFilter],
     ) -> DataAplose | list[DataAplose]:
         """Return a DataAplose object from a yaml file.
 
         Parameters
         ----------
-        filters: DetectionFilters | list[DetectionFilters]
+        filters: DetectionFilter | list[DetectionFilters]
             Object containing the detection filters.
 
         Returns
@@ -424,7 +424,7 @@ class DataAplose:
         The DataAplose object.
 
         """
-        if isinstance(filters, DetectionFilters):
+        if isinstance(filters, DetectionFilter):
             filters = [filters]
         cls_list = [cls(load_detections(fil)) for fil in filters]
         if len(cls_list) == 1:
