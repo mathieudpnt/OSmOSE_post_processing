@@ -3,35 +3,49 @@ name = "post-processing"
 version = "0.1.0"
 description = "This repository is used to process passive acoustic data particularly marine mammals automatic detections and manual annotations according to OSmOSE project format."
 authors = [
-    {name = "Mathieu Dupont",email = "mathieu.dupont@ensta.fr"}
+    {name = "Mathieu Dupont", email = "mathieu.dupont@ensta.fr"}
 ]
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "osmose @ git+https://github.com/Project-OSmOSE/OSEkit.git",
-    "astral (>=3.2,<4.0)",
-    "easygui (>=0.98.3,<0.99.0)",
-    "matplotlib (>=3.10.1,<4.0.0)",
-    "numpy (>=1.24.2,<2.0.0)",
-    "pandas (>=2.2.3,<3.0.0)",
-    "pytz (>=2025.1,<2026.0)",
-    "pyyaml (>=6.0.2,<7.0.0)",
-    "scipy (>=1.15.2,<2.0.0)",
-    "seaborn (>=0.12.2,<0.13.0)",
-    "soundfile (>=0.12.1,<0.13.0)",
-    "tqdm (>=4.67.1,<5.0.0)"
+    "osekit >= 0.2.5",
+    "astral >=3.2",
+    "easygui >=0.98.3",
+    "matplotlib >=3.10.1",
+    "numpy >=1.24.2",
+    "pandas >=2.2.3",
+    "pypamguard >= 1.0.0",
+    "pytz >=2025.1",
+    "pyyaml >=6.0.2",
+    "scipy >=1.15.2",
+    "seaborn >=0.12.2",
+    "soundfile >=0.12.1",
+    "tqdm >=4.67.1",
+    "gpxpy >=1.6.2"
 ]
 
-[tool.poetry]
-
-[tool.poetry.group.dev.dependencies]
-ruff = "^0.11.0"
-black = "^25.1.0"
-pytest = "^8.3.5"
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "notebook >=7.4.4",
+    "setuptools <66.2"]
 
 [tool.ruff]
 select = ["ALL"]
+exclude = ["scripts/**/*.py"]
 
 [build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff.lint.extend-per-file-ignores]
+"tests/**/*.py" = [
+    # at least this three should be fine in tests:
+    "S101", # asserts allowed in tests...
+    "ARG", # Unused function args -> fixtures nevertheless are functionally relevant...
+    "FBT", # Don't care about booleans as positional arguments in tests, e.g. via @pytest.mark.parametrize()
+    "D", # Docstring-related stuff
+    "SLF001", # Access to private variables
+    "BLE001", # Blind exceptions
+    "PLR0913", # Too many arguments in methods
+]
