@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import pytz
 import seaborn as sns
@@ -12,7 +12,7 @@ from pandas import (
     DataFrame,
     Series,
     Timedelta,
-    Timestamp,
+    api,
     concat,
     date_range,
     notna,
@@ -187,61 +187,85 @@ def usable_data_phase(
     return percentage_data
 
 
-def meta_cut_aplose(
-    d_meta: DataFrame,
-    df: DataFrame,
-) -> DataFrame:
-    """From APLOSE DataFrame with all rows to filtered DataFrame.
+def meta_cut_aplose(raw_data: DataFrame,metadata: DataFrame,
+    col_deploy_name:str="deploy.name",
+    col_timestamp:str="start_datetime",
+    col_debut:str="deployment_date",
+    col_fin:str="recovery_date",
+) -> DataFrame | tuple[int, Any]:
+    """Filter data to keep only the ones corresponding to a deployment.
 
     Parameters
     ----------
-    df: DataFrame
-        CPOD result dataframe
-    d_meta: DataFrame
-        Metadata dataframe with deployments information (previously exported as json)
+    raw_data : DataFrame
+        Dataframe containing deploy.name et timestamp
+    metadata : DataFrame
+        Metadata containing deploy.name, deployment_date, recovery_date
+    col_deploy_name : str
+        Name of the deployment name column (default: 'deploy.name')
+    col_timestamp : str
+        Name of the timestamps column in raw_data (default: 'start_datetime')
+    col_debut : str
+        Name of the deployment column in metadata (default: 'deployment_date')
+    col_fin : str
+        Name of the recovery column in metadata (default: 'recovery_date')
 
     Returns
     -------
     DataFrame
-        An APLOSE DataFrame with data from beginning to end of each deployment.
-        Returns the percentage of usable datas.
+        Filtered data containing only rows in deployment periods
 
     """
-    d_meta.loc[:, ["deployment_date", "recovery_date"]] = d_meta[
-        ["deployment_date", "recovery_date"]
-    ].apply(to_datetime)
-    df["start_datetime"] = to_datetime(
-        df["start_datetime"],
-        format=TIMESTAMP_FORMAT_AUDIO_FILE,
+    # Vérifier que les colonnes existent
+    if col_deploy_name not in raw_data.columns:
+        msg =f"'{col_deploy_name}' not found"
+        raise ValueError(msg)
+    if col_timestamp not in raw_data.columns:
+        msg = f"'{col_timestamp}' not found"
+        raise ValueError(msg)
+    if col_deploy_name not in metadata.columns:
+        msg = f"'{col_deploy_name}' not found"
+        raise ValueError(msg)
+    if col_debut not in metadata.columns:
+        msg = f"'{col_debut}' not found"
+        raise ValueError(msg)
+    if col_fin not in metadata.columns:
+        msg = f"'{col_fin}' not found"
+        raise ValueError(msg)
+
+    data = raw_data.copy()
+    meta = metadata.copy()
+
+    # S'assurer que les timestamps sont au bon format datetime
+    if not api.types.is_datetime64_any_dtype(data[col_timestamp]):
+        data[col_timestamp] = to_datetime(data[col_timestamp])
+    if not api.types.is_datetime64_any_dtype(meta[col_debut]):
+        meta[col_debut] = to_datetime(meta[col_debut])
+    if not api.types.is_datetime64_any_dtype(meta[col_fin]):
+        meta[col_fin] = to_datetime(meta[col_fin])
+
+    actual_data = data.merge(
+        meta[[col_deploy_name, col_debut, col_fin]], on=col_deploy_name, how="left")
+
+    lignes_avec_meta = actual_data[col_debut].notna()
+
+    if not lignes_avec_meta.any():
+        return DataFrame(columns=raw_data.columns)
+
+    mask_valid_period = (
+            lignes_avec_meta &
+            (actual_data[col_timestamp] >= actual_data[col_debut]) &
+            (actual_data[col_timestamp] <= actual_data[col_fin])
     )
 
-    # Add DPM column
-    df["DPM"] = (df["Nfiltered"] > 0).astype(int)
+    filt_data = actual_data[mask_valid_period][raw_data.columns]
 
-    # Extract corresponding line
-    campaign = df.iloc[0]["dataset"]
-    phase = d_meta.loc[d_meta["name"] == campaign].reset_index()
-    start_date = phase.loc[0, "deployment_date"]
-    end_date = phase.loc[0, "recovery_date"]
-    df = df[
-        (df["start_datetime"] >= start_date) & (df["start_datetime"] <= end_date)
-    ].copy()
+    # Statistics
+    nb_total = len(raw_data)
+    nb_filter = len(filt_data)
+    del_nb = nb_total - nb_filter
 
-    # Calculate the percentage of collected data on the phase length of time
-    if df.empty:
-        msg = "No data for this phase"
-    else:
-        df_end = df.loc[df.index[-1], "start_datetime"]
-        df_start = df.loc[df.index[0], "start_datetime"]
-        act_length = df_end - df_start
-        p_length = end_date - start_date
-        percentage_data = act_length * 100 / p_length
-        on = int(df.loc[df.MinsOn == 1, "MinsOn"].count())
-        percentage_on = percentage_data * (on / len(df))
-        msg = f"Percentage of usable data : {percentage_on}%"
-
-    logger.info(msg)
-    return df
+    return del_nb, filt_data.reset_index(drop=True)
 
 
 def format_calendar(path: Path) -> DataFrame:
@@ -263,48 +287,6 @@ def format_calendar(path: Path) -> DataFrame:
             "Site": "site.name",
         },
     )
-
-
-def dpm_to_dph(
-    df: DataFrame,
-    tz: pytz.BaseTzInfo,
-    dataset_name: str,
-    annotation: str,
-    bin_size: int = 3600,
-    extra_columns: list | None = None,
-) -> DataFrame:
-    """From CPOD result DataFrame to APLOSE formatted DataFrame.
-
-    Parameters
-    ----------
-    df: DataFrame
-        CPOD result DataFrame
-    tz: pytz.BaseTzInfo
-        Timezone object to get timezone-aware datetimes
-    dataset_name: str
-        dataset name
-    annotation: str
-        annotation name
-    bin_size: int
-        Duration of the detections in seconds
-    extra_columns: list, optional
-        Additional columns added from df to data
-
-    Returns
-    -------
-    DataFrame
-        An APLOSE DataFrame
-
-    """
-    df["start_datetime"] = to_datetime(df["start_datetime"], utc=True)
-    df["end_datetime"] = to_datetime(df["end_datetime"], utc=True)
-    df["Date heure"] = df["start_datetime"].dt.floor("h")
-    dph = df.groupby(["Date heure"])["DPM"].sum().reset_index()
-    dph["Date heure"] = dph["Date heure"].apply(
-        lambda x: Timestamp(x).strftime(format="%d/%m/%Y %H:%M:%S"),
-    )
-
-    return cpod2aplose(dph, tz, dataset_name, annotation, bin_size, extra_columns)
 
 
 def assign_phase(
@@ -346,7 +328,7 @@ def assign_phase(
                 <= data.loc[j, "start_datetime"]
                 < meta_row["recovery_date"]
             ):
-                data.loc[j, "name"] = meta_row["name"]
+                data.loc[j, "name"] = f"{meta_row['site.name']}_{meta_row['campaign.name']}"
             j += 1
     return data
 
@@ -378,9 +360,9 @@ def assign_phase_simple(
     meta["recovery_date"] = meta["recovery_date"].dt.floor("d")
 
     data["name"] = None
-    for site in data["site.name"].unique():
-        site_meta = meta[meta["site.name"] == site]
-        site_data = data[data["site.name"] == site]
+    for site in data["deploy.name"].unique():
+        site_meta = meta[meta["deploy.name"] == site]
+        site_data = data[data["deploy.name"] == site]
 
         for _, meta_row in site_meta.iterrows():
             time_filter = (
@@ -420,12 +402,49 @@ def generate_hourly_detections(meta: DataFrame, site: str) -> DataFrame:
         {"name": row["name"], "start_datetime": date}
         for _, row in df_meta.iterrows()
         for date in date_range(
-            start=row["deployment_date"], end=row["recovery_date"], freq="h",
+            start=row["deployment_date"],
+            end=row["recovery_date"],
+            freq="h",
         )
     ]
 
     return DataFrame(records)
 
+
+def build_hour_range(dph: DataFrame) -> DataFrame:
+    """Create a DataFrame with one line per hour between start and end dates.
+
+    Keep the number of detections per hour between these dates.
+
+    Parameters
+    ----------
+    dph: pd.DataFrame
+        Metadata dataframe with deployments information (previously exported as json)
+
+    Returns
+    -------
+    pd.DataFrame
+        A full period of time with positive and negative hours to detections.
+
+    """
+    dph["Date heure"] = to_datetime(dph["Date heure"], dayfirst=True)
+
+    deploy_ranges = (
+        dph.groupby("deploy.name")["Date heure"]
+        .agg(start="min", end="max")
+        .reset_index()
+    )
+
+    all_ranges = []
+    for _, row in deploy_ranges.iterrows():
+        hours = date_range(row["start"], row["end"], freq="h")
+        tmp = DataFrame({
+            "deploy.name": row["deploy.name"],
+            "Date heure": hours,
+        })
+        all_ranges.append(tmp)
+
+    return concat(all_ranges, ignore_index=True)
 
 def merging_tab(meta: DataFrame, data: DataFrame) -> DataFrame:
     """Create a DataFrame with one line per hour between start and end dates.
@@ -448,16 +467,15 @@ def merging_tab(meta: DataFrame, data: DataFrame) -> DataFrame:
     data["start_datetime"] = to_datetime(data["start_datetime"], utc=True)
     meta["start_datetime"] = to_datetime(meta["start_datetime"], utc=True)
 
-    deploy_detec = data["name"].unique()
-    df_filtered = meta[meta["name"].isin(deploy_detec)]
+    deploy_detec = data["deploy.name"].unique()
+    df_filtered = meta[meta["deploy.name"].isin(deploy_detec)]
 
     output = df_filtered.merge(
-        data[["name", "start_datetime", "DPM", "Nfiltered"]],
-        on=["name", "start_datetime"],
+        data[["deploy.name", "start_datetime", "DPM"]],
+        on=["deploy.name", "start_datetime"],
         how="outer",
     )
     output["DPM"] = output["DPM"].fillna(0)
-    output["Nfiltered"] = output["Nfiltered"].fillna(0)
 
     output["Day"] = output["start_datetime"].dt.day
     output["Month"] = output["start_datetime"].dt.month
@@ -485,27 +503,13 @@ def feeding_buzz(df: DataFrame, species: str) -> DataFrame:
         Containing all ICIs for every positive minutes to clicks
 
     """
-    df.columns = df.columns.str.upper()
-    df["MICROSEC"] = df["MICROSEC"] / 1e6
-    col = "DATE HEURE MINUTE"
-    col2 = "HEURE MINUTE"
-    if col in df.columns:
-        df[["DATE", "HEURE", "MINUTE"]] = df[col].str.split(" ", expand=True)
-        df["Time"] = (df["DATE"].astype(str) + " " +
-                      df["HEURE"].astype(str) + ":" +
-                      df["MINUTE"].astype(str) + ":" +
-                      df["MICROSEC"].astype(str))
-        df["Time"] = to_datetime(df["Time"], dayfirst=True)
-    elif col2 in df.columns:
-        df[["HEURE", "MINUTE"]] = df[col2].str.split(" ", expand=True)
-        df["Time"] = (df["DATE"].astype(str) + " " +
-                      df["HEURE"].astype(str) + ":" +
-                      df["MINUTE"].astype(str) + ":" +
-                      df["MICROSEC"].astype(str))
-        df["Time"] = to_datetime(df["Time"], dayfirst=True)
-    else :
-        df["Time"] = (df["MINUTE"].astype(str) + ":" + df["MICROSEC"].astype(str))
-        df["Time"] = to_datetime(df["Time"], dayfirst=True)
+    df["microsec"] = df["microsec"] / 1e6
+
+    df["Time"] = (df["Minute"].astype(str) + ":" +
+                  df["microsec"].astype(str))
+    df["Time"] = to_datetime(df["Time"], dayfirst=True)
+
+    df["Time"] = to_datetime(df["Time"], dayfirst=True)
 
     df = df.sort_values(by="Time").reset_index(drop=True)
     df["ICI"] = df["Time"].diff().dt.total_seconds()
@@ -583,7 +587,7 @@ def assign_daytime(
     return df
 
 
-def process_files_in_folder(folder_path:Path, species:str) -> DataFrame:
+def fb_folder(folder_path:Path, species:str) -> DataFrame:
     """Process a folder containing all CPOD/FPOD feeding buzz detection files.
 
     Apply the feeding buzz function to these files.
@@ -608,7 +612,7 @@ def process_files_in_folder(folder_path:Path, species:str) -> DataFrame:
         file_path = folder_path / file
         df = read_csv(file_path, sep="\t")
         processed_df = feeding_buzz(df, species)
-        processed_df["file"] = file
+        processed_df["deploy.name"] = file.name
         all_data.append(processed_df)
 
     return concat(all_data, ignore_index=True)
@@ -821,3 +825,102 @@ def hour_percent(df: DataFrame, metric: str) -> None:
                 bar.set_hatch("/")
     fig.suptitle(f"{metric} per hour", fontsize=16)
     plt.show()
+
+
+def csv_folder(folder_path: str | Path, **kwargs) -> DataFrame:
+    """Process a folder containing data files and concatenate them.
+
+    Parameters
+    ----------
+    folder_path: Union[str, Path]
+        Path to the folder containing files.
+    **kwargs: dict
+        Additional parameters for pd.read_csv (sep, skiprows, etc.)
+
+    Returns
+    -------
+    pd.DataFrame
+        Concatenated dataframe with all files data and file column.
+
+    Raises
+    ------
+    ValueError
+        If file_format is not supported or no files found.
+    FileNotFoundError
+        If folder_path doesn't exist.
+
+    """
+    folder_path = Path(folder_path)
+
+    # Folder validation
+    if not folder_path.exists():
+        raise FileNotFoundError
+
+    if not folder_path.is_dir():
+        message = f"{folder_path} is not a directory."
+        raise ValueError(message)
+
+    # Configuration
+    default_params = {"sep": ";", "skiprows": 7}
+
+    # Parameters fusion
+    read_params = {**default_params, **kwargs}
+
+    # File research
+    files = list(folder_path.rglob("*csv"))
+
+    if not files:
+        msg = f"No CSV file found in {folder_path}"
+        raise ValueError(msg)
+
+    all_data = []
+
+    for file in files:
+        try:
+            df = read_csv(file, **read_params)
+            df["deploy.name"] = file.name.rsplit(".", 1)[0]  # file name
+            df["file_path"] = str(file)  # file path
+            all_data.append(df)
+        except Exception:
+            continue
+
+    if not all_data:
+        msg = f"No valid CSV file found in {folder_path}"
+        raise ValueError(msg)
+
+    return concat(all_data, ignore_index=True)
+
+
+def dpm_to_dph(
+    df: DataFrame,
+    extra_columns: list | None = None,
+) -> DataFrame:
+    """Create a dataframe containing the number of DPM per hour.
+
+    Parameters
+    ----------
+    df: DataFrame
+        Contains every minute positive to click detection.
+    extra_columns: list, optional
+        Additional columns added from df to data.
+
+    Returns
+    -------
+    DataFrame
+        Contains sum of minutes positive to detection per hour.
+
+    """
+    df["start_datetime"] = to_datetime(df["start_datetime"], utc=True)
+    df["end_datetime"] = to_datetime(df["end_datetime"], utc=True)
+    df["Date heure"] = df["start_datetime"].dt.floor("h")
+
+    agg_dict = {"DPM": "sum"}
+
+    if extra_columns:
+        for col in extra_columns:
+            if col in df.columns:
+                agg_dict[col] = "first"
+            else:
+                logger.warning(f"Column '{col}' does not exist and will be ignored.")
+
+    return df.groupby("Date heure").agg(agg_dict).reset_index()
