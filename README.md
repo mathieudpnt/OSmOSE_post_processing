@@ -1,4 +1,4 @@
-<div align='center'>
+<div style="text-align: center;">
 
 # OSmOSE post-processing
 
@@ -11,14 +11,14 @@
 </div>
 
 This repository is used to process passive acoustic data, particularly marine mammals, automatic detections and manual annotations.
-All results and expected input data is to be formatted according [OSmOSE](https://github.com/Project-OSmOSE) convention.
+All results and expected input data are to be formatted according [OSmOSE](https://github.com/Project-OSmOSE) convention.
 
 
 ## 🛠 Installation
 The package should be installed with [uv](https://docs.astral.sh/uv/), a Python package and project manager.
 Please refer to the [documentation](https://docs.astral.sh/uv/getting-started/installation/) for installing uv.
 
-To download the repository, simply clone it from git:
+To download the repository, clone it from git:
    ```
    git clone https://github.com/Project-OSmOSE/OSmOSE_post_processing.git
    ```
