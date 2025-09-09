@@ -1,4 +1,5 @@
-<div style="text-align: center;">
+<!--suppress HtmlDeprecatedAttribute -->
+<div align='center'>
 
 # OSmOSE post-processing
 
