@@ -10,7 +10,7 @@
 
 </div>
 
-This repository is used to process passive acoustic data particularly marine mammals automatic detections and manual annotations.
+This repository is used to process passive acoustic data, particularly marine mammals, automatic detections and manual annotations.
 All results and expected input data is to be formatted according [OSmOSE](https://github.com/Project-OSmOSE) convention.
 
 
@@ -20,7 +20,7 @@ Please refer to the [documentation](https://docs.astral.sh/uv/getting-started/in
 
 To download the repository, simply clone it from git:
    ```
-   git clone https://github.com/mathieudpnt/OSmOSE_post_processing.git
+   git clone https://github.com/Project-OSmOSE/OSmOSE_post_processing.git
    ```
 Then, you can pull the latest update:
    ```
@@ -40,4 +40,4 @@ Contributions are welcome! To contribute:
 5. Open a pull request 📝
 
 ## 📬  Contact
-💡 Have questions or ideas? Open an issue or reach out to [me](mailto:mathieu.dupont@ensta.fr) !
+💡 Have questions or ideas? Open an issue or reach out to [me](mailto:mathieu.dupont@ensta.fr)!
