@@ -3,7 +3,7 @@ version: 1
 loggers:
   dataset:
     level: DEBUG
-    handlers: [consoleHandler, globalFileHandler]
+    handlers: [consoleHandler]
     propagate: no
   printer:
     level: INFO
@@ -17,19 +17,10 @@ handlers:
     formatter: consoleFormatter
     stream: ext://sys.stdout
 
-  globalFileHandler:
-    class: logging.FileHandler
-    level: DEBUG
-    formatter: fileFormatter
-    filename: "logs.log"
-    mode: "w"
-    delay: True
-
 formatters:
-  fileFormatter:
-    format: "\t%(asctime)s - %(name)s - %(levelname)s\n%(message)s\n"
   consoleFormatter:
-    format: "%(message)s\n"
+    format: "[%(levelname)s] - %(asctime)s\n%(message)s\n"
+    datefmt: "%y/%m/%d %H:%M:%S"
 
 root:
   level: DEBUG
