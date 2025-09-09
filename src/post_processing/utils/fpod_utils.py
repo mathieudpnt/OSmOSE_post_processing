@@ -12,9 +12,10 @@ from pandas import (
     DataFrame,
     Series,
     Timedelta,
-    api,
+    Timestamp,
     concat,
     date_range,
+    merge,
     notna,
     read_csv,
     read_excel,
@@ -116,23 +117,22 @@ def cpod2aplose(
         An APLOSE formatted DataFrame
 
     """
-    df_cpod = df.rename(columns={"ChunkEnd": "Date heure"})
+    df = df.rename(columns={"ChunkEnd": "Date heure"})
+    results = []
 
-    # remove lines where the C-POD stopped working
-    df_cpod = df_cpod.drop(
-        df_cpod.loc[df_cpod["Date heure"] == " at minute "].index,
-    )
-    data = fpod2aplose(df_cpod, tz, dataset_name, annotation, bin_size)
-    data["annotator"] = data.loc[data["annotator"] == "FPOD"] = "CPOD"
-    if extra_columns:
-        for col in extra_columns:
-            if col in df_cpod.columns:
-                data[col] = df_cpod[col].tolist()
-            else:
-                msg = f"Column '{col}' does not exist and will be ignored."
-                logger.warning(msg)
+    for deploy_name in df["deploy.name"].unique():
+        df_deploy = df[df["deploy.name"] == deploy_name].copy()
 
-    return DataFrame(data)
+        result = fpod2aplose(df_deploy, tz, dataset_name, annotation, bin_size)
+
+        if extra_columns:
+            for col in extra_columns:
+                if col in df_deploy.columns:
+                    result[col] = df_deploy[col].tolist()
+
+        results.append(result)
+
+    return concat(results, ignore_index=True)
 
 
 def usable_data_phase(
@@ -192,7 +192,7 @@ def meta_cut_aplose(raw_data: DataFrame,metadata: DataFrame,
     col_timestamp:str="start_datetime",
     col_debut:str="deployment_date",
     col_fin:str="recovery_date",
-) -> DataFrame | tuple[int, Any]:
+) -> DataFrame:
     """Filter data to keep only the ones corresponding to a deployment.
 
     Parameters
@@ -216,56 +216,43 @@ def meta_cut_aplose(raw_data: DataFrame,metadata: DataFrame,
         Filtered data containing only rows in deployment periods
 
     """
-    # Vérifier que les colonnes existent
-    if col_deploy_name not in raw_data.columns:
-        msg =f"'{col_deploy_name}' not found"
-        raise ValueError(msg)
-    if col_timestamp not in raw_data.columns:
-        msg = f"'{col_timestamp}' not found"
-        raise ValueError(msg)
-    if col_deploy_name not in metadata.columns:
-        msg = f"'{col_deploy_name}' not found"
-        raise ValueError(msg)
-    if col_debut not in metadata.columns:
-        msg = f"'{col_debut}' not found"
-        raise ValueError(msg)
-    if col_fin not in metadata.columns:
-        msg = f"'{col_fin}' not found"
-        raise ValueError(msg)
+    required_raw = [col_deploy_name, col_timestamp]
+    required_meta = [col_deploy_name, col_debut, col_fin]
+    for col in required_raw:
+        if col not in raw_data.columns:
+            msg = f"'{col}' not found in raw_data"
+            raise ValueError(msg)
+    for col in required_meta:
+        if col not in metadata.columns:
+            msg = f"'{col}' not found in metadata"
+            raise ValueError(msg)
 
-    data = raw_data.copy()
+    # Convert to datetime
+    raw = raw_data.copy()
     meta = metadata.copy()
+    raw[col_timestamp] = to_datetime(raw[col_timestamp], errors="coerce")
+    meta[col_debut] = to_datetime(meta[col_debut], errors="coerce")
+    meta[col_fin] = to_datetime(meta[col_fin], errors="coerce")
 
-    # S'assurer que les timestamps sont au bon format datetime
-    if not api.types.is_datetime64_any_dtype(data[col_timestamp]):
-        data[col_timestamp] = to_datetime(data[col_timestamp])
-    if not api.types.is_datetime64_any_dtype(meta[col_debut]):
-        meta[col_debut] = to_datetime(meta[col_debut])
-    if not api.types.is_datetime64_any_dtype(meta[col_fin]):
-        meta[col_fin] = to_datetime(meta[col_fin])
-
-    actual_data = data.merge(
-        meta[[col_deploy_name, col_debut, col_fin]], on=col_deploy_name, how="left")
-
-    lignes_avec_meta = actual_data[col_debut].notna()
-
-    if not lignes_avec_meta.any():
-        return DataFrame(columns=raw_data.columns)
-
-    mask_valid_period = (
-            lignes_avec_meta &
-            (actual_data[col_timestamp] >= actual_data[col_debut]) &
-            (actual_data[col_timestamp] <= actual_data[col_fin])
+    dfm = raw.merge(
+        meta[[col_deploy_name, col_debut, col_fin]],
+        on=col_deploy_name,
+        how="left",
     )
 
-    filt_data = actual_data[mask_valid_period][raw_data.columns]
+    out = dfm[
+        (dfm[col_timestamp] >= dfm[col_debut])
+        & (dfm[col_timestamp] <= dfm[col_fin])
+        & dfm[col_timestamp].notna()
+        & dfm[col_debut].notna()
+        & dfm[col_fin].notna()
+    ].copy()
 
-    # Statistics
-    nb_total = len(raw_data)
-    nb_filter = len(filt_data)
-    del_nb = nb_total - nb_filter
+    columns_to_drop = [col for col in [col_debut, col_fin] if col not in raw_data.columns]
+    if columns_to_drop:
+        out = out.drop(columns=columns_to_drop)
 
-    return del_nb, filt_data.reset_index(drop=True)
+    return out.sort_values([col_deploy_name, col_timestamp]).reset_index(drop=True)
 
 
 def format_calendar(path: Path) -> DataFrame:
@@ -515,10 +502,13 @@ def feeding_buzz(df: DataFrame, species: str) -> DataFrame:
     df["ICI"] = df["Time"].diff().dt.total_seconds()
 
     df["Buzz"] = 0
-    if species == "Porpoise":
+    if species == "Marsouin":
         feeding_idx = df.index[df["ICI"] < 0.01]
+    elif species == "Commerson" :
+        feeding_idx = df.index[df["ICI"] <= 0.005]
     else :
-        feeding_idx = df.index[df["ICI"] >= 0.005]
+        msg = "This species is not supported"
+        raise ValueError(msg)
 
     df.loc[feeding_idx, "Buzz"] = 1
     df.loc[feeding_idx - 1, "Buzz"] = 1
@@ -619,10 +609,10 @@ def fb_folder(folder_path:Path, species:str) -> DataFrame:
 
 
 colors = {
-    "DY1": "#118B50",
-    "DY2": "#5DB996",
-    "DY3": "#B0DB9C",
-    "DY4": "#E3F0AF",
+    "Site A Haute": "#118B50",
+    "Site B Heugh": "#5DB996",
+    "Site C Chat": "#B0DB9C",
+    "Site D Simone": "#E3F0AF",
     "CA4": "#5EABD6",
     "Walde": "#FFB4B4",
 }
@@ -732,7 +722,7 @@ def year_percent(df: DataFrame, metric: str) -> None:
                label=f"Site {site}",
                color=colors.get(site, "gray"),
                )
-        ax.set_title(f"Site {site}")
+        ax.set_title(f"{site}")
         ax.set_ylim(0,max(df[metric]) + 0.2)
         ax.set_ylabel(metric)
         if i != 3:
@@ -770,7 +760,7 @@ def month_percent(df: DataFrame, metric: str) -> None:
                label=f"Site {site}",
                color=colors.get(site, "gray"),
                )
-        ax.set_title(f"{site} - Percentage of postitive to detection minutes per month")
+        ax.set_title(f"{site} - Percentage of minutes postitive to detection per month")
         ax.set_ylim(0,max(df[metric]) + 0.2)
         ax.set_ylabel(metric)
         ax.set_xticks([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
@@ -813,7 +803,7 @@ def hour_percent(df: DataFrame, metric: str) -> None:
                label=f"Site {site}",
                color=colors.get(site, "gray"),
                )
-        ax.set_title(f"Site {site} - Percentage of positive to detection per hour")
+        ax.set_title(f"Site {site} - Percentage of minutes positive to detection per hour")
         ax.set_ylim(0,max(df[metric]) + 0.2)
         ax.set_ylabel(metric)
         if i != 3:
@@ -861,7 +851,7 @@ def csv_folder(folder_path: str | Path, **kwargs) -> DataFrame:
         raise ValueError(message)
 
     # Configuration
-    default_params = {"sep": ";", "skiprows": 7}
+    default_params = {"sep": ";"}
 
     # Parameters fusion
     read_params = {**default_params, **kwargs}
@@ -876,13 +866,9 @@ def csv_folder(folder_path: str | Path, **kwargs) -> DataFrame:
     all_data = []
 
     for file in files:
-        try:
-            df = read_csv(file, **read_params)
-            df["deploy.name"] = file.name.rsplit(".", 1)[0]  # file name
-            df["file_path"] = str(file)  # file path
-            all_data.append(df)
-        except Exception:
-            continue
+        df = read_csv(file, **read_params)
+        df["deploy.name"] = file.stem
+        all_data.append(df)
 
     if not all_data:
         msg = f"No valid CSV file found in {folder_path}"
