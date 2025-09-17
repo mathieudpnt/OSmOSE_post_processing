@@ -173,7 +173,7 @@ def get_timezone(df: DataFrame) -> tzoffset | list[tzoffset]:
     timezones = {ts.tz for ts in df["start_datetime"] if ts.tz is not None}
     if len(timezones) == 1:
         return next(iter(timezones))
-    return sorted(timezones)
+    return sorted(timezones, key=lambda tz: tz.utcoffset(None))
 
 
 def reshape_timebin(
