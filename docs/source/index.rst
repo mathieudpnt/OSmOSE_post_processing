@@ -32,4 +32,3 @@ Instructions on how to use **OSmOSE_post_processing**.
 
    installation
    usage
-   examples
