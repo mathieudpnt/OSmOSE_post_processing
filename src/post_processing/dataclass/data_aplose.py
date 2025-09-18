@@ -7,11 +7,13 @@ plot time-based distributions, and manage metadata such as annotators and labels
 
 from __future__ import annotations
 
+from datetime import tzinfo
 from typing import TYPE_CHECKING
 
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
-from pandas import DataFrame, Series, Timedelta, Timestamp
+import pytz
+from pandas import DataFrame, Series, Timedelta, Timestamp, concat
 from pandas.tseries import offsets
 
 from post_processing.dataclass.detection_filter import DetectionFilter
@@ -25,6 +27,7 @@ from post_processing.utils.plot_utils import (
     overview,
     timeline,
 )
+from post_processing.utils.filtering_utils import get_timezone
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -87,7 +90,7 @@ class DataAplose:
             APLOSE formatted DataFrame.
 
         """
-        self.df = df
+        self.df = df.sort_values(by=["start_datetime", "end_datetime", "annotator", "annotation"]).reset_index(drop=True)
         self.annotators = sorted(set(self.df["annotator"])) if df is not None else None
         self.labels = sorted(set(self.df["annotation"])) if df is not None else None
         self.begin = min(self.df["start_datetime"]) if df is not None else None
@@ -142,6 +145,11 @@ class DataAplose:
         """Return the row from the underlying DataFrame."""
         return self.df.iloc[item]
 
+    def change_tz(self, tz: str | tzinfo):
+        """Change the timezone of the DataFrame."""
+        self.df["start_datetime"] = [elem.tz_convert(tz) for elem in self.df["start_datetime"]]
+        self.df["end_datetime"] = [elem.tz_convert(tz) for elem in self.df["end_datetime"]]
+
     def filter_df(
         self,
         annotator: str | list[str],
@@ -190,7 +198,7 @@ class DataAplose:
         config = list(zip(annotator, label, strict=False))
         return self.df[
             self.df[["annotator", "annotation"]].apply(tuple, axis=1).isin(config)
-        ]
+        ].reset_index(drop=True)
 
     def set_ax(
         self,
@@ -383,6 +391,7 @@ class DataAplose:
     def from_yaml(
         cls,
         file: Path,
+        concat: bool = False,
     ) -> DataAplose | list[DataAplose]:
         """Return a DataAplose object from a yaml file.
 
@@ -390,6 +399,9 @@ class DataAplose:
         ----------
         file: Path
             The path to a yaml configuration file.
+        concat: bool
+            If set to True, the DataAplose objects will be concatenated.
+            If set to False, the DataAplose objects will be returned as a list.
 
         Returns
         -------
@@ -398,12 +410,13 @@ class DataAplose:
 
         """
         filters = DetectionFilter.from_yaml(file=file)
-        return cls.from_filters(filters)
+        return cls.from_filters(filters, concat)
 
     @classmethod
     def from_filters(
         cls,
         filters: DetectionFilter | list[DetectionFilter],
+        concat: bool = False,
     ) -> DataAplose | list[DataAplose]:
         """Return a DataAplose object from a yaml file.
 
@@ -411,6 +424,9 @@ class DataAplose:
         ----------
         filters: DetectionFilter | list[DetectionFilters]
             Object containing the detection filters.
+        concat: bool
+            If set to True, the DataAplose objects will be concatenated.
+            If set to False, the DataAplose objects will be returned as a list.
 
         Returns
         -------
@@ -423,4 +439,18 @@ class DataAplose:
         cls_list = [cls(load_detections(fil)) for fil in filters]
         if len(cls_list) == 1:
             return cls_list[0]
+        if concat:
+            return cls.concatenate(cls_list)
         return cls_list
+
+    @classmethod
+    def concatenate(
+        cls, data_list: list[DataAplose], tz: tzinfo | str = None
+    ) -> DataAplose:
+        """Concatenate a list of DataAplose objects into one."""
+        df_concat = (
+            concat([data.df for data in data_list], ignore_index=True)
+            .sort_values(by=["start_datetime", "end_datetime", "annotator", "annotation"])
+            .reset_index(drop=True)
+        )
+        return cls(df_concat)
