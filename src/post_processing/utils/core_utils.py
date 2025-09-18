@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 import astral
 import easygui
 import numpy as np
-from astral.sun import sun
+from astral.sun import sunrise, sunset
 from matplotlib import pyplot as plt
 from osekit.config import TIMESTAMP_FORMAT_AUDIO_FILE
 from osekit.utils.timestamp_utils import strptime_from_text
@@ -102,12 +102,6 @@ def get_sun_times(
 ):
     """Fetch sunrise and sunset hours for dates between start and stop.
 
-    Each twilight phase is defined by the solar elevation angle,
-    which is the position of the Sun in relation to the horizon.
-    During nautical twilight, the geometric center of the Sun's disk
-    is between 6 and 12 degrees below the horizon.
-    See: https://www.timeanddate.com/astronomy/nautical-twilight.html
-
     Parameters
     ----------
     start: Timestamp
@@ -127,18 +121,6 @@ def get_sun_times(
     hour_sunset: list[float]
         Sunset decimal hours for each day between start and stop
 
-    dt_dawn: list[Timestamp]
-        Dawn datetimes for each day between start and stop
-
-    dt_day: list[Timestamp]
-        Day datetimes for each day between start and stop
-
-    dt_dusk: list[Timestamp]
-        Dusk datetimes for each day between start and stop
-
-    dt_night: list[Timestamp]
-        Night datetimes for each day between start and stop
-
     """
     if start.tz is None or stop.tz is None:
         msg = "start and stop must be timezone-aware"
@@ -148,35 +130,20 @@ def get_sun_times(
 
     gps = astral.LocationInfo(latitude=lat, longitude=lon, timezone=tz)
 
-    h_sunrise, h_sunset, dt_dawn, dt_day, dt_dusk, dt_night = [], [], [], [], [], []
+    h_sunrise, h_sunset = [], []
 
     for date in [ts.date() for ts in date_range(start.normalize(),
                                                 stop.normalize(),
                                                 freq="D",
                                                 )]:
-        suntime = sun(gps.observer, date=date, dawn_dusk_depression=12, tzinfo=tz)
-        dawn, day, _, dusk, night = [
-            Timestamp(suntime[period]).tz_convert(tz) for period in suntime
-        ]
-
-        if night < dusk:
-            suntime = sun(gps.observer,
-                          date=date + Timedelta("1d"),
-                          dawn_dusk_depression=12,
-                          tzinfo=tz
-                          )
-            _, _, _, _, night = [Timestamp(suntime[period]).tz_convert(tz) for period in suntime]
+        dt_sunrise = sunrise(gps.observer, date=date, tzinfo=tz)
+        dt_sunset = sunset(gps.observer, date=date, tzinfo=tz)
 
         # Convert sunrise and sunset to decimal hours
-        h_sunrise.append(day.hour + day.minute / 60 + day.second / 3600)
-        h_sunset.append(dusk.hour + dusk.minute / 60 + dusk.second / 3600)
+        h_sunrise.append(dt_sunrise.hour + dt_sunrise.minute / 60 + dt_sunrise.second / 3600 + dt_sunrise.microsecond / 3_600_000_000)
+        h_sunset.append(dt_sunset.hour + dt_sunset.minute / 60 + dt_sunset.second / 3600 + dt_sunset.microsecond / 3_600_000_000)
 
-        dt_dawn.append(dawn)
-        dt_day.append(day)
-        dt_dusk.append(dusk)
-        dt_night.append(night)
-
-    return h_sunrise, h_sunset, dt_dawn, dt_day, dt_dusk, dt_night
+    return h_sunrise, h_sunset
 
 
 def get_coordinates() -> tuple:
