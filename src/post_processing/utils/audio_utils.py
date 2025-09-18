@@ -6,8 +6,6 @@ from typing import TYPE_CHECKING
 import numpy as np
 import soundfile as sf
 
-from post_processing import logger
-
 if TYPE_CHECKING:
     from pathlib import Path
 
@@ -54,7 +52,7 @@ def normalize_audio(file: Path, output_folder: Path | None = None) -> None:
         format=format_file,
     )
 
-    logger.info("File '%s' exported in '%s'", new_fn, file.parent)
+    logging.info("File '%s' exported in '%s'", new_fn, file.parent)
 
 
 def create_raven_file_list(directory: Path) -> None:
@@ -80,4 +78,4 @@ def create_raven_file_list(directory: Path) -> None:
         for item in files:
             f.write(f"{item}\n")
 
-    logger.info("File list saved in '%s'", directory)
+    logging.info("File list saved in '%s'", directory)

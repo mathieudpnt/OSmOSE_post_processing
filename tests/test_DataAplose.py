@@ -28,7 +28,7 @@ def test_filter_df_single_pair(sample_df: DataFrame) -> None:
     expected = sample_df[
         (sample_df["annotator"] == "ann1") &
         (sample_df["annotation"] == "lbl1")
-    ]
+    ].reset_index(drop=True)
     assert filtered_data.equals(expected)
 
 
@@ -40,7 +40,7 @@ def test_filter_df_multiple_pairs(sample_df: DataFrame) -> None:
     pairs = [("ann1", "lbl1"), ("ann2", "lbl2")]
     expected = sample_df[
         sample_df[["annotator", "annotation"]].apply(tuple, axis=1).isin(pairs)
-    ]
+    ].reset_index(drop=True)
     assert filtered_data.equals(expected)
 
 
@@ -163,3 +163,31 @@ def test_from_yaml(sample_yaml: Path, sample_df: DataFrame) -> None:
     df_from_yaml = DataAplose.from_yaml(sample_yaml).df
     df_expected = DataAplose(sample_df).filter_df(annotator="ann1", label="lbl1").reset_index(drop=True)
     assert df_from_yaml.equals(df_expected)
+
+
+def test_concat(sample_yaml: Path, sample_df: DataFrame) -> None:
+    data1 = DataAplose(sample_df.loc[: len(sample_df) / 2])
+    data2 = DataAplose(sample_df.loc[len(sample_df) / 2 :])
+
+    data_concat = DataAplose.concatenate([data1, data2])
+    expected = DataAplose(sample_df)
+
+    attrs = [
+        name
+        for name in dir(expected)
+        if not name.startswith("_") and not callable(getattr(expected, name))
+    ]
+
+    for attr in attrs:
+        got = getattr(data_concat, attr)
+        exp = getattr(expected, attr)
+
+        if isinstance(exp, DataFrame):
+            assert got.equals(exp), f"Mismatch in {attr}"
+        else:
+            assert got == exp, f"Mismatch in {attr}"
+
+
+
+
+

@@ -6,7 +6,7 @@ import bisect
 import csv
 from typing import TYPE_CHECKING
 
-from pandas import DataFrame, Timedelta, Timestamp, concat, date_range, read_csv
+from pandas import DataFrame, Timedelta, Timestamp, concat, date_range, read_csv, to_datetime
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -210,6 +210,10 @@ def reshape_timebin(
     max_freq = get_max_freq(df)
     dataset = get_dataset(df)
 
+    if isinstance(get_timezone(df), list):
+       df["start_datetime"] = [to_datetime(elem, utc=True) for elem in df["start_datetime"]]
+       df["end_datetime"] = [to_datetime(elem, utc=True) for elem in df["end_datetime"]]
+
     results = []
     for ant in annotators:
         for lbl in labels:
@@ -281,7 +285,7 @@ def reshape_timebin(
                     ),
                 )
 
-    return concat(results).sort_values(by="start_datetime").reset_index(drop=True)
+    return concat(results).sort_values(by=["start_datetime", "end_datetime", "annotator", "annotation"]).reset_index(drop=True)
 
 
 def ensure_in_list(value: str, candidates: list[str], label: str) -> None:
