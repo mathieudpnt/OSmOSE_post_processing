@@ -20,7 +20,7 @@ from pandas import (
     cut,
     date_range,
     json_normalize,
-    to_datetime, concat,
+    to_datetime,
 )
 from pandas.tseries import offsets
 from pandas.tseries.offsets import BaseOffset
@@ -160,7 +160,11 @@ def get_sun_times(
         ]
 
         if night < dusk:
-            suntime = sun(gps.observer, date=date + Timedelta("1d"), dawn_dusk_depression=12, tzinfo=tz)
+            suntime = sun(gps.observer,
+                          date=date + Timedelta("1d"),
+                          dawn_dusk_depression=12,
+                          tzinfo=tz
+                          )
             _, _, _, _, night = [Timestamp(suntime[period]).tz_convert(tz) for period in suntime]
 
         # Convert sunrise and sunset to decimal hours
