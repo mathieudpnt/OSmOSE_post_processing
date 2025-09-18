@@ -21,7 +21,8 @@ dependencies = [
     "seaborn >=0.12.2",
     "soundfile >=0.12.1",
     "tqdm >=4.67.1",
-    "gpxpy >=1.6.2"
+    "gpxpy >=1.6.2",
+    "notebook>=7.4.5",
 ]
 
 [project.optional-dependencies]

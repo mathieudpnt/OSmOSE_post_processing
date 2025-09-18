@@ -88,33 +88,27 @@ class DataAplose:
 
         """
         self.df = df
-        self.annotators = list(set(self.df["annotator"])) if df is not None else None
-        self.labels = list(set(self.df["annotation"])) if df is not None else None
+        self.annotators = sorted(set(self.df["annotator"])) if df is not None else None
+        self.labels = sorted(set(self.df["annotation"])) if df is not None else None
         self.begin = min(self.df["start_datetime"]) if df is not None else None
         self.end = max(self.df["end_datetime"]) if df is not None else None
-        self.dataset = list(set(self.df["dataset"])) if df is not None else None
+        self.dataset = sorted(set(self.df["dataset"])) if df is not None else None
         self.lat = None
         self.lon = None
 
     def __str__(self) -> str:
         """Return string representation of DataAplose object."""
         return (
-            f"annotators: {self.annotators}\n"
-            f"labels: {self.labels}\n"
             f"begin: {self.begin}\n"
             f"end: {self.end}\n"
-            f"dataset: {', '.join(self.dataset)}"
+            f"annotators: {self.annotators}\n"
+            f"labels: {self.labels}\n"
+            f"dataset: {self.dataset}"
         )
 
     def __repr__(self) -> str:
         """Return string representation of DataAplose object."""
-        return (
-            f"annotators: {self.annotators}\n"
-            f"labels: {self.labels}\n"
-            f"begin: {self.begin}\n"
-            f"end: {self.end}\n"
-            f"dataset: {', '.join(self.dataset)}"
-        )
+        return self.__str__()
 
     @property
     def shape(self) -> tuple[int, int]:

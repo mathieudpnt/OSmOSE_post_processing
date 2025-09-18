@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections import Counter
 from itertools import cycle
 from typing import TYPE_CHECKING
@@ -17,7 +18,6 @@ from pandas.tseries import frequencies
 from scipy.stats import pearsonr
 from seaborn import scatterplot
 
-from post_processing import logger
 from post_processing.utils.core_utils import (
     add_season_period,
     get_coordinates,
@@ -80,7 +80,7 @@ def histo(
         msg = (f"DataFrame with annotators '{', '.join(annotators)}'"
                f" / labels '{', '.join(labels)}'"
                f" do not contains enough detections.")
-        logger.warn(msg)
+        logging.warning(msg)
         return
 
     legend = kwargs.get("legend", False)
@@ -357,9 +357,12 @@ def overview(df: DataFrame) -> None:
     axs[1].set_title("Number of annotations per annotator")
     fig.suptitle(f"{dataset}")
 
+    plt.tight_layout()
+
     # log
-    msg = f"- Overview of the detections -\n {summary_label}"
-    logger.info(msg)
+    msg = f"{" Overview ":#^40}"
+    msg += f"\n\n {summary_label}"
+    logging.info(msg)
 
 
 def _wrap_xtick_labels(ax: plt.Axes, max_chars: int = 10) -> None:
