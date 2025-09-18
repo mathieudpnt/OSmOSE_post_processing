@@ -27,7 +27,7 @@ from post_processing.utils.plot_utils import (
     overview,
     timeline,
 )
-from utils.filtering_utils import get_timezone
+from post_processing.utils.filtering_utils import get_timezone
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -147,8 +147,8 @@ class DataAplose:
 
     def change_tz(self, tz: str | tzinfo):
         """Change the timezone of the DataFrame."""
-        self.df["start_datetime"] = self.df["start_datetime"].dt.tz_convert(tz)
-        self.df["end_datetime"] = self.df["end_datetime"].dt.tz_convert(tz)
+        self.df["start_datetime"] = [elem.tz_convert(tz) for elem in self.df["start_datetime"]]
+        self.df["end_datetime"] = [elem.tz_convert(tz) for elem in self.df["end_datetime"]]
 
     def filter_df(
         self,

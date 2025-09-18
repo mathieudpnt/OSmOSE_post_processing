@@ -101,26 +101,18 @@ def test_get_sun_times_valid_input(start: Timestamp,
                                    lon: float,
                                    ) -> None:
     results = get_sun_times(start, stop, lat, lon)
-    h_sunrise, h_sunset, dt_dawn, dt_day, dt_dusk, dt_night = results
+    h_sunrise, h_sunset = results
 
     n_days = (stop.normalize() - start.normalize()).days + 1
 
     assert all(len(lst) == n_days for lst in results)
-
     assert all(isinstance(h, float) for h in h_sunrise)
     assert all(isinstance(h, float) for h in h_sunset)
-    assert all(isinstance(ts, Timestamp) for ts in dt_dawn)
-    assert all(isinstance(ts, Timestamp) for ts in dt_day)
-    assert all(isinstance(ts, Timestamp) for ts in dt_dusk)
-    assert all(isinstance(ts, Timestamp) for ts in dt_night)
 
     for sunrise, sunset in zip(h_sunrise, h_sunset, strict=False):
         assert 0 <= sunrise <= 24  # noqa: PLR2004
         assert 0 <= sunset <= 24  # noqa: PLR2004
         assert sunrise < sunset
-
-    for dawn, day, dusk, night in zip(dt_dawn, dt_day, dt_dusk, dt_night, strict=False):
-        assert dawn < day < dusk < night
 
 
 @pytest.mark.parametrize(

@@ -28,7 +28,7 @@ from post_processing.utils.core_utils import (
     timedelta_to_str,
 )
 from post_processing.utils.metrics_utils import normalize_counts_by_effort
-from utils.filtering_utils import get_timezone
+from post_processing.utils.filtering_utils import get_timezone
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -608,7 +608,7 @@ def add_sunrise_sunset(ax: Axes, lat: float, lon: float, tz: tzinfo) -> None:
     num_days = (end_date.date() - start_date.date()).days + 1
     dates = [start_date.date() + Timedelta(days=i) for i in range(num_days)]
 
-    sunrise, sunset, *_ = get_sun_times(
+    sunrise, sunset = get_sun_times(
         start=start_date,
         stop=end_date,
         lat=lat,
