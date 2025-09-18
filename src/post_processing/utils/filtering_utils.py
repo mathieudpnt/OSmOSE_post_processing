@@ -265,7 +265,7 @@ def reshape_timebin(
                 results.append(
                     DataFrame(
                         {
-                            "dataset": dataset * len(file_vector),
+                            "dataset": [dataset] * len(file_vector),
                             "filename": file_vector,
                             "start_time": [0] * len(file_vector),
                             "end_time": [timebin_new.total_seconds()]
