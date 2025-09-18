@@ -8,8 +8,6 @@ import numpy as np
 from numpy import ndarray
 from pandas import DataFrame, Series, Timedelta, Timestamp, date_range
 
-from post_processing import logger
-
 if TYPE_CHECKING:
     from post_processing.dataclass.recording_period import RecordingPeriod
 
