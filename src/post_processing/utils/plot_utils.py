@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from collections import Counter
+from datetime import tzinfo
 from itertools import cycle
 from typing import TYPE_CHECKING
 

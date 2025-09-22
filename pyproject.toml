@@ -38,8 +38,10 @@ dev = [
 ]
 
 [tool.ruff]
-select = ["ALL"]
 exclude = ["scripts/**/*.py"]
+
+[tool.ruff.lint]
+select = ["ALL"]
 
 [build-system]
 requires = ["hatchling"]
