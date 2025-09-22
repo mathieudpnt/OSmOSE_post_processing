@@ -60,7 +60,7 @@ def test_plot_detections_with_nav_data(df_detections: DataFrame,
     )
 
 def test_load_glider_nav() -> None:
-    input_dir = Path(r"..\user_case\resource\OHAGEODAMS_nav")
+    input_dir = Path(__file__).parent.parent / "user_case" / "resource" / "OHAGEODAMS_nav"
     df = load_glider_nav(input_dir)
     assert isinstance(df, DataFrame)
     assert "Lat" in df.columns
