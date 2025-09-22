@@ -13,7 +13,7 @@ import numpy as np
 from matplotlib import dates as mdates
 from matplotlib.dates import num2date
 from matplotlib.ticker import PercentFormatter
-from numpy import ceil, histogram, polyfit, zeros
+from numpy import ceil, histogram, polyfit
 from pandas import DataFrame, Index, Timedelta, Timestamp, date_range
 from pandas.tseries import frequencies
 from scipy.stats import pearsonr
