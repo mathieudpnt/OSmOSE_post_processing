@@ -45,6 +45,11 @@ exclude = ["scripts/**/*.py"]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[dependency-groups]
+dev = [
+    "pytest>=8.4.1",
+]
+
 [tool.ruff.lint.extend-per-file-ignores]
 "tests/**/*.py" = [
     # at least this three should be fine in tests:

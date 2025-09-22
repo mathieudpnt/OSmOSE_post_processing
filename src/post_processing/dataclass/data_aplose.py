@@ -12,7 +12,6 @@ from typing import TYPE_CHECKING
 
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
-import pytz
 from pandas import DataFrame, Series, Timedelta, Timestamp, concat
 from pandas.tseries import offsets
 
@@ -27,7 +26,6 @@ from post_processing.utils.plot_utils import (
     overview,
     timeline,
 )
-from post_processing.utils.filtering_utils import get_timezone
 
 if TYPE_CHECKING:
     from pathlib import Path
