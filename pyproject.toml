@@ -38,12 +38,19 @@ dev = [
 ]
 
 [tool.ruff]
-select = ["ALL"]
 exclude = ["scripts/**/*.py"]
+
+[tool.ruff.lint]
+select = ["ALL"]
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.1",
+]
 
 [tool.ruff.lint.extend-per-file-ignores]
 "tests/**/*.py" = [
