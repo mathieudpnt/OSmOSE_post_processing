@@ -7,6 +7,7 @@ plot time-based distributions, and manage metadata such as annotators and labels
 
 from __future__ import annotations
 
+import logging
 from datetime import tzinfo
 from typing import TYPE_CHECKING
 
@@ -17,7 +18,7 @@ from pandas.tseries import offsets
 
 from post_processing.dataclass.detection_filter import DetectionFilter
 from post_processing.utils.core_utils import get_count
-from post_processing.utils.filtering_utils import load_detections
+from post_processing.utils.filtering_utils import load_detections, get_timezone
 from post_processing.utils.metrics_utils import detection_perf
 from post_processing.utils.plot_utils import (
     agreement,
@@ -463,4 +464,9 @@ class DataAplose:
             .sort_values(by=["start_datetime", "end_datetime", "annotator", "annotation"])
             .reset_index(drop=True)
         )
-        return cls(df_concat)
+        obj = cls(df_concat)
+        if isinstance(get_timezone(df_concat), list):
+            obj.change_tz('utc')
+            msg = "Several timezones found in DataFrame, all timestamps are converted to UTC."
+            logging.info(msg)
+        return obj

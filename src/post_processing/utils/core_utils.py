@@ -95,10 +95,6 @@ def get_sun_times(
 ) -> (
     list[float],
     list[float],
-    list[Timestamp],
-    list[Timestamp],
-    list[Timestamp],
-    list[Timestamp],
 ):
     """Fetch sunrise and sunset hours for dates between start and stop.
 
@@ -301,7 +297,6 @@ def add_season_period(
     bins = date_range(
         start=Timestamp(ax.get_xlim()[0], unit="D").floor("1D"),
         end=Timestamp(ax.get_xlim()[1], unit="D").ceil("1D"),
-        freq="1h",
     )
 
     season_colors = {

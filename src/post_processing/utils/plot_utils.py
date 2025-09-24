@@ -173,8 +173,6 @@ def _prepare_timeline_plot(
     **kwargs: Additional keyword arguments depending on the mode.
         -show_rise_set : bool, default True
             Whether to overlay sunrise and sunset lines.
-        -season: bool
-            Whether to show the season.
 
     """
     lat, lon = coordinates
@@ -182,14 +180,9 @@ def _prepare_timeline_plot(
         lat, lon = get_coordinates()
 
     show_rise_set = kwargs.get("show_rise_set", False)
-    season = kwargs.get("season", False)
 
     datetime_list = list(df["start_datetime"])
     labels, annotators = get_labels_and_annotators(df)
-
-    if show_rise_set:
-        tz = get_timezone(df)
-        add_sunrise_sunset(ax, lat, lon, tz)
 
     if not bin_size:
         datetime_range = datetime_list
@@ -205,9 +198,9 @@ def _prepare_timeline_plot(
 
     set_plot_title(ax=ax, annotators=annotators, labels=labels)
 
-    if season:
-        northern = lat >= 0
-        add_season_period(ax, northern=northern)
+    if show_rise_set:
+        tz = get_timezone(df)
+        add_sunrise_sunset(ax, lat, lon, tz)
 
 
 def scatter(
@@ -282,6 +275,7 @@ def heatmap(df: DataFrame,
         The matplotlib axis to draw on.
     bin_size: Timedelta | BaseOffset
         The size of the heatmap bins.
+        Must be >= 24h.
     **kwargs: Additional keyword arguments depending on the mode.
         -coordinates: tuple[float, float]
             The latitude and longitude.
@@ -291,12 +285,18 @@ def heatmap(df: DataFrame,
             Whether to show the season.
 
     """
+    datetime_list = list(df["start_datetime"])
+
+    _, bin_size_dt = get_time_range_and_bin_size(datetime_list, bin_size)
+    if bin_size_dt < Timedelta('1D'):
+        msg = "`bin_size` must be >= 24h for heatmap mode."
+        raise ValueError(msg)
+
     show_rise_set = kwargs.get("show_rise_set", False)
     season = kwargs.get("season", False)
     coordinates = kwargs.get("coordinates", False)
-    _prepare_timeline_plot(df=df, ax=ax, bin_size=bin_size, show_rise_set=show_rise_set, season=season, coordinates=coordinates)
+    _prepare_timeline_plot(df=df, ax=ax, bin_size=bin_size, show_rise_set=show_rise_set, coordinates=coordinates)
 
-    datetime_list = list(df["start_datetime"])
 
     freq = frequencies.to_offset(Timedelta(get_max_time(df), "s"))
     begin, end, time_bin = round_begin_end_timestamps(datetime_list, freq)
@@ -330,6 +330,10 @@ def heatmap(df: DataFrame,
         origin="lower",
     )
 
+    if coordinates and season:
+        lat, lon = coordinates
+        add_season_period(ax, northern=lat>=0)
+
     bin_size_str = get_bin_size_str(bin_size)
     freq_str = get_bin_size_str(freq)
 
@@ -337,7 +341,8 @@ def heatmap(df: DataFrame,
     cbar = fig.colorbar(im, ax=ax, pad=0.1)
     cbar.ax.set_ylabel(f"{freq_str} detections per {bin_size_str} bin")
     ax.set_ylabel("Hour of day")
-    ax.set_xlabel("Time")
+    ax.set_xlabel(f"Time ({bin_size_str} bin)")
+
 
 
 def overview(df: DataFrame) -> None:
