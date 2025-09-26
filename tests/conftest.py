@@ -1,4 +1,5 @@
 import io
+import os
 from pathlib import Path
 
 import numpy as np
@@ -121,7 +122,7 @@ sample_dataset,2025_01_25_06_20_50,FINISHED,FINISHED,FINISHED,FINISHED,FINISHED,
 @pytest.fixture
 def sample_df() -> DataFrame:
     df = read_csv(io.StringIO(SAMPLE), parse_dates=["start_datetime", "end_datetime"])
-    return df.sort_values("start_datetime").reset_index(drop=True)
+    return df.sort_values(["start_datetime", "end_datetime", "annotator", "annotation"]).reset_index(drop=True)
 
 @pytest.fixture
 def sample_status() -> DataFrame:
@@ -188,13 +189,20 @@ def sample_audio(tmp_path: Path) -> Path:
     sf.write(file_path, audio, samplerate=samplerate)
     return file_path
 
+
 @pytest.fixture
 def tmp_audio_dir(tmp_path: Path) -> Path:
-    (tmp_path / "file1.wav").write_text("cool")
-    (tmp_path / "file2.wav").write_text("yo")
+
+    def create_file(path: Path, size: int = 2048):
+        """Create a file of given size in bytes."""
+        path.write_bytes(os.urandom(size))
+
+    # size 2KB to bypass `create_raven_file_list` watchdog
+    create_file(tmp_path / "file1.wav")
+    create_file(tmp_path / "file2.wav")
     nested = tmp_path / "nested"
     nested.mkdir()
-    (nested / "file3.wav").write_text("bbjuni")
-    (nested / "file4.wav").write_text("audio")
+    create_file(nested / "file3.wav")
+    create_file(nested / "file4.wav")
     (tmp_path / "ignore.txt").write_text("not audio")
     return tmp_path

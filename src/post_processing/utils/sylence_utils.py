@@ -25,15 +25,15 @@ def clean_pamguard_false_detection(df: DataFrame) -> DataFrame:
     filenames = df["filename"]
     tz_data = df["start_datetime"][0].tz
     filename_datetimes = [
-        strptime_from_text(fn, "%Y_%m_%d_%H_%M_%S").tz_localize(tz_data)
+        strptime_from_text(fn, "%Y-%m-%d_%H-%M-%S").tz_localize(tz_data)
         for fn in filenames
     ]
 
     start_datetimes = df["start_datetime"]
 
     # compare date of filename detection and date of detection and delete all lines
-    # for which the detection happens in the 5 first seconds of the file
-    max_time = 5
+    # for which the detection happens in the first second of the file
+    max_time = 1
     idx_false_detections = []
     for i in range(len(start_datetimes)):
         d = (start_datetimes[i] - filename_datetimes[i]).total_seconds()

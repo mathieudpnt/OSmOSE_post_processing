@@ -1,4 +1,4 @@
-"""`detection_filters` module provides the `DetectionFilters` dataclass.
+"""`detection_filter` module provides the `DetectionFilter` dataclass.
 
 DetectionFilter class uses criteria applied to APLOSE-formatted DataFrames.
 It supports filtering annotations based on time, frequency, annotators,
@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 
 
 @dataclass(frozen=True)
-class DetectionFilters:
+class DetectionFilter:
     """A class to handle filters applied to APLOSE formatted DataFrame."""
 
     detection_file: Path = None
@@ -47,8 +47,8 @@ class DetectionFilters:
     def from_yaml(
         cls,
         file: Path,
-    ) -> DetectionFilters | list[DetectionFilters]:
-        """Return a DetectionFilters object from a yaml file.
+    ) -> DetectionFilter | list[DetectionFilter]:
+        """Return a DetectionFilter object from a yaml file.
 
         Parameters
         ----------
@@ -69,8 +69,8 @@ class DetectionFilters:
     def from_dict(
             cls,
             parameters: dict,
-    ) -> DetectionFilters | list[DetectionFilters]:
-        """Return a DetectionFilters object from a dict.
+    ) -> DetectionFilter | list[DetectionFilter]:
+        """Return a DetectionFilter object from a dict.
 
         Parameters
         ----------

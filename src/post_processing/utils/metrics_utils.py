@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
 import numpy as np
 from numpy import ndarray
 from pandas import DataFrame, Series, Timedelta, Timestamp, date_range
-
-from post_processing import logger
 
 if TYPE_CHECKING:
     from post_processing.dataclass.recording_period import RecordingPeriod
@@ -124,10 +123,10 @@ def detection_perf(
         f"Config 2 : {selected_annotator2}/{selected_label2}\n\n"
     )
 
-    logger.debug(msg_result)
-    logger.info(f"Precision: {precision:.2f}")
-    logger.info(f"Recall: {recall:.2f}")
-    logger.info(f"F-score: {f_score:.2f}")
+    logging.debug(msg_result)
+    logging.info(f"Precision: {precision:.2f}")
+    logging.info(f"Recall: {recall:.2f}")
+    logging.info(f"F-score: {f_score:.2f}")
 
 
 def _map_datetimes_to_vector(df: DataFrame, timestamps: list[int]) -> ndarray:

@@ -1,0 +1,27 @@
+version: 1
+
+loggers:
+  dataset:
+    level: DEBUG
+    handlers: [consoleHandler]
+    propagate: no
+  printer:
+    level: INFO
+    handlers: [consoleHandler]
+    propagate: no
+
+handlers:
+  consoleHandler:
+    class: logging.StreamHandler
+    level: INFO
+    formatter: consoleFormatter
+    stream: ext://sys.stdout
+
+formatters:
+  consoleFormatter:
+    format: "[%(levelname)s] - %(asctime)s\n%(message)s\n"
+    datefmt: "%y/%m/%d %H:%M:%S"
+
+root:
+  level: DEBUG
+  handlers: [consoleHandler]

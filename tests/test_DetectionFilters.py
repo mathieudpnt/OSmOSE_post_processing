@@ -1,13 +1,13 @@
 from pathlib import Path
 
-from post_processing.dataclass.detection_filters import DetectionFilters
+from post_processing.dataclass.detection_filter import DetectionFilter
 
 
 def test_from_yaml(sample_yaml: Path,
                    sample_csv_result: Path,
                    sample_csv_timestamp: Path
                    ) -> None:
-    config = DetectionFilters.from_yaml(sample_yaml)
+    config = DetectionFilter.from_yaml(sample_yaml)
 
     param = {
         f"{sample_csv_result}": {
@@ -25,7 +25,7 @@ def test_from_yaml(sample_yaml: Path,
         }
     }
 
-    expected = DetectionFilters.from_dict(param)
+    expected = DetectionFilter.from_dict(param)
     assert config == expected
 
 

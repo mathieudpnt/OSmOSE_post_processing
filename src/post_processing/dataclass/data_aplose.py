@@ -7,14 +7,15 @@ plot time-based distributions, and manage metadata such as annotators and labels
 
 from __future__ import annotations
 
+from datetime import tzinfo
 from typing import TYPE_CHECKING
 
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
-from pandas import DataFrame, Series, Timedelta, Timestamp
+from pandas import DataFrame, Series, Timedelta, Timestamp, concat
 from pandas.tseries import offsets
 
-from post_processing.dataclass.detection_filters import DetectionFilters
+from post_processing.dataclass.detection_filter import DetectionFilter
 from post_processing.utils.core_utils import get_count
 from post_processing.utils.filtering_utils import load_detections
 from post_processing.utils.metrics_utils import detection_perf
@@ -87,34 +88,28 @@ class DataAplose:
             APLOSE formatted DataFrame.
 
         """
-        self.df = df
-        self.annotators = list(set(self.df["annotator"])) if df is not None else None
-        self.labels = list(set(self.df["annotation"])) if df is not None else None
+        self.df = df.sort_values(by=["start_datetime", "end_datetime", "annotator", "annotation"]).reset_index(drop=True)
+        self.annotators = sorted(set(self.df["annotator"])) if df is not None else None
+        self.labels = sorted(set(self.df["annotation"])) if df is not None else None
         self.begin = min(self.df["start_datetime"]) if df is not None else None
         self.end = max(self.df["end_datetime"]) if df is not None else None
-        self.dataset = list(set(self.df["dataset"])) if df is not None else None
+        self.dataset = sorted(set(self.df["dataset"])) if df is not None else None
         self.lat = None
         self.lon = None
 
     def __str__(self) -> str:
         """Return string representation of DataAplose object."""
         return (
-            f"annotators: {self.annotators}\n"
-            f"labels: {self.labels}\n"
             f"begin: {self.begin}\n"
             f"end: {self.end}\n"
-            f"dataset: {', '.join(self.dataset)}"
+            f"annotators: {self.annotators}\n"
+            f"labels: {self.labels}\n"
+            f"dataset: {self.dataset}"
         )
 
     def __repr__(self) -> str:
         """Return string representation of DataAplose object."""
-        return (
-            f"annotators: {self.annotators}\n"
-            f"labels: {self.labels}\n"
-            f"begin: {self.begin}\n"
-            f"end: {self.end}\n"
-            f"dataset: {', '.join(self.dataset)}"
-        )
+        return self.__str__()
 
     @property
     def shape(self) -> tuple[int, int]:
@@ -141,12 +136,17 @@ class DataAplose:
 
     @property
     def coordinates(self) -> tuple[float, float]:
-        """Shape of the audio data."""
+        """Coordinates of the audio data."""
         return self.lat, self.lon
 
     def __getitem__(self, item: int) -> Series:
         """Return the row from the underlying DataFrame."""
         return self.df.iloc[item]
+
+    def change_tz(self, tz: str | tzinfo):
+        """Change the timezone of the DataFrame."""
+        self.df["start_datetime"] = [elem.tz_convert(tz) for elem in self.df["start_datetime"]]
+        self.df["end_datetime"] = [elem.tz_convert(tz) for elem in self.df["end_datetime"]]
 
     def filter_df(
         self,
@@ -196,7 +196,7 @@ class DataAplose:
         config = list(zip(annotator, label, strict=False))
         return self.df[
             self.df[["annotator", "annotation"]].apply(tuple, axis=1).isin(config)
-        ]
+        ].reset_index(drop=True)
 
     def set_ax(
         self,
@@ -389,6 +389,7 @@ class DataAplose:
     def from_yaml(
         cls,
         file: Path,
+        concat: bool = False,
     ) -> DataAplose | list[DataAplose]:
         """Return a DataAplose object from a yaml file.
 
@@ -396,6 +397,9 @@ class DataAplose:
         ----------
         file: Path
             The path to a yaml configuration file.
+        concat: bool
+            If set to True, the DataAplose objects will be concatenated.
+            If set to False, the DataAplose objects will be returned as a list.
 
         Returns
         -------
@@ -403,20 +407,24 @@ class DataAplose:
         The DataAplose object.
 
         """
-        filters = DetectionFilters.from_yaml(file=file)
-        return cls.from_filters(filters)
+        filters = DetectionFilter.from_yaml(file=file)
+        return cls.from_filters(filters, concat)
 
     @classmethod
     def from_filters(
         cls,
-        filters: DetectionFilters | list[DetectionFilters],
+        filters: DetectionFilter | list[DetectionFilter],
+        concat: bool = False,
     ) -> DataAplose | list[DataAplose]:
         """Return a DataAplose object from a yaml file.
 
         Parameters
         ----------
-        filters: DetectionFilters | list[DetectionFilters]
+        filters: DetectionFilter | list[DetectionFilters]
             Object containing the detection filters.
+        concat: bool
+            If set to True, the DataAplose objects will be concatenated.
+            If set to False, the DataAplose objects will be returned as a list.
 
         Returns
         -------
@@ -424,9 +432,23 @@ class DataAplose:
         The DataAplose object.
 
         """
-        if isinstance(filters, DetectionFilters):
+        if isinstance(filters, DetectionFilter):
             filters = [filters]
         cls_list = [cls(load_detections(fil)) for fil in filters]
         if len(cls_list) == 1:
             return cls_list[0]
+        if concat:
+            return cls.concatenate(cls_list)
         return cls_list
+
+    @classmethod
+    def concatenate(
+        cls, data_list: list[DataAplose], tz: tzinfo | str = None
+    ) -> DataAplose:
+        """Concatenate a list of DataAplose objects into one."""
+        df_concat = (
+            concat([data.df for data in data_list], ignore_index=True)
+            .sort_values(by=["start_datetime", "end_datetime", "annotator", "annotation"])
+            .reset_index(drop=True)
+        )
+        return cls(df_concat)

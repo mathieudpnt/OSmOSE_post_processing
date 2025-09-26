@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import logging
 from collections import Counter
+from datetime import tzinfo
 from itertools import cycle
 from typing import TYPE_CHECKING
 
@@ -17,7 +19,6 @@ from pandas.tseries import frequencies
 from scipy.stats import pearsonr
 from seaborn import scatterplot
 
-from post_processing import logger
 from post_processing.utils.core_utils import (
     add_season_period,
     get_coordinates,
@@ -28,6 +29,7 @@ from post_processing.utils.core_utils import (
     timedelta_to_str,
 )
 from post_processing.utils.metrics_utils import normalize_counts_by_effort
+from post_processing.utils.filtering_utils import get_timezone
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -80,7 +82,7 @@ def histo(
         msg = (f"DataFrame with annotators '{', '.join(annotators)}'"
                f" / labels '{', '.join(labels)}'"
                f" do not contains enough detections.")
-        logger.warn(msg)
+        logging.warning(msg)
         return
 
     legend = kwargs.get("legend", False)
@@ -188,7 +190,7 @@ def map_detection_timeline(
     datetime_list = list(df["start_datetime"])
     freq = frequencies.to_offset("1D")
     begin, end, _ = round_begin_end_timestamps(datetime_list, freq)
-    annotators, labels = get_labels_and_annotators(df)
+    labels, annotators = get_labels_and_annotators(df)
 
     if mode == "scatter":
         scatter(df=df, ax=ax)
@@ -199,7 +201,8 @@ def map_detection_timeline(
         raise ValueError(msg)
 
     if show_rise_set:
-        add_sunrise_sunset(ax, lat, lon)
+        tz = get_timezone(df)
+        add_sunrise_sunset(ax, lat, lon, tz)
 
     ax.set_xlim(begin, end)
     ax.set_ylim(0, 24)
@@ -208,7 +211,7 @@ def map_detection_timeline(
     ax.set_xlabel("Date")
     ax.grid(color="k", linestyle="-", linewidth=0.2)
 
-    set_plot_title(ax, annotators, labels)
+    set_plot_title(ax=ax, annotators=annotators, labels=labels)
 
     if season:
         northern = lat >= 0
@@ -357,9 +360,12 @@ def overview(df: DataFrame) -> None:
     axs[1].set_title("Number of annotations per annotator")
     fig.suptitle(f"{dataset}")
 
+    plt.tight_layout()
+
     # log
-    msg = f"- Overview of the detections -\n {summary_label}"
-    logger.info(msg)
+    msg = f"{" Overview ":#^40}"
+    msg += f"\n\n {summary_label}"
+    logging.info(msg)
 
 
 def _wrap_xtick_labels(ax: plt.Axes, max_chars: int = 10) -> None:
@@ -594,16 +600,16 @@ def shade_no_effort(
     ax.set_xlim(x_min, x_max)
 
 
-def add_sunrise_sunset(ax: Axes, lat: float, lon: float) -> None:
+def add_sunrise_sunset(ax: Axes, lat: float, lon: float, tz: tzinfo) -> None:
     """Display sunrise/sunset times on plot."""
     x_min, x_max = ax.get_xlim()
-    start_date = Timestamp(num2date(x_min))
-    end_date = Timestamp(num2date(x_max))
+    start_date = Timestamp(num2date(x_min)).tz_convert(tz)
+    end_date = Timestamp(num2date(x_max)).tz_convert(tz)
 
     num_days = (end_date.date() - start_date.date()).days + 1
     dates = [start_date.date() + Timedelta(days=i) for i in range(num_days)]
 
-    sunrise, sunset, *_ = get_sun_times(
+    sunrise, sunset = get_sun_times(
         start=start_date,
         stop=end_date,
         lat=lat,

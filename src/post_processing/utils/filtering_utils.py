@@ -6,14 +6,14 @@ import bisect
 import csv
 from typing import TYPE_CHECKING
 
-from pandas import DataFrame, Timedelta, Timestamp, concat, date_range, read_csv
+from pandas import DataFrame, Timedelta, Timestamp, concat, date_range, read_csv, to_datetime
 
 if TYPE_CHECKING:
     from pathlib import Path
 
     from dateutil.tz import tzoffset
 
-    from post_processing.dataclass.detection_filters import DetectionFilters
+    from post_processing.dataclass.detection_filter import DetectionFilter
 
 
 def find_delimiter(file: Path) -> str:
@@ -173,7 +173,7 @@ def get_timezone(df: DataFrame) -> tzoffset | list[tzoffset]:
     timezones = {ts.tz for ts in df["start_datetime"] if ts.tz is not None}
     if len(timezones) == 1:
         return next(iter(timezones))
-    return sorted(timezones)
+    return sorted(timezones, key=lambda tz: tz.utcoffset(None))
 
 
 def reshape_timebin(
@@ -209,6 +209,10 @@ def reshape_timebin(
     labels = get_labels(df)
     max_freq = get_max_freq(df)
     dataset = get_dataset(df)
+
+    if isinstance(get_timezone(df), list):
+       df["start_datetime"] = [to_datetime(elem, utc=True) for elem in df["start_datetime"]]
+       df["end_datetime"] = [to_datetime(elem, utc=True) for elem in df["end_datetime"]]
 
     results = []
     for ant in annotators:
@@ -265,7 +269,7 @@ def reshape_timebin(
                 results.append(
                     DataFrame(
                         {
-                            "dataset": dataset * len(file_vector),
+                            "dataset": [dataset] * len(file_vector),
                             "filename": file_vector,
                             "start_time": [0] * len(file_vector),
                             "end_time": [timebin_new.total_seconds()]
@@ -281,7 +285,7 @@ def reshape_timebin(
                     ),
                 )
 
-    return concat(results).sort_values(by="start_datetime").reset_index(drop=True)
+    return concat(results).sort_values(by=["start_datetime", "end_datetime", "annotator", "annotation"]).reset_index(drop=True)
 
 
 def ensure_in_list(value: str, candidates: list[str], label: str) -> None:
@@ -298,12 +302,12 @@ def ensure_no_invalid(invalid: list[str], label: str) -> None:
         raise ValueError(msg)
 
 
-def load_detections(filters: DetectionFilters) -> DataFrame:
+def load_detections(filters: DetectionFilter) -> DataFrame:
     """Load and filter an APLOSE-formatted detection file.
 
     Parameters
     ----------
-    filters : DetectionFilters
+    filters : DetectionFilter
         All selection / filtering options.
 
     Returns
