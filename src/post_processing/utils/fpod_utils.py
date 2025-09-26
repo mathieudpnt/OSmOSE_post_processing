@@ -1,13 +1,13 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import pytz
 import seaborn as sns
 from matplotlib import pyplot as plt
 from matplotlib.patches import Patch
-from osekit.config import TIMESTAMP_FORMAT_AUDIO_FILE
 from osekit.utils.timestamp_utils import strftime_osmose_format, strptime_from_text
 from pandas import (
     DataFrame,
@@ -19,14 +19,11 @@ from pandas import (
     read_csv,
     read_excel,
     to_datetime,
-    to_timedelta,
 )
 
-from post_processing import logger
 from post_processing.utils.core_utils import get_coordinates, get_sun_times
 
 if TYPE_CHECKING:
-
     import pytz
 
 
@@ -182,15 +179,17 @@ def usable_data_phase(
         percentage_data = act_length * 100 / p_length
         msg = f"Percentage of usable data : {percentage_data}%"
 
-    logger.info(msg)
+    logging.info(msg)
     return percentage_data
 
 
-def meta_cut_aplose(raw_data: DataFrame,metadata: DataFrame,
-    col_deploy_name:str="deploy.name",
-    col_timestamp:str="start_datetime",
-    col_debut:str="deployment_date",
-    col_fin:str="recovery_date",
+def meta_cut_aplose(
+    raw_data: DataFrame,
+    metadata: DataFrame,
+    col_deploy_name: str = "deploy.name",
+    col_timestamp: str = "start_datetime",
+    col_debut: str = "deployment_date",
+    col_fin: str = "recovery_date",
 ) -> DataFrame:
     """Filter data to keep only the ones corresponding to a deployment.
 
@@ -247,8 +246,9 @@ def meta_cut_aplose(raw_data: DataFrame,metadata: DataFrame,
         & dfm[col_fin].notna()
     ].copy()
 
-    columns_to_drop = [col for col in [col_debut, col_fin]
-                       if col not in raw_data.columns]
+    columns_to_drop = [
+        col for col in [col_debut, col_fin] if col not in raw_data.columns
+    ]
     if columns_to_drop:
         out = out.drop(columns=columns_to_drop)
 
@@ -315,8 +315,9 @@ def assign_phase(
                 <= data.loc[j, "start_datetime"]
                 < meta_row["recovery_date"]
             ):
-                data.loc[j, "name"] = (f"{meta_row["site.name"]}_"
-                                       f"{meta_row["campaign.name"]}")
+                data.loc[j, "name"] = (
+                    f"{meta_row['site.name']}_{meta_row['campaign.name']}"
+                )
             j += 1
     return data
 
@@ -426,13 +427,16 @@ def build_hour_range(dph: DataFrame) -> DataFrame:
     all_ranges = []
     for _, row in deploy_ranges.iterrows():
         hours = date_range(row["start"], row["end"], freq="h")
-        tmp = DataFrame({
-            "deploy.name": row["deploy.name"],
-            "Date heure": hours,
-        })
+        tmp = DataFrame(
+            {
+                "deploy.name": row["deploy.name"],
+                "Date heure": hours,
+            },
+        )
         all_ranges.append(tmp)
 
     return concat(all_ranges, ignore_index=True)
+
 
 def merging_tab(meta: DataFrame, data: DataFrame) -> DataFrame:
     """Create a DataFrame with one line per hour between start and end dates.
@@ -494,8 +498,7 @@ def feeding_buzz(df: DataFrame, species: str) -> DataFrame:
     df["microsec"] = df["microsec"] / 1e6
     df["microsec_formatted"] = df["microsec"].apply(lambda x: f"{x:.6f}")
 
-    df["Time"] = (df["Minute"].astype(str) + ":" +
-                  df["microsec_formatted"].astype(str))
+    df["Time"] = df["Minute"].astype(str) + ":" + df["microsec_formatted"].astype(str)
 
     df["Time"] = to_datetime(df["Time"], dayfirst=True)
 
@@ -505,9 +508,9 @@ def feeding_buzz(df: DataFrame, species: str) -> DataFrame:
     df["Buzz"] = 0
     if species == "Marsouin":
         feeding_idx = df.index[df["ICI"] < 0.01]
-    elif species == "Commerson" :
+    elif species == "Commerson":
         feeding_idx = df.index[df["ICI"] <= 0.005]
-    else :
+    else:
         msg = "This species is not supported"
         raise ValueError(msg)
 
@@ -525,7 +528,7 @@ def feeding_buzz(df: DataFrame, species: str) -> DataFrame:
 
 
 def assign_daytime(
-        df: DataFrame,
+    df: DataFrame,
 ) -> DataFrame:
     """Assign datetime categories to events.
 
@@ -545,7 +548,7 @@ def assign_daytime(
     start = df.iloc[0]["Time"]
     stop = df.iloc[-1]["Time"]
     lat, lon = get_coordinates()
-    _, _,dawn,day,dusk,night  = get_sun_times(start, stop, lat, lon)
+    _, _, dawn, day, dusk, night = get_sun_times(start, stop, lat, lon)
     dawn = Series(dawn, name="dawn")
     day = Series(day, name="day")
     dusk = Series(dusk, name="dusk")
@@ -556,10 +559,10 @@ def assign_daytime(
         dpm_i = row["Time"]
         if notna(dpm_i):  # Check if time is not NaN
             jour_i = jour[
-                (jour["dusk"].dt.year == dpm_i.year) &
-                (jour["dusk"].dt.month == dpm_i.month) &
-                (jour["dusk"].dt.day == dpm_i.day)
-                ]
+                (jour["dusk"].dt.year == dpm_i.year)
+                & (jour["dusk"].dt.month == dpm_i.month)
+                & (jour["dusk"].dt.day == dpm_i.day)
+            ]
             if not jour_i.empty:  # Ensure there"s a matching row
                 jour_i = jour_i.iloc[0]  # Extract first match
                 if dpm_i <= jour_i["day"]:
@@ -578,7 +581,7 @@ def assign_daytime(
     return df
 
 
-def fb_folder(folder_path:Path, species:str) -> DataFrame:
+def fb_folder(folder_path: Path, species: str) -> DataFrame:
     """Process a folder containing all CPOD/FPOD feeding buzz detection files.
 
     Apply the feeding buzz function to these files.
@@ -666,12 +669,18 @@ def percent_calc(data: DataFrame, time_unit: str | None = None) -> DataFrame:
         group_cols.insert(0, time_unit)
 
     # Aggregate and compute metrics
-    df = data.groupby(group_cols).agg({
-        "DPH": "sum",
-        "DPM": "sum",
-        "Day": "size",
-        "Foraging": "sum",
-    }).reset_index()
+    df = (
+        data.groupby(group_cols)
+        .agg(
+            {
+                "DPH": "sum",
+                "DPM": "sum",
+                "Day": "size",
+                "Foraging": "sum",
+            },
+        )
+        .reset_index()
+    )
 
     df["%click"] = df["DPM"] * 100 / (df["Day"] * 60)
     df["%DPH"] = df["DPH"] * 100 / df["Day"]
@@ -691,12 +700,14 @@ def site_percent(df: DataFrame, metric: str) -> None:
         Type of percentage you want to show on the graph
 
     """
-    ax = sns.barplot(data=df, x="site.name",
-                     y=metric,
-                     hue="site.name",
-                     dodge=False,
-                     palette=colors,
-                     )
+    ax = sns.barplot(
+        data=df,
+        x="site.name",
+        y=metric,
+        hue="site.name",
+        dodge=False,
+        palette=colors,
+    )
     ax.set_title(f"{metric} per site")
     ax.set_ylabel(f"{metric}")
     if metric == "%buzzes":
@@ -724,13 +735,14 @@ def year_percent(df: DataFrame, metric: str) -> None:
     for i, site in enumerate(sorted(sites)):
         site_data = df[df["site.name"] == site]
         ax = axs[i]
-        ax.bar(site_data["Year"],
-               site_data[metric],
-               label=f"Site {site}",
-               color=colors.get(site, "gray"),
-               )
+        ax.bar(
+            site_data["Year"],
+            site_data[metric],
+            label=f"Site {site}",
+            color=colors.get(site, "gray"),
+        )
         ax.set_title(f"{site}")
-        ax.set_ylim(0,max(df[metric]) + 0.2)
+        ax.set_ylim(0, max(df[metric]) + 0.2)
         ax.set_ylabel(metric)
         if i != 3:
             ax.set_xlabel("")
@@ -763,14 +775,15 @@ def ym_percent(df: DataFrame, metric: str) -> None:
         site_data = df[df["site.name"] == site]
         ax = axs[i]
         bar_colors = site_data["Season"].map(season_color).fillna("gray")
-        ax.bar(site_data["YM"],
-               site_data[metric],
-               label=f"Site {site}",
-               color=bar_colors,
-               width=25,
-               )
+        ax.bar(
+            site_data["YM"],
+            site_data[metric],
+            label=f"Site {site}",
+            color=bar_colors,
+            width=25,
+        )
         ax.set_title(f"{site} - Percentage of minutes postitive to detection per month")
-        ax.set_ylim(0,max(df[metric]) + 0.2)
+        ax.set_ylim(0, max(df[metric]) + 0.2)
         ax.set_ylabel(metric)
         if i != 3:
             ax.set_xlabel("")
@@ -783,10 +796,12 @@ def ym_percent(df: DataFrame, metric: str) -> None:
         Patch(facecolor=season_color, edgecolor="black", label=season.capitalize())
         for season, season_color in season_color.items()
     ]
-    fig.legend(handles=legend_elements,
-               loc="upper right",
-               title="Seasons",
-               bbox_to_anchor=(0.95, 0.95))
+    fig.legend(
+        handles=legend_elements,
+        loc="upper right",
+        title="Seasons",
+        bbox_to_anchor=(0.95, 0.95),
+    )
     fig.suptitle(f"{metric} per month", fontsize=16)
     plt.show()
 
@@ -810,19 +825,32 @@ def month_percent(df: DataFrame, metric: str) -> None:
     for i, site in enumerate(sorted(sites)):
         site_data = df[df["site.name"] == site]
         ax = axs[i]
-        ax.bar(site_data["Month"],
-               site_data[metric],
-               label=f"Site {site}",
-               color=colors.get(site, "gray"),
-               )
+        ax.bar(
+            site_data["Month"],
+            site_data[metric],
+            label=f"Site {site}",
+            color=colors.get(site, "gray"),
+        )
         ax.set_title(f"{site} - Percentage of minutes postitive to detection per month")
-        ax.set_ylim(0,max(df[metric]) + 0.2)
+        ax.set_ylim(0, max(df[metric]) + 0.2)
         ax.set_ylabel(metric)
-        ax.set_xticks([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
-                      ["Jan", "Feb", "Mar", "Apr", "May","Jun",
-                       "Jul", "Agu", "Sep", "Oct", "Nov", "Dec",
-                       ],
-                      )
+        ax.set_xticks(
+            [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+            [
+                "Jan",
+                "Feb",
+                "Mar",
+                "Apr",
+                "May",
+                "Jun",
+                "Jul",
+                "Agu",
+                "Sep",
+                "Oct",
+                "Nov",
+                "Dec",
+            ],
+        )
         if i != 3:
             ax.set_xlabel("")
         else:
@@ -853,14 +881,16 @@ def hour_percent(df: DataFrame, metric: str) -> None:
     for i, site in enumerate(sorted(sites)):
         site_data = df[df["site.name"] == site]
         ax = axs[i]
-        ax.bar(site_data["Hour"],
-               site_data[metric],
-               label=f"Site {site}",
-               color=colors.get(site, "gray"),
-               )
-        ax.set_title(f"Site {site} - "
-                     f"Percentage of minutes positive to detection per hour")
-        ax.set_ylim(0,max(df[metric]) + 0.2)
+        ax.bar(
+            site_data["Hour"],
+            site_data[metric],
+            label=f"Site {site}",
+            color=colors.get(site, "gray"),
+        )
+        ax.set_title(
+            f"Site {site} - Percentage of minutes positive to detection per hour",
+        )
+        ax.set_ylim(0, max(df[metric]) + 0.2)
         ax.set_ylabel(metric)
         if i != 3:
             ax.set_xlabel("")
@@ -907,7 +937,7 @@ def csv_folder(folder_path: str | Path, **kwargs) -> DataFrame:
         raise ValueError(message)
 
     # Configuration
-    default_params = {"sep": ";", "encoding":"latin-1"}
+    default_params = {"sep": ";", "encoding": "latin-1"}
 
     # Parameters fusion
     read_params = {**default_params, **kwargs}
@@ -933,8 +963,9 @@ def csv_folder(folder_path: str | Path, **kwargs) -> DataFrame:
     return concat(all_data, ignore_index=True)
 
 
-def dpm_to_dp10m(df: DataFrame,
-                 extra_columns: list | None = None,
+def dpm_to_dp10m(
+    df: DataFrame,
+    extra_columns: list | None = None,
 ) -> DataFrame:
     """From CPOD result with a line per minute (DPM) to one line per 10 minutes (DP10M).
 
@@ -963,7 +994,7 @@ def dpm_to_dp10m(df: DataFrame,
             if col in df.columns:
                 agg_dict[col] = "first"
             else:
-                logger.warning(f"Column '{col}' does not exist and will be ignored.")
+                logging.warning(f"Column '{col}' does not exist and will be ignored.")
 
     return df.groupby("Date heure").agg(agg_dict).reset_index()
 
@@ -1000,7 +1031,7 @@ def dpm_to_dph(
             if col in df.columns:
                 agg_dict[col] = "first"
             else:
-                logger.warning(f"Column '{col}' does not exist and will be ignored.")
+                logging.warning(f"Column '{col}' does not exist and will be ignored.")
 
     return df.groupby("Date heure").agg(agg_dict).reset_index()
 
@@ -1037,13 +1068,14 @@ def dpm_to_dpd(
             if col in df.columns:
                 agg_dict[col] = "first"
             else:
-                logger.warning(f"Column '{col}' does not exist and will be ignored.")
+                logging.warning(f"Column '{col}' does not exist and will be ignored.")
 
     return df.groupby("Date heure").agg(agg_dict).reset_index()
 
 
-def date_format(df: DataFrame,
-                ) -> DataFrame :
+def date_format(
+    df: DataFrame,
+) -> DataFrame:
     """Change the date time format of a DataFrame to "%d/%m/%Y %H:%M:%S".
 
     Parameters
@@ -1062,9 +1094,10 @@ def date_format(df: DataFrame,
     return df
 
 
-def actual_data(df:DataFrame,
-                col_timestamp:str="start_datetime",
-                )-> DataFrame:
+def actual_data(
+    df: DataFrame,
+    col_timestamp: str = "start_datetime",
+) -> DataFrame:
     """Create a table with beginning and end of every deployment.
 
     Parameters
@@ -1082,15 +1115,21 @@ def actual_data(df:DataFrame,
 
     """
     df[col_timestamp] = df[col_timestamp].apply(
-        lambda x: strptime_from_text(x,["%Y-%m-%dT%H:%M:%S:%Z",
-                                        "%Y-%m-%dT%H:%M:%S","%d/%m/%Y %H:%M"]))
-    return df.groupby(["deploy.name"]).agg(Début=(col_timestamp, "first"),
-                                           Fin=(col_timestamp, "last")).reset_index()
+        lambda x: strptime_from_text(
+            x, ["%Y-%m-%dT%H:%M:%S:%Z", "%Y-%m-%dT%H:%M:%S", "%d/%m/%Y %H:%M"],
+        ),
+    )
+    return (
+        df.groupby(["deploy.name"])
+        .agg(Début=(col_timestamp, "first"), Fin=(col_timestamp, "last"))
+        .reset_index()
+    )
 
 
-def calendar(meta:DataFrame,
-             data:DataFrame,
-             )-> None:
+def calendar(
+    meta: DataFrame,
+    data: DataFrame,
+) -> None:
     """Produce the calendar of the given data.
 
     Parameters
@@ -1110,13 +1149,16 @@ def calendar(meta:DataFrame,
     meta["recovery_date"] = to_datetime(meta["recovery_date"])
     meta = meta.sort_values(["deploy.name", "deployment_date"]).reset_index(drop=True)
     data = data.sort_values(["deploy.name", "Début"]).reset_index(drop=True)
-    df_fusion = data.merge(meta[["deploy.name", "deployment_date", "recovery_date"]],
-                           on=["deploy.name"], how="outer")
+    df_fusion = data.merge(
+        meta[["deploy.name", "deployment_date", "recovery_date"]],
+        on=["deploy.name"],
+        how="outer",
+    )
 
     df_fusion["Début"] = df_fusion["Début"].fillna(df_fusion["deployment_date"])
     df_fusion["Fin"] = df_fusion["Fin"].fillna(df_fusion["deployment_date"])
 
-    df_fusion[["Site","Phase"]] = df_fusion["deploy.name"].str.split("_", expand=True)
+    df_fusion[["Site", "Phase"]] = df_fusion["deploy.name"].str.split("_", expand=True)
     df_fusion["color"] = df_fusion["Site"].map(colors)
 
     # Create the figure
@@ -1131,7 +1173,8 @@ def calendar(meta:DataFrame,
             (y_pos - 0.3, 0.6),
             facecolors="#F5F5F5",
             edgecolors="black",
-            linewidth=0.8)
+            linewidth=0.8,
+        )
 
         if row["Début"] != row["deployment_date"]:
             ax.broken_barh(
@@ -1139,17 +1182,20 @@ def calendar(meta:DataFrame,
                 (y_pos - 0.15, 0.3),
                 facecolors=row["color"],
                 edgecolors="black",
-                linewidth=0.8)
+                linewidth=0.8,
+            )
 
     ax.set_yticks(range(len(sites)))
     ax.set_yticklabels(sites, fontsize=12)
 
-    legend_elements = [Patch(facecolor="#F5F5F5", edgecolor="black",
-                             label="Deployment")]
+    legend_elements = [
+        Patch(facecolor="#F5F5F5", edgecolor="black", label="Deployment"),
+    ]
     for site, color in colors.items():
         if site in sites:
-            legend_elements.append(Patch(facecolor=color, edgecolor="black",
-                                         label=f"{site}"))
+            legend_elements.append(
+                Patch(facecolor=color, edgecolor="black", label=f"{site}"),
+            )
 
     ax.legend(handles=legend_elements, loc="upper left", fontsize=11, frameon=True)
     # Layout final
@@ -1179,18 +1225,18 @@ def f_b2(df: DataFrame, species: str) -> DataFrame:
     df["microsec"] = df["microsec"] / 1e6
     df["ICI"] = df["microsec"].diff()
 
-    if species == "Marsouin": #Nuuttila et al., 2013
+    if species == "Marsouin":  # Nuuttila et al., 2013
         df["Buzz"] = (df["ICI"].between(0, 0.01)).astype(int)
-    elif species == "Commerson" :
+    elif species == "Commerson":
         df["Buzz"] = (df["ICI"].between(0, 0.005)).astype(int)
-    else :
+    else:
         msg = "This species is not supported"
         raise ValueError(msg)
 
     df["Minute"] = to_datetime(df["Minute"], dayfirst=False, utc=True)
     f = df.groupby(["Minute"])["Buzz"].sum().reset_index()
 
-    #df['datetime'] = to_datetime('1900-01-01') + to_timedelta(df['Minute'], unit='min')
+    # df['datetime'] = to_datetime('1900-01-01') + to_timedelta(df['Minute'], unit='min')
     # + to_timedelta(df['microsec'], unit='us') - to_timedelta(2, unit='D')
 
     f["Foraging"] = (f["Buzz"] != 0).astype(int)
