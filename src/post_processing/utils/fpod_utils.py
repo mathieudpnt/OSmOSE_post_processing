@@ -6,20 +6,20 @@ from typing import TYPE_CHECKING, Any
 import pytz
 import seaborn as sns
 from matplotlib import pyplot as plt
+from matplotlib.patches import Patch
 from osekit.config import TIMESTAMP_FORMAT_AUDIO_FILE
 from osekit.utils.timestamp_utils import strftime_osmose_format, strptime_from_text
 from pandas import (
     DataFrame,
     Series,
     Timedelta,
-    Timestamp,
     concat,
     date_range,
-    merge,
     notna,
     read_csv,
     read_excel,
     to_datetime,
+    to_timedelta,
 )
 
 from post_processing import logger
@@ -117,7 +117,6 @@ def cpod2aplose(
         An APLOSE formatted DataFrame
 
     """
-    df = df.rename(columns={"ChunkEnd": "Date heure"})
     results = []
 
     for deploy_name in df["deploy.name"].unique():
@@ -248,7 +247,8 @@ def meta_cut_aplose(raw_data: DataFrame,metadata: DataFrame,
         & dfm[col_fin].notna()
     ].copy()
 
-    columns_to_drop = [col for col in [col_debut, col_fin] if col not in raw_data.columns]
+    columns_to_drop = [col for col in [col_debut, col_fin]
+                       if col not in raw_data.columns]
     if columns_to_drop:
         out = out.drop(columns=columns_to_drop)
 
@@ -315,7 +315,8 @@ def assign_phase(
                 <= data.loc[j, "start_datetime"]
                 < meta_row["recovery_date"]
             ):
-                data.loc[j, "name"] = f"{meta_row['site.name']}_{meta_row['campaign.name']}"
+                data.loc[j, "name"] = (f"{meta_row["site.name"]}_"
+                                       f"{meta_row["campaign.name"]}")
             j += 1
     return data
 
@@ -491,10 +492,10 @@ def feeding_buzz(df: DataFrame, species: str) -> DataFrame:
 
     """
     df["microsec"] = df["microsec"] / 1e6
+    df["microsec_formatted"] = df["microsec"].apply(lambda x: f"{x:.6f}")
 
     df["Time"] = (df["Minute"].astype(str) + ":" +
-                  df["microsec"].astype(str))
-    df["Time"] = to_datetime(df["Time"], dayfirst=True)
+                  df["microsec_formatted"].astype(str))
 
     df["Time"] = to_datetime(df["Time"], dayfirst=True)
 
@@ -602,7 +603,6 @@ def fb_folder(folder_path:Path, species:str) -> DataFrame:
         file_path = folder_path / file
         df = read_csv(file_path, sep="\t")
         processed_df = feeding_buzz(df, species)
-        processed_df["deploy.name"] = file.name
         all_data.append(processed_df)
 
     return concat(all_data, ignore_index=True)
@@ -613,8 +613,15 @@ colors = {
     "Site B Heugh": "#5DB996",
     "Site C Chat": "#B0DB9C",
     "Site D Simone": "#E3F0AF",
-    "CA4": "#5EABD6",
-    "Walde": "#FFB4B4",
+    "CA4": "#FF0066",
+    "Walde": "#934790",
+}
+
+season_color = {
+    "spring": "#C5E0B4",
+    "summer": "#FCF97F",
+    "autumn": "#ED7C2F",
+    "winter": "#B4C7E8",
 }
 
 
@@ -632,7 +639,7 @@ def extract_site(df: DataFrame) -> DataFrame:
         The same dataframe with two additional columns.
 
     """
-    df[["site.name", "campaign.name"]] = df["name"].str.split("_", expand=True)
+    df[["site.name", "campaign.name"]] = df["deploy.name"].str.split("_", expand=True)
     return df
 
 
@@ -669,7 +676,7 @@ def percent_calc(data: DataFrame, time_unit: str | None = None) -> DataFrame:
     df["%click"] = df["DPM"] * 100 / (df["Day"] * 60)
     df["%DPH"] = df["DPH"] * 100 / df["Day"]
     df["FBR"] = df["Foraging"] * 100 / df["DPM"]
-    df["%buzz"] = df["Foraging"] * 100 / (df["Day"] * 60)
+    df["%buzzes"] = df["Foraging"] * 100 / (df["Day"] * 60)
     return df
 
 
@@ -736,6 +743,54 @@ def year_percent(df: DataFrame, metric: str) -> None:
     plt.show()
 
 
+def ym_percent(df: DataFrame, metric: str) -> None:
+    """Plot a graph with the percentage of DPM per site/month-year.
+
+    Parameters
+    ----------
+    df: DataFrame
+        All percentages grouped by site and month per year
+    metric: str
+        Type of percentage you want to show on the graph
+
+    """
+    sites = df["site.name"].unique()
+    n_sites = len(sites)
+    fig, axs = plt.subplots(n_sites, 1, figsize=(14, 2.5 * n_sites), sharex=True)
+    if n_sites == 1:
+        axs = [axs]
+    for i, site in enumerate(sorted(sites)):
+        site_data = df[df["site.name"] == site]
+        ax = axs[i]
+        bar_colors = site_data["Season"].map(season_color).fillna("gray")
+        ax.bar(site_data["YM"],
+               site_data[metric],
+               label=f"Site {site}",
+               color=bar_colors,
+               width=25,
+               )
+        ax.set_title(f"{site} - Percentage of minutes postitive to detection per month")
+        ax.set_ylim(0,max(df[metric]) + 0.2)
+        ax.set_ylabel(metric)
+        if i != 3:
+            ax.set_xlabel("")
+        else:
+            ax.set_xlabel("Months")
+        if metric == "%buzzes":
+            for _, bar in enumerate(ax.patches):
+                bar.set_hatch("/")
+    legend_elements = [
+        Patch(facecolor=season_color, edgecolor="black", label=season.capitalize())
+        for season, season_color in season_color.items()
+    ]
+    fig.legend(handles=legend_elements,
+               loc="upper right",
+               title="Seasons",
+               bbox_to_anchor=(0.95, 0.95))
+    fig.suptitle(f"{metric} per month", fontsize=16)
+    plt.show()
+
+
 def month_percent(df: DataFrame, metric: str) -> None:
     """Plot a graph with the percentage of minutes positive to detection per site/month.
 
@@ -798,12 +853,13 @@ def hour_percent(df: DataFrame, metric: str) -> None:
     for i, site in enumerate(sorted(sites)):
         site_data = df[df["site.name"] == site]
         ax = axs[i]
-        ax.bar(site_data["hour"],
+        ax.bar(site_data["Hour"],
                site_data[metric],
                label=f"Site {site}",
                color=colors.get(site, "gray"),
                )
-        ax.set_title(f"Site {site} - Percentage of minutes positive to detection per hour")
+        ax.set_title(f"Site {site} - "
+                     f"Percentage of minutes positive to detection per hour")
         ax.set_ylim(0,max(df[metric]) + 0.2)
         ax.set_ylabel(metric)
         if i != 3:
@@ -829,7 +885,7 @@ def csv_folder(folder_path: str | Path, **kwargs) -> DataFrame:
 
     Returns
     -------
-    pd.DataFrame
+    DataFrame
         Concatenated dataframe with all files data and file column.
 
     Raises
@@ -851,7 +907,7 @@ def csv_folder(folder_path: str | Path, **kwargs) -> DataFrame:
         raise ValueError(message)
 
     # Configuration
-    default_params = {"sep": ";"}
+    default_params = {"sep": ";", "encoding":"latin-1"}
 
     # Parameters fusion
     read_params = {**default_params, **kwargs}
@@ -877,28 +933,28 @@ def csv_folder(folder_path: str | Path, **kwargs) -> DataFrame:
     return concat(all_data, ignore_index=True)
 
 
-def dpm_to_dph(
-    df: DataFrame,
-    extra_columns: list | None = None,
+def dpm_to_dp10m(df: DataFrame,
+                 extra_columns: list | None = None,
 ) -> DataFrame:
-    """Create a dataframe containing the number of DPM per hour.
+    """From CPOD result with a line per minute (DPM) to one line per 10 minutes (DP10M).
 
     Parameters
     ----------
     df: DataFrame
-        Contains every minute positive to click detection.
-    extra_columns: list, optional
+        CPOD result DataFrame, DPM.
+    extra_columns: list
         Additional columns added from df to data.
 
     Returns
     -------
     DataFrame
-        Contains sum of minutes positive to detection per hour.
+        DPM10M Dataframe.
 
     """
-    df["start_datetime"] = to_datetime(df["start_datetime"], utc=True)
-    df["end_datetime"] = to_datetime(df["end_datetime"], utc=True)
-    df["Date heure"] = df["start_datetime"].dt.floor("h")
+    df = df.copy()
+    df["ChunkEnd"] = to_datetime(df["ChunkEnd"], dayfirst=True)
+
+    df["Date heure"] = df["ChunkEnd"].dt.floor("10min")
 
     agg_dict = {"DPM": "sum"}
 
@@ -910,3 +966,233 @@ def dpm_to_dph(
                 logger.warning(f"Column '{col}' does not exist and will be ignored.")
 
     return df.groupby("Date heure").agg(agg_dict).reset_index()
+
+
+def dpm_to_dph(
+    df: DataFrame,
+    extra_columns: list | None = None,
+) -> DataFrame:
+    """From CPOD result with a line per minute (DPM) to one line per hour (DPH).
+
+    Parameters
+    ----------
+    df: pd.DataFrame
+        CPOD result DataFrame
+    extra_columns: list
+        Additional columns added from df to data
+
+    Returns
+    -------
+    pd.DataFrame
+        DPH Dataframe.
+
+    """
+    df = df.copy()
+    df["ChunkEnd"] = to_datetime(df["ChunkEnd"], dayfirst=True)
+
+    # Truncate column
+    df["Date heure"] = df["ChunkEnd"].dt.floor("h")
+
+    agg_dict = {"DPM": "sum"}
+
+    if extra_columns:
+        for col in extra_columns:
+            if col in df.columns:
+                agg_dict[col] = "first"
+            else:
+                logger.warning(f"Column '{col}' does not exist and will be ignored.")
+
+    return df.groupby("Date heure").agg(agg_dict).reset_index()
+
+
+def dpm_to_dpd(
+    df: DataFrame,
+    extra_columns: list | None = None,
+) -> DataFrame:
+    """From CPOD result with a line per minute (DPM) to one line per day (DPD).
+
+    Parameters
+    ----------
+    df: pd.DataFrame
+        CPOD result DataFrame
+    extra_columns: list
+        Additional columns added from df to data
+
+    Returns
+    -------
+    pd.DataFrame
+        DPD Dataframe.
+
+    """
+    df = df.copy()
+    df["ChunkEnd"] = to_datetime(df["ChunkEnd"], dayfirst=True)
+
+    # Truncate column
+    df["Date heure"] = df["ChunkEnd"].dt.floor("D")
+
+    agg_dict = {"DPM": "sum"}
+
+    if extra_columns:
+        for col in extra_columns:
+            if col in df.columns:
+                agg_dict[col] = "first"
+            else:
+                logger.warning(f"Column '{col}' does not exist and will be ignored.")
+
+    return df.groupby("Date heure").agg(agg_dict).reset_index()
+
+
+def date_format(df: DataFrame,
+                ) -> DataFrame :
+    """Change the date time format of a DataFrame to "%d/%m/%Y %H:%M:%S".
+
+    Parameters
+    ----------
+    df: pd.DataFrame
+        CPOD result DataFrame
+
+    Returns
+    -------
+    Return the same dataframe with a different time format.
+
+    """
+    df["Date heure"] = to_datetime(df["Date heure"], format="%Y-%m-%d %H:%M:%S")
+    df["Date heure"] = df["Date heure"].dt.strftime("%d/%m/%Y %H:%M:%S")
+
+    return df
+
+
+def actual_data(df:DataFrame,
+                col_timestamp:str="start_datetime",
+                )-> DataFrame:
+    """Create a table with beginning and end of every deployment.
+
+    Parameters
+    ----------
+    col_timestamp
+    df: pd.DataFrame
+        CPOD result DataFrame
+    col_timestamp: str
+        Name of the timestamps column in raw_data (default: 'start_datetime')
+
+    Returns
+    -------
+    pd.DataFrame
+        Simple Dataframe with beginning and end columns.
+
+    """
+    df[col_timestamp] = df[col_timestamp].apply(
+        lambda x: strptime_from_text(x,["%Y-%m-%dT%H:%M:%S:%Z",
+                                        "%Y-%m-%dT%H:%M:%S","%d/%m/%Y %H:%M"]))
+    return df.groupby(["deploy.name"]).agg(Début=(col_timestamp, "first"),
+                                           Fin=(col_timestamp, "last")).reset_index()
+
+
+def calendar(meta:DataFrame,
+             data:DataFrame,
+             )-> None:
+    """Produce the calendar of the given data.
+
+    Parameters
+    ----------
+    meta: DataFrame
+        metadatax file
+    data: DataFrame
+        cpod file from all sites and phases
+
+    Returns
+    -------
+    Return a plot of all deployments and associated data.
+
+    """
+    # format the dataframe
+    meta["deployment_date"] = to_datetime(meta["deployment_date"])
+    meta["recovery_date"] = to_datetime(meta["recovery_date"])
+    meta = meta.sort_values(["deploy.name", "deployment_date"]).reset_index(drop=True)
+    data = data.sort_values(["deploy.name", "Début"]).reset_index(drop=True)
+    df_fusion = data.merge(meta[["deploy.name", "deployment_date", "recovery_date"]],
+                           on=["deploy.name"], how="outer")
+
+    df_fusion["Début"] = df_fusion["Début"].fillna(df_fusion["deployment_date"])
+    df_fusion["Fin"] = df_fusion["Fin"].fillna(df_fusion["deployment_date"])
+
+    df_fusion[["Site","Phase"]] = df_fusion["deploy.name"].str.split("_", expand=True)
+    df_fusion["color"] = df_fusion["Site"].map(colors)
+
+    # Create the figure
+    fig, ax = plt.subplots(figsize=(14, 4))
+
+    sites = sorted(df_fusion["Site"].unique(), reverse=True)
+    site_mapping = {site: idx for idx, site in enumerate(sites)}
+    for _, row in df_fusion.iterrows():
+        y_pos = site_mapping[row["Site"]]
+        ax.broken_barh(
+            [(row["deployment_date"], row["recovery_date"] - row["deployment_date"])],
+            (y_pos - 0.3, 0.6),
+            facecolors="#F5F5F5",
+            edgecolors="black",
+            linewidth=0.8)
+
+        if row["Début"] != row["deployment_date"]:
+            ax.broken_barh(
+                [(row["Début"], row["Fin"] - row["Début"])],
+                (y_pos - 0.15, 0.3),
+                facecolors=row["color"],
+                edgecolors="black",
+                linewidth=0.8)
+
+    ax.set_yticks(range(len(sites)))
+    ax.set_yticklabels(sites, fontsize=12)
+
+    legend_elements = [Patch(facecolor="#F5F5F5", edgecolor="black",
+                             label="Deployment")]
+    for site, color in colors.items():
+        if site in sites:
+            legend_elements.append(Patch(facecolor=color, edgecolor="black",
+                                         label=f"{site}"))
+
+    ax.legend(handles=legend_elements, loc="upper left", fontsize=11, frameon=True)
+    # Layout final
+    plt.xticks(fontsize=12)
+    plt.tight_layout()
+    plt.show()
+
+
+def f_b2(df: DataFrame, species: str) -> DataFrame:
+    """Process a CPOD/FPOD feeding buzz detection file.
+
+    Gives the feeding buzz duration, depending on the studied species.
+
+    Parameters
+    ----------
+    df: DataFrame
+        Path to cpod.exe feeding buzz file
+    species: str
+        Select the species to use between porpoise and Commerson's dolphin
+
+    Returns
+    -------
+    DataFrame
+        Containing all ICIs for every positive minutes to clicks
+
+    """
+    df["microsec"] = df["microsec"] / 1e6
+    df["ICI"] = df["microsec"].diff()
+
+    if species == "Marsouin": #Nuuttila et al., 2013
+        df["Buzz"] = (df["ICI"].between(0, 0.01)).astype(int)
+    elif species == "Commerson" :
+        df["Buzz"] = (df["ICI"].between(0, 0.005)).astype(int)
+    else :
+        msg = "This species is not supported"
+        raise ValueError(msg)
+
+    df["Minute"] = to_datetime(df["Minute"], dayfirst=False, utc=True)
+    f = df.groupby(["Minute"])["Buzz"].sum().reset_index()
+
+    #df['datetime'] = to_datetime('1900-01-01') + to_timedelta(df['Minute'], unit='min')
+    # + to_timedelta(df['microsec'], unit='us') - to_timedelta(2, unit='D')
+
+    f["Foraging"] = (f["Buzz"] != 0).astype(int)
+
+    return f
