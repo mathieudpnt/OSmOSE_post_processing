@@ -453,9 +453,9 @@ def build_range(df: DataFrame, fr:str="h") -> DataFrame:
 
     """
     df["Début"] = to_datetime(df["Début"], utc=True)
-    df["Début"] = df["Début"].dt.floor("h")
+    df["Début"] = df["Début"].dt.floor(fr)
     df["Fin"] = to_datetime(df["Fin"], utc=True)
-    df["Fin"] = df["Fin"].dt.floor("h")
+    df["Fin"] = df["Fin"].dt.floor(fr)
 
     all_ranges = []
     for _, row in df.iterrows():
