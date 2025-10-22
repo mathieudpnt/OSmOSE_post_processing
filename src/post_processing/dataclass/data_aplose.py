@@ -141,11 +141,18 @@ class DataAplose:
         """Coordinates of the audio data."""
         return self.lat, self.lon
 
+    @coordinates.setter
+    def coordinates(self, value: tuple[float, float]) -> None:
+        if not isinstance(value, tuple) or len(value) != 2:  # noqa: PLR2004
+            msg = "Coordinates must be a tuple of two floats: (lat, lon)."
+            raise ValueError(msg)
+        self.lat, self.lon = value
+
     def __getitem__(self, item: int) -> Series:
         """Return the row from the underlying DataFrame."""
         return self.df.iloc[item]
 
-    def change_tz(self, tz: str | tzinfo):
+    def change_tz(self, tz: str | tzinfo) -> None:
         """Change the timezone of the DataFrame."""
         self.df["start_datetime"] = [elem.tz_convert(tz) for elem in self.df["start_datetime"]]
         self.df["end_datetime"] = [elem.tz_convert(tz) for elem in self.df["end_datetime"]]
