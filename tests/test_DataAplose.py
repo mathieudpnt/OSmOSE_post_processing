@@ -3,7 +3,7 @@ from pathlib import Path
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import pytest
-from pandas import DataFrame, Timedelta, date_range
+from pandas import DataFrame, Timedelta
 from pandas.tseries import frequencies
 
 from post_processing.dataclass.data_aplose import DataAplose
