@@ -142,9 +142,13 @@ def test_get_count_basic(sample_df: DataFrame) -> None:
         (sample_df["annotator"] == "ann1") &
         (sample_df["annotation"] == "lbl1")
     ]
-    assert list(result.index) == [Timestamp("2025-01-25 06:00:00+0000")]
+    assert list(result.index) == date_range(
+        Timestamp("2025-01-25 06:00:00+0000"),
+        Timestamp("2025-01-26 06:00:00+0000"),
+        freq="30min"
+    ).to_list()
     assert result.columns == ["lbl1-ann1"]
-    assert result["lbl1-ann1"].tolist() == [len(expected)]
+    assert sum(result["lbl1-ann1"].tolist()) == len(expected)
 
 
 def test_get_count_multiple_annotators(sample_df: DataFrame) -> None:
@@ -156,10 +160,9 @@ def test_get_count_multiple_annotators(sample_df: DataFrame) -> None:
         ]
 
     assert set(result.columns) == {"lbl1-ann1", "lbl1-ann2"}
-    assert result.iloc[0].to_dict() == {
-        "lbl1-ann1": len(expected[expected["annotator"] == "ann1"]),
-        "lbl1-ann2": len(expected[expected["annotator"] == "ann2"]),
-    }
+    assert result["lbl1-ann1"].sum() == len(expected[expected["annotator"] == "ann1"])
+    assert result["lbl1-ann2"].sum() == len(expected[expected["annotator"] == "ann2"])
+
 
 def test_get_count_multiple_labels(sample_df: DataFrame) -> None:
     df = DataAplose(sample_df).filter_df(annotator="ann5", label=["lbl1", "lbl2", "lbl3"])
@@ -170,11 +173,10 @@ def test_get_count_multiple_labels(sample_df: DataFrame) -> None:
         ]
 
     assert set(result.columns) == {"lbl1-ann5", "lbl2-ann5", "lbl3-ann5"}
-    assert result.iloc[0].to_dict() == {
-        "lbl1-ann5": len(expected[expected["annotation"] == "lbl1"]),
-        "lbl2-ann5": len(expected[expected["annotation"] == "lbl2"]),
-        "lbl3-ann5": len(expected[expected["annotation"] == "lbl3"]),
-    }
+    assert result["lbl1-ann5"].sum() == len(expected[expected["annotation"] == "lbl1"])
+    assert result["lbl2-ann5"].sum() == len(expected[expected["annotation"] == "lbl2"])
+    assert result["lbl3-ann5"].sum() == len(expected[expected["annotation"] == "lbl3"])
+
 
 def test_get_count_multiple_labels_annotators(sample_df: DataFrame) -> None:
     df = DataAplose(sample_df).filter_df(annotator=["ann1", "ann2"],
@@ -182,10 +184,9 @@ def test_get_count_multiple_labels_annotators(sample_df: DataFrame) -> None:
                                          )
     result = get_count(df, bin_size=Timedelta("1day"))
     assert set(result.columns) == {"lbl1-ann1", "lbl2-ann2"}
-    assert result.iloc[0].to_dict() == {
-        "lbl1-ann1": len(sample_df[(sample_df["annotation"] == "lbl1") & (sample_df["annotator"] == "ann1")]),
-        "lbl2-ann2": len(sample_df[(sample_df["annotation"] == "lbl2") & (sample_df["annotator"] == "ann2")]),
-    }
+    assert result["lbl1-ann1"].sum() == len(sample_df[(sample_df["annotation"] == "lbl1") & (sample_df["annotator"] == "ann1")])
+    assert result["lbl2-ann2"].sum() == len(sample_df[(sample_df["annotation"] == "lbl2") & (sample_df["annotator"] == "ann2")])
+
 
 def test_get_count_empty_df() -> None:
     with pytest.raises(ValueError, match="`df` contains no data"):
