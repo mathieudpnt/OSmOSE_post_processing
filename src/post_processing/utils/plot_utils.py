@@ -117,7 +117,7 @@ def histo(
             "width": bar_width.total_seconds() / 86400,
             "align": "edge",
             "edgecolor": "black",
-            "color": color[i],
+            "color": color,
             "zorder": 2,
         }
         if legend_labels:
@@ -139,7 +139,7 @@ def histo(
     ax.set_xlim(begin, end)
 
     if season:
-        if not lat or not lon:
+        if lat is None or lon is None:
             get_coordinates()
         add_season_period(ax, northern=lat >= 0)
 
@@ -339,7 +339,7 @@ def heatmap(df: DataFrame,
 
     fig = ax.get_figure()
     cbar = fig.colorbar(im, ax=ax, pad=0.1)
-    cbar.ax.set_ylabel(f"{freq_str} detections per {bin_size_str} bin")
+    cbar.ax.set_ylabel(f"{freq_str} detections per hour")
     ax.set_ylabel("Hour of day")
     ax.set_xlabel(f"Time ({bin_size_str} bin)")
 
