@@ -3,7 +3,7 @@ from pathlib import Path
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import pytest
-from pandas import DataFrame, Timedelta
+from pandas import DataFrame, Timedelta, date_range
 from pandas.tseries import frequencies
 
 from post_processing.dataclass.data_aplose import DataAplose
@@ -130,9 +130,9 @@ def test_plot_scatter_heatmap_timeline(sample_df: DataFrame, mode: str) -> None:
     data = DataAplose(sample_df)
     data.lon = 0
     data.lat = 0
-    bins = frequencies.to_offset("1d")
+    bin_size = frequencies.to_offset("1d")
     fig, ax = plt.subplots()
-    data.plot(mode=mode, ax=ax, annotator="ann1", label="lbl1", bin_size=bins, color="red")
+    data.plot(mode=mode, ax=ax, annotator="ann1", label="lbl1", bin_size=bin_size, color="red")
 
 
 def test_heatmap_wrong_bin(sample_df: DataFrame) -> None:
