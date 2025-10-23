@@ -8,28 +8,35 @@ plot time-based distributions, and manage metadata such as annotators and labels
 from __future__ import annotations
 
 import logging
-from datetime import tzinfo
+from copy import copy
 from typing import TYPE_CHECKING
 
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
-from pandas import DataFrame, Series, Timedelta, Timestamp, concat
+from pandas import DataFrame, Series, Timedelta, Timestamp, concat, date_range
 from pandas.tseries import offsets
 
 from post_processing.dataclass.detection_filter import DetectionFilter
 from post_processing.utils.core_utils import get_count
-from post_processing.utils.filtering_utils import load_detections, get_timezone
+from post_processing.utils.filtering_utils import (
+    get_annotators,
+    get_dataset,
+    get_labels,
+    get_timezone,
+    load_detections,
+)
 from post_processing.utils.metrics_utils import detection_perf
 from post_processing.utils.plot_utils import (
     agreement,
+    heatmap,
     histo,
     overview,
-    timeline,
-    heatmap,
     scatter,
+    timeline,
 )
 
 if TYPE_CHECKING:
+    from datetime import tzinfo
     from pathlib import Path
 
     from pandas.tseries.offsets import BaseOffset
@@ -339,6 +346,8 @@ class DataAplose:
             label,
         )
 
+        time = date_range(self.begin, self.end)
+
         if mode == "histogram":
             bin_size = kwargs.get("bin_size")
             legend = kwargs.get("legend", True)
@@ -372,6 +381,7 @@ class DataAplose:
             return heatmap(df=df_filtered,
                            ax=ax,
                            bin_size=bin_size,
+                           time_range=time,
                            show_rise_set=show_rise_set,
                            season=season,
                            coordinates=self.coordinates,
@@ -383,6 +393,7 @@ class DataAplose:
 
             return scatter(df=df_filtered,
                            ax=ax,
+                           time_range=time,
                            show_rise_set=show_rise_set,
                            season=season,
                            coordinates=self.coordinates,
@@ -477,3 +488,28 @@ class DataAplose:
             msg = "Several timezones found in DataFrame, all timestamps are converted to UTC."
             logging.info(msg)
         return obj
+
+    def reshape(self, begin: Timestamp = None, end: Timestamp = None) -> DataAplose:
+        """Reshape the DataAplose with new begin and/or end."""
+        new_data = copy(self)
+
+        if not any([begin, end]):
+            msg = "Must provide begin and/or end timestamps."
+            raise ValueError(msg)
+
+        tz = get_timezone(new_data.df)
+        if begin:
+            new_data.begin = begin
+            if not begin.tz:
+                new_data.begin = begin.tz_localize(tz)
+        if end:
+            new_data.end = end
+            if not end.tz:
+                new_data.end = end.tz_localize(tz)
+
+        new_data.df = new_data.df[(new_data.df["start_datetime"]>=new_data.begin) & (new_data.df["end_datetime"] <= new_data.end)]
+        new_data.dataset = get_dataset(new_data.df)
+        new_data.labels = get_labels(new_data.df)
+        new_data.annotators = get_annotators(new_data.df)
+
+        return new_data

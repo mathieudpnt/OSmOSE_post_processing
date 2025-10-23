@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 from collections import Counter
-from datetime import tzinfo
 from itertools import cycle
 from typing import TYPE_CHECKING
 
@@ -14,7 +13,7 @@ from matplotlib import dates as mdates
 from matplotlib.dates import num2date
 from matplotlib.ticker import PercentFormatter
 from numpy import ceil, histogram, polyfit
-from pandas import DataFrame, Index, Timedelta, Timestamp, date_range
+from pandas import DataFrame, DatetimeIndex, Index, Timedelta, Timestamp, date_range
 from pandas.tseries import frequencies
 from scipy.stats import pearsonr
 from seaborn import scatterplot
@@ -28,10 +27,12 @@ from post_processing.utils.core_utils import (
     round_begin_end_timestamps,
     timedelta_to_str,
 )
+from post_processing.utils.filtering_utils import get_max_time, get_timezone
 from post_processing.utils.metrics_utils import normalize_counts_by_effort
-from post_processing.utils.filtering_utils import get_timezone, get_max_time
 
 if TYPE_CHECKING:
+    from datetime import tzinfo
+
     from matplotlib.axes import Axes
     from pandas.tseries.offsets import BaseOffset
 
@@ -156,7 +157,7 @@ def _prepare_timeline_plot(
     df: DataFrame,
     ax: Axes,
     *,
-    bin_size: Timedelta | BaseOffset = None,
+    bins: DatetimeIndex = None,
     coordinates: tuple[float, float] | None = None,
     **kwargs: bool,
 ) -> None:
@@ -170,6 +171,8 @@ def _prepare_timeline_plot(
         The matplotlib axis to draw on.
     coordinates : tuple[float, float]
         The latitude and longitude.
+    bins : DatetimeIndex
+        Pandas date range of the data to plot
     **kwargs: Additional keyword arguments depending on the mode.
         -show_rise_set : bool, default True
             Whether to overlay sunrise and sunset lines.
@@ -179,17 +182,14 @@ def _prepare_timeline_plot(
     if lat is None or lon is None:
         lat, lon = get_coordinates()
 
+    begin = bins[0]
+    end = bins[-1]
+
     show_rise_set = kwargs.get("show_rise_set", False)
 
-    datetime_list = list(df["start_datetime"])
     labels, annotators = get_labels_and_annotators(df)
 
-    if not bin_size:
-        datetime_range = datetime_list
-    else:
-        datetime_range, _ = get_time_range_and_bin_size(datetime_list, bin_size)
-
-    ax.set_xlim(min(datetime_range), max(datetime_range))
+    ax.set_xlim(begin, end)
     ax.set_ylim(0, 24)
     ax.set_yticks(range(0, 25, 2))
     ax.set_ylabel("Hour")
@@ -206,6 +206,7 @@ def _prepare_timeline_plot(
 def scatter(
     df: DataFrame,
     ax: Axes,
+    time_range: DatetimeIndex,
     **kwargs: bool | tuple[float, float],
 ) -> None:
     """Scatter-plot of detections for a given annotator and label.
@@ -216,6 +217,8 @@ def scatter(
         data to plot
     ax : plt.Axes
         The matplotlib axis to draw on.
+    time_range: DatetimeIndex
+        The time range of the heatmap.
     **kwargs: Additional keyword arguments depending on the mode.
         -coordinates: tuple[float, float]
             The latitude and longitude.
@@ -228,7 +231,15 @@ def scatter(
     show_rise_set = kwargs.get("show_rise_set", False)
     season = kwargs.get("season", False)
     coordinates = kwargs.get("coordinates", False)
-    _prepare_timeline_plot(df=df, ax=ax, show_rise_set=show_rise_set, season=season, coordinates=coordinates)
+
+    _prepare_timeline_plot(
+        df=df,
+        ax=ax,
+        bins = time_range,
+        show_rise_set=show_rise_set,
+        season=season,
+        coordinates=coordinates,
+    )
 
     labels, annotators = get_labels_and_annotators(df)
     for ann in set(annotators):
@@ -263,6 +274,7 @@ def scatter(
 def heatmap(df: DataFrame,
             ax: Axes,
             bin_size: Timedelta | BaseOffset,
+            time_range: DatetimeIndex,
             **kwargs: bool | tuple[float, float],
             ) -> None:
     """Heatmap of detections for a given annotator and label.
@@ -276,6 +288,8 @@ def heatmap(df: DataFrame,
     bin_size: Timedelta | BaseOffset
         The size of the heatmap bins.
         Must be >= 24h.
+    time_range: DatetimeIndex
+        The time range of the heatmap.
     **kwargs: Additional keyword arguments depending on the mode.
         -coordinates: tuple[float, float]
             The latitude and longitude.
@@ -288,24 +302,32 @@ def heatmap(df: DataFrame,
     datetime_list = list(df["start_datetime"])
 
     _, bin_size_dt = get_time_range_and_bin_size(datetime_list, bin_size)
-    if bin_size_dt < Timedelta('1D'):
+    if bin_size_dt < Timedelta("1D"):
         msg = "`bin_size` must be >= 24h for heatmap mode."
         raise ValueError(msg)
 
     show_rise_set = kwargs.get("show_rise_set", False)
     season = kwargs.get("season", False)
     coordinates = kwargs.get("coordinates", False)
-    _prepare_timeline_plot(df=df, ax=ax, bin_size=bin_size, show_rise_set=show_rise_set, coordinates=coordinates)
 
+    begin = time_range[0]
+    end = time_range[-1]
+
+    # Coarse bins (for display cells)
+    cell_bins = date_range(begin, end, freq=bin_size)
+
+    _prepare_timeline_plot(
+        df=df,
+        ax=ax,
+        bins=cell_bins,
+        show_rise_set=show_rise_set,
+        coordinates=coordinates,
+    )
 
     freq = frequencies.to_offset(Timedelta(get_max_time(df), "s"))
-    begin, end, time_bin = round_begin_end_timestamps(datetime_list, freq)
 
     # Fine bins (for counting detection)
     fine_bins = date_range(begin, end, freq=freq)
-
-    # Coarse bins (for display cells)
-    cell_bins, _ = get_time_range_and_bin_size(datetime_list, bin_size)
 
     # Assign each timestamp to fine bin
     fine_idx = np.searchsorted(fine_bins, datetime_list, side="right") - 1
@@ -315,7 +337,7 @@ def heatmap(df: DataFrame,
 
     mat = np.zeros((24, len(cell_bins) - 1), dtype=int)
 
-    for dt, f_idx in zip(datetime_list, fine_idx):
+    for dt, f_idx in zip(datetime_list, fine_idx, strict=False):
         if 0 <= f_idx < len(fine_bins) - 1:
             c_idx = fine_to_cell[f_idx]
             if 0 <= c_idx < len(cell_bins) - 1:
@@ -323,7 +345,7 @@ def heatmap(df: DataFrame,
 
     im = ax.imshow(
         mat,
-        extent=(cell_bins[0], cell_bins[-1], 0, 24),
+        extent=(begin, end, 0, 24),
         vmin=0,
         vmax=mat.max(),
         aspect="auto",
