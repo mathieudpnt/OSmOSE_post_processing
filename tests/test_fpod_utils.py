@@ -22,7 +22,6 @@ from post_processing.utils.fpod_utils import (
     feeding_buzz,
     assign_daytime,
     is_dpm_col,
-    pf_datetime,
     build_aggregation_dict,
     resample_dpm)
 
@@ -107,8 +106,8 @@ def aplose_dataframe() -> DataFrame:
                 Timestamp("2024-12-30T09:32:00.000+00:00"),
             ],
             "is_box": [0, 0, 0, 0, 0, 0],
-            "deploy.name": ["site_deploy", "site_deploy", "site_deploy",
-                            "site_deploy", "site_deploy", "site_deploy"],
+            "deploy.name": ["site_campaign", "site_campaign", "site_campaign",
+                            "site_campaign", "site_campaign", "site_campaign"],
         },
     )
 
@@ -175,11 +174,11 @@ def test_fb_folder_non_existent() -> None:
     with pytest.raises(FileNotFoundError):
         txt_folder(Path("/non/existent/folder"))
 
-def test_fb_folder_no_files(tmp_path) -> None:
+def test_fb_folder_no_files(tmp_path: pytest.fixture) -> None:
     with pytest.raises(ValueError, match="No .txt files found"):
         txt_folder(tmp_path)
 
-    # extract_site
+# extract_site
 def test_extract_site(self) -> None:
     input_data = [
         {"deploy.name":"Walde_Phase46"},
@@ -236,7 +235,7 @@ def test_csv_folder_non_existent() -> None:
     with pytest.raises(FileNotFoundError):
         csv_folder(Path("/non/existent/folder"))
 
-def test_csv_folder_no_files(tmp_path) -> None:
+def test_csv_folder_no_files(tmp_path: pytest.fixture) -> None:
     with pytest.raises(ValueError, match="No .csv files found"):
         csv_folder(tmp_path)
 
@@ -252,13 +251,16 @@ def test_csv_folder_no_files(tmp_path) -> None:
 # resample_dpm
 
 
-# actual_data
+# parse_timestamps
 def test_parse_timestamps() -> None:
-    df = DataFrame({"date": ["2024-01-01T10:00:00", "01/01/2024 10:00"]})
+    df = DataFrame({"date": ["2024-01-01T10:00:00", "06/01/2025 08:35"]})
     result = parse_timestamps(df, "date")
+    expected = DataFrame({"date": ["2024-01-01 10:00:00",
+                                   "2025-01-06 08:35:00"]}).astype("datetime64[ns]")
+    assert_frame_equal(result, expected)
 
-
-def test_get_deployment_periods() -> None:
+# deploy_period
+def test_deploy_period() -> None:
     df = DataFrame(
         {
             "deploy.name": ["A", "A", "B"],
@@ -272,10 +274,16 @@ def test_get_deployment_periods() -> None:
     expected = DataFrame(
         {
             "deploy.name": ["A", "B"],
-            "Début": [datetime(2024, 1, 1, 10, 0, tzinfo=datetime.timezone.utc),
-                      datetime(2024, 1, 3, 8, 0, tzinfo=datetime.timezone.utc)],
-            "Fin": [datetime(2024, 1, 2, 15, 30, tzinfo=datetime.timezone.utc),
-                    datetime(2024, 1, 3, 8, 0, tzinfo=datetime.timezone.utc)],
+            "Début": [
+                datetime(2024, 1, 1, 10, 0, tzinfo=datetime.timezone.utc),
+                datetime(2024, 1, 3, 8, 0, tzinfo=datetime.timezone.utc),
+            ],
+            "Fin": [
+                datetime(2024, 1, 2, 15, 30, tzinfo=datetime.timezone.utc),
+                datetime(2024, 1, 3, 8, 0, tzinfo=datetime.timezone.utc),
+            ],
         })
     result = deploy_period(df)
     assert_frame_equal(result, expected)
+
+# actual_data
