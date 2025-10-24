@@ -18,7 +18,6 @@ from pandas import (
     date_range,
     notna,
     read_csv,
-    read_excel,
     to_datetime,
     to_timedelta,
 )
@@ -44,10 +43,10 @@ site_colors = {
 }
 
 season_color = {
-    "spring": "#C5E0B4",
-    "summer": "#FCF97F",
-    "autumn": "#ED7C2F",
-    "winter": "#B4C7E8",
+    "spring": "#C5E0B4", #green
+    "summer": "#FCF97F", #darkgoldenrod
+    "autumn": "#ED7C2F", #orange
+    "winter": "#B4C7E8", #blue
 }
 
 def fpod2aplose(
@@ -156,285 +155,262 @@ def cpod2aplose(
     return concat(results, ignore_index=True)
 
 
-def usable_data_phase(
-    d_meta: DataFrame,
-    df: DataFrame,
-    dpl: str,
+def csv_folder(
+    folder_path: Path,
+    sep: str = ";",
+    encoding: str = "latin-1",
 ) -> DataFrame:
-    """Calculate the percentage of usable data.
-
-    Considering the deployment dates and the collected data.
+    """Process all CSV files from a folder.
 
     Parameters
     ----------
-    df: DataFrame
-        CPOD result DataFrame
-    d_meta: DataFrame
-        Metadata DataFrame with deployments information (previously exported as json)
-    dpl: str
-        Deployment of interest where percentage of usable data will be calculated
+    folder_path: Path
+        Folder's place.
+    sep: str, default=";"
+        Column separator.
+    encoding: str, default="latin-1"
+        File encoding.
 
     Returns
     -------
     DataFrame
-        Returns the percentage of usable datas in the chosen phase
+        Concatenated data with optional filename column.
+
+    Raises
+    ------
+    ValueError
+        If no CSV files found.
 
     """
-    d_meta.loc[:, ["deployment_date", "recovery_date"]] = d_meta[
-        ["deployment_date", "recovery_date"]
-    ].apply(
-        to_datetime,
+    all_files = list(folder_path.rglob("*.csv"))
+
+    if not all_files:
+        msg = f"No .csv files found in {folder_path}"
+        raise ValueError(msg)
+
+    all_data = []
+    for file in all_files:
+        df = read_csv(file, sep=sep, encoding=encoding)
+        df["deploy.name"] = file.stem
+        all_data.append(df)
+
+    return concat(all_data, ignore_index=True)
+
+
+def txt_folder(
+    folder_path: Path,
+    sep: str = "\t",
+) -> DataFrame:
+    r"""Process all TXT files from a folder.
+
+    Parameters
+    ----------
+    folder_path: Path
+        Folder's place.
+    sep: str, default="\t"
+        Column separator.
+
+    Returns
+    -------
+    DataFrame
+       Concatenated data from all TXT files.
+
+    """
+    all_files = list(Path(folder_path).rglob("*.txt"))
+
+    if not all_files:
+        msg = f"No .txt files found in {folder_path}"
+        raise ValueError(msg)
+
+    all_data = []
+    for file in all_files:
+        file_path = folder_path / file
+        df = read_csv(file_path, sep=sep)
+        all_data.append(df)
+
+    return concat(all_data, ignore_index=True)
+
+
+def parse_timestamps(
+    df: DataFrame,
+    col_timestamp: str,
+    date_formats: list[str] | None = None,
+) -> DataFrame:
+    """Parse timestamp column with multiple possible formats.
+
+    Parameters
+    ----------
+    df: DataFrame
+        Input dataframe.
+    col_timestamp: str
+        Name of the timestamp column to parse.
+    date_formats: list[str], optional
+        List of strptime formats to try. If None, uses common formats.
+
+    Returns
+    -------
+    DataFrame
+        Copy of df with parsed timestamps.
+
+    Raises
+    ------
+    ValueError
+        If timestamps cannot be parsed with any format.
+
+    """
+    if date_formats is None:
+        date_formats = [
+            "%Y-%m-%dT%H:%M:%S.%f%z",
+            "%Y-%m-%dT%H:%M:%S:%Z",
+            "%Y-%m-%dT%H:%M:%S.%f",
+            "%Y-%m-%dT%H:%M:%S",
+            "%Y-%m-%d %H:%M:%S.%f",
+            "%d/%m/%Y %H:%M",
+        ]
+
+    df = df.copy()
+    df[col_timestamp] = df[col_timestamp].apply(
+        lambda x: strptime_from_text(x, date_formats))
+    return df
+
+
+def required_columns(
+    df: DataFrame,
+    columns: list[str],
+) -> None:
+    """Validate that required columns exist in dataframe.
+
+    Parameters
+    ----------
+    df : DataFrame
+        Dataframe to validate.
+    columns : list[str]
+        List of required column names.
+
+    Raises
+    ------
+    ValueError
+        If any required column is missing.
+
+    """
+    for col in columns:
+        if col not in df.columns:
+            msg = f"'{col}' not found in {df}"
+            raise ValueError(msg)
+
+
+def create_mask(
+    df: DataFrame,
+    col_timestamp: str,
+    col_start: str,
+    col_end: str,
+) -> DataFrame:
+    """Filter rows to keep only those within deployment period.
+
+    Parameters
+    ----------
+    df : DataFrame
+        Dataframe with timestamp and deployment period columns.
+    col_timestamp : str
+        Name of timestamp column.
+    col_start : str
+        Name of deployment start date column.
+    col_end : str
+        Name of deployment end date column.
+
+    Returns
+    -------
+    DataFrame
+        Filtered dataframe with rows in deployment periods.
+
+    """
+    mask = (
+        (df[col_timestamp] >= df[col_start])
+    & (df[col_timestamp] <= df[col_end])
+        & df[col_timestamp].notna()
+        & df[col_start].notna()
+        & df[col_end].notna()
     )
-    df["start_datetime"] = to_datetime(df["start_datetime"])
-
-    phase = d_meta.loc[d_meta["name"] == dpl].reset_index()
-    data = df.loc[df["name"] == dpl].reset_index()
-    start_date = phase.loc[0, "deployment_date"]
-    end_date = phase.loc[0, "recovery_date"]
-
-    # Calculate the percentage of collected data on the phase length of time
-    if data.empty:
-        percentage_data = 0
-        msg = "No data for this phase"
-    else:
-        df_end = data.loc[data.index[-1], "start_datetime"]
-        df_start = data.loc[data.index[0], "start_datetime"]
-        act_length = df_end - df_start
-        p_length = end_date - start_date
-        percentage_data = act_length * 100 / p_length
-        msg = f"Percentage of usable data : {percentage_data}%"
-
-    logger.info(msg)
-    return percentage_data
+    return df[mask].copy()
 
 
 def meta_cut_aplose(
     raw_data: DataFrame,
     metadata: DataFrame,
-    column_names: dict[str, str] | None = None,
 ) -> DataFrame:
-    """Filter data to keep only the ones corresponding to a deployment.
+    """Filter data to keep only rows within deployment periods.
 
     Parameters
     ----------
     raw_data : DataFrame
-        Dataframe containing deploy.name et timestamp
+        Dataframe containing deployment name and timestamps.
     metadata : DataFrame
-        Metadata containing deploy.name, deployment_date, recovery_date
-    column_names : dict[str, str], optional
-        Dictionary with column names. Keys: 'deploy_name', 'timestamp',
-        'deployment_date', 'recovery_date'. If None, uses defaults.
-
+        Metadata with deployment periods (start/end dates).
 
     Returns
     -------
     DataFrame
-        Filtered data containing only rows in deployment periods
+        Filtered data with only rows within deployment periods.
 
     """
-    defaults = {
-        "deploy_name": "deploy.name",
-        "timestamp": "start_datetime",
-        "deployment_date": "deployment_date",
-        "recovery_date": "recovery_date",
-    }
+    required_columns(
+        raw_data,["deploy.name", "start_datetime"])
+    required_columns(
+        metadata,["deploy.name", "deployment_date","recovery_date"])
 
-    # Merge with user-provided names
-    cols = {**defaults, **(column_names or {})}
-
-    col_deploy_name = cols["deploy_name"]
-    col_timestamp = cols["timestamp"]
-    col_debut = cols["deployment_date"]
-    col_fin = cols["recovery_date"]
-
-    required_raw = [col_deploy_name, col_timestamp]
-    required_meta = [col_deploy_name, col_debut, col_fin]
-
-    for col in required_raw:
-        if col not in raw_data.columns:
-            msg = f"'{col}' not found in raw_data"
-            raise ValueError(msg)
-    for col in required_meta:
-        if col not in metadata.columns:
-            msg = f"'{col}' not found in metadata"
-            raise ValueError(msg)
-
-    # Convert to datetime
-    raw = raw_data.copy()
-    meta = metadata.copy()
-    raw[col_timestamp] = to_datetime(raw[col_timestamp], errors="coerce")
-    meta[col_debut] = to_datetime(meta[col_debut], errors="coerce")
-    meta[col_fin] = to_datetime(meta[col_fin], errors="coerce")
+    raw = parse_timestamps(raw_data, "start_datetime")
 
     dfm = raw.merge(
-        meta[[col_deploy_name, col_debut, col_fin]],
-        on=col_deploy_name,
+        metadata[["deploy.name", "deployment_date","recovery_date"]],
+        on="deploy.name",
         how="left",
     )
 
-    out = dfm[
-        (dfm[col_timestamp] >= dfm[col_debut])
-        & (dfm[col_timestamp] <= dfm[col_fin])
-        & dfm[col_timestamp].notna()
-        & dfm[col_debut].notna()
-        & dfm[col_fin].notna()
-    ].copy()
+    out = create_mask(dfm, "start_datetime", "deployment_date", "recovery_date")
 
     columns_to_drop = [
-        col for col in [col_debut, col_fin] if col not in raw_data.columns
-    ]
+        col for col in ["deployment_date","recovery_date"] if col not in raw_data.
+        columns]
     if columns_to_drop:
         out = out.drop(columns=columns_to_drop)
 
-    return out.sort_values([col_deploy_name, col_timestamp]).reset_index(drop=True)
+    return out.sort_values(["start_datetime"]).reset_index(drop=True)
 
 
-def format_calendar(path: Path) -> DataFrame:
-    """Format calendar.
-
-    Parameters
-    ----------
-    path: Path
-        Excel calendar path
-
-    """
-    df_calendar = read_excel(path)
-    df_calendar = df_calendar[df_calendar["Site group"] == "Data"].copy()
-
-    return df_calendar.rename(
-        columns={
-            "Start": "start_datetime",
-            "Stop": "end_datetime",
-            "Site": "site.name",
-        },
-    )
-
-
-def assign_phase(
-    meta: DataFrame,
-    data: DataFrame,
-    site: str,
+def add_utc(
+    df: DataFrame,
+    cols: list,
+    fr:str="h",
 ) -> DataFrame:
-    """Add a column to an APLOSE DataFrame to specify the name of the phase.
-
-    The name of the phase is attributed according to metadata.
-
-    Parameters
-    ----------
-    meta: DataFrame
-        Metadata dataframe with deployments information (previously exported as json).
-    data: DataFrame
-        Contain positive hours to detections.
-    site: str
-        Name of the site you wish to assign phases to.
-
-    Returns
-    -------
-    DataFrame
-        The same dataframe with the column Phase.
-
-    """
-    data["start_datetime"] = to_datetime(data["start_datetime"], utc=True)
-    meta["deployment_date"] = to_datetime(meta["deployment_date"], utc=True)
-    meta["recovery_date"] = to_datetime(meta["recovery_date"], utc=True)
-
-    meta = meta[meta["site.name"] == site].copy()
-
-    data["name"] = None
-    for _, meta_row in meta.iterrows():
-        j = 0
-        while j < len(data):
-            if (
-                meta_row["deployment_date"]
-                <= data.loc[j, "start_datetime"]
-                < meta_row["recovery_date"]
-            ):
-                data.loc[j, "name"] = (
-                    f"{meta_row['site.name']}_{meta_row['campaign.name']}"
-                )
-            j += 1
-    return data
-
-
-def assign_phase_simple(
-    meta: DataFrame,
-    data: DataFrame,
-) -> DataFrame:
-    """Add column to an Aplose DataFrame to specify the phase, according to metadata.
-
-    Parameters
-    ----------
-    meta: DataFrame
-        Metadata dataframe with deployments information (previously exported as json).
-    data: DataFrame
-        Contain positive hours to detections.
-
-    Returns
-    -------
-    DataFrame
-        The same dataframe with the column Phase.
-
-    """
-    data["start_datetime"] = to_datetime(data["start_datetime"], utc=True)
-    data["end_datetime"] = to_datetime(data["end_datetime"], dayfirst=True, utc=True)
-    meta["deployment_date"] = to_datetime(meta["deployment_date"], utc=True)
-    meta["recovery_date"] = to_datetime(meta["recovery_date"], utc=True)
-    meta["deployment_date"] = meta["deployment_date"].dt.floor("d")
-    meta["recovery_date"] = meta["recovery_date"].dt.floor("d")
-
-    data["name"] = None
-    for site in data["deploy.name"].unique():
-        site_meta = meta[meta["deploy.name"] == site]
-        site_data = data[data["deploy.name"] == site]
-
-        for _, meta_row in site_meta.iterrows():
-            time_filter = (
-                meta_row["deployment_date"] <= site_data["start_datetime"]
-            ) & (site_data["start_datetime"] < meta_row["recovery_date"])
-            data.loc[site_data.index[time_filter], "name"] = meta_row["name"]
-
-    return data
-
-
-def generate_hourly_detections(meta: DataFrame, site: str) -> DataFrame:
     """Create a DataFrame with one line per hour between start and end dates.
 
     Keep the number of detections per hour between these dates.
 
     Parameters
     ----------
-    meta: DataFrame
-        Metadata dataframe with deployments information (previously exported as json)
-    site: str
-        A way to isolate the site you want to work on.
+    df: pd.DataFrame
+        Metadata dataframe with deployments information (previously exported as json).
+    cols:list
+        Timestamp column names.
+    fr:str
+        Frequency of the range of detections.
 
     Returns
     -------
-    DataFrame
+    pd.DataFrame
         A full period of time with positive and negative hours to detections.
 
     """
-    df_meta = meta[meta["site.name"] == site].copy()
-    df_meta["deployment_date"] = to_datetime(df_meta["deployment_date"])
-    df_meta["recovery_date"] = to_datetime(df_meta["recovery_date"])
-    df_meta["deployment_date"] = df_meta["deployment_date"].dt.floor("h")
-    df_meta["recovery_date"] = df_meta["recovery_date"].dt.floor("h")
-    df_meta = df_meta.sort_values(by=["deployment_date"])
-
-    records = [
-        {"name": row["name"], "start_datetime": date}
-        for _, row in df_meta.iterrows()
-        for date in date_range(
-            start=row["deployment_date"],
-            end=row["recovery_date"],
-            freq="h",
-        )
-    ]
-
-    return DataFrame(records)
+    for col in df[cols]:
+        df[col] = to_datetime(df[col], utc=True)
+        df[col] = df[col].dt.floor(fr)
+    return df
 
 
-def build_range(df: DataFrame, fr:str="h") -> DataFrame:
+def build_range(
+    df: DataFrame,
+    fr:str="h",
+) -> DataFrame:
     """Create a DataFrame with one line per hour between start and end dates.
 
     Keep the number of detections per hour between these dates.
@@ -452,10 +428,7 @@ def build_range(df: DataFrame, fr:str="h") -> DataFrame:
         A full period of time with positive and negative hours to detections.
 
     """
-    df["Début"] = to_datetime(df["Début"], utc=True)
-    df["Début"] = df["Début"].dt.floor(fr)
-    df["Fin"] = to_datetime(df["Fin"], utc=True)
-    df["Fin"] = df["Fin"].dt.floor(fr)
+    add_utc(df, ["Début","Fin"], fr)
 
     all_ranges = []
     for _, row in df.iterrows():
@@ -471,46 +444,10 @@ def build_range(df: DataFrame, fr:str="h") -> DataFrame:
     return concat(all_ranges, ignore_index=True)
 
 
-def merging_tab(meta: DataFrame, data: DataFrame) -> DataFrame:
-    """Create a DataFrame with one line per hour between start and end dates.
-
-    Keep the number of detections per hour between these dates.
-
-    Parameters
-    ----------
-    meta: DataFrame
-        Metadata with deployments information (previously exported as json)
-    data: DataFrame
-        Contain positive hours to detections
-
-    Returns
-    -------
-    DataFrame
-        A full period of time with positive and negative hours to detections.
-
-    """
-    data["start_datetime"] = to_datetime(data["start_datetime"], utc=True)
-    meta["start_datetime"] = to_datetime(meta["start_datetime"], utc=True)
-
-    deploy_detec = data["deploy.name"].unique()
-    df_filtered = meta[meta["deploy.name"].isin(deploy_detec)]
-
-    output = df_filtered.merge(
-        data[["deploy.name", "start_datetime", "DPM"]],
-        on=["deploy.name", "start_datetime"],
-        how="outer",
-    )
-    output["DPM"] = output["DPM"].fillna(0)
-
-    output["Day"] = output["start_datetime"].dt.day
-    output["Month"] = output["start_datetime"].dt.month
-    output["Year"] = output["start_datetime"].dt.year
-    output["hour"] = output["start_datetime"].dt.hour
-
-    return output
-
-
-def feeding_buzz(df: DataFrame, species: str) -> DataFrame:
+def feeding_buzz(
+    df: DataFrame,
+    species: str,
+) -> DataFrame:
     """Process a CPOD/FPOD feeding buzz detection file.
 
     Gives the feeding buzz duration, depending on the studied species.
@@ -607,81 +544,270 @@ def assign_daytime(
     return df
 
 
-def csv_folder(
-    folder_path: Path,
-    sep: str = ";",
-    encoding: str = "latin-1",
+def is_dpm_col(
+    df: DataFrame,
 ) -> DataFrame:
-    """Process all CSV files from a folder.
+    """Ensure DPM column exists with default value of 1.
 
     Parameters
     ----------
-    folder_path: Path
-        Folder's place.
-    sep: str, default=";"
-        Column separator.
-    encoding: str, default="latin-1"
-        File encoding.
+    df: DataFrame
+        Input dataframe.
 
     Returns
     -------
     DataFrame
-        Concatenated data with optional filename column.
-
-    Raises
-    ------
-    ValueError
-        If no CSV files found.
+        Copy of df with DPM column.
 
     """
-    all_files = list(folder_path.rglob("*.csv"))
-
-    if not all_files:
-        msg = f"No .csv files found in {folder_path}"
-        raise ValueError(msg)
-
-    all_data = []
-    for file in all_files:
-        df = read_csv(file, sep=sep, encoding=encoding)
-        df["deploy.name"] = file.stem
-        all_data.append(df)
-
-    return concat(all_data, ignore_index=True)
+    df = df.copy()
+    if "DPM" not in df.columns:
+        df["DPM"] = 1
+    return df
 
 
-def txt_folder(folder_path: Path,
-               sep: str = "\t") -> DataFrame:
-    r"""Process all TXT files from a folder.
+def pf_datetime(
+    df: DataFrame,
+    col_datetime: str,
+    frequency: str,
+) -> DataFrame:
+    """Parse datetime column and floor to specified frequency.
 
     Parameters
     ----------
-    folder_path: Path
-        Folder's place.
-    sep: str, default="\t"
-        Column separator.
+    df: DataFrame
+        Input dataframe.
+    col_datetime: str
+        Name of datetime column.
+    frequency: str
+        Pandas frequency string (e.g., "D", "h", "10min").
 
     Returns
     -------
     DataFrame
-       Concatenated data from all TXT files.
+        Copy of df with parsed and floored datetime.
 
     """
-    all_files = list(Path(folder_path).rglob("*.txt"))
-
-    if not all_files:
-        msg = f"No .txt files found in {folder_path}"
-        raise ValueError(msg)
-
-    all_data = []
-    for file in all_files:
-        file_path = folder_path / file
-        df = read_csv(file_path, sep=sep)
-        all_data.append(df)
-
-    return concat(all_data, ignore_index=True)
+    df = df.copy()
+    df[col_datetime] = to_datetime(df[col_datetime], utc=True)
+    df[col_datetime] = df[col_datetime].dt.floor(frequency)
+    return df
 
 
-def extract_site(df: DataFrame) -> DataFrame:
+def build_aggregation_dict(
+    df: DataFrame,
+    base_agg: dict[str, str],
+    extra_columns: list[str] | None = None,
+) -> dict[str, str]:
+    """Build aggregation dictionary with validation.
+
+    Parameters
+    ----------
+    df: DataFrame
+        Input dataframe to check column existence.
+    base_agg: dict[str, str]
+        Base aggregation dictionary (e.g., {"DPM": "sum"}).
+    extra_columns: list[str], optional
+        Additional columns to aggregate with "first" strategy.
+
+    Returns
+    -------
+    dict[str, str]
+        Complete aggregation dictionary.
+
+    """
+    agg_dict = base_agg.copy()
+
+    if extra_columns:
+        for col in extra_columns:
+            if col in df.columns:
+                agg_dict[col] = "first"
+            else:
+                logger.warning("Column '%s' does not exist and will be ignored.", col)
+
+    return agg_dict
+
+
+def resample_dpm(
+    df: DataFrame,
+    frq: str,
+    group_by: list[str] | None = None,
+    extra_columns: list[str] | None = None,
+) -> DataFrame:
+    """Resample DPM data to specified time frequency.
+
+    Aggregates Detection Positive Minutes (DPM) by time period,
+    optionally preserving grouping columns like deployment name.
+
+    Parameters
+    ----------
+    df: DataFrame
+        CPOD result DataFrame with DPM data.
+    frq: str
+        Pandas frequency string: "D" (day), "h" (hour), "10min", etc.
+    group_by: list[str], optional
+        Columns to group by (e.g., ["deploy.name", "start_datetime"]).
+        If None, groups only by start_datetime.
+    extra_columns: list[str], optional
+        Additional columns to preserve (uses "first" aggregation).
+
+    Returns
+    -------
+    DataFrame
+        Resampled DataFrame with aggregated DPM values.
+
+    Examples
+    --------
+    >>> # Daily aggregation per deployment
+    >>> resample_dpm(df, "D", group_by=["deploy.name"])
+
+    >>> # Hourly aggregation with site info preserved
+    >>> resample_dpm(df, "h", extra_columns=["site.name"])
+
+    """
+    df = is_dpm_col(df)
+    df = add_utc(df, ["start_datetime"], frq)
+
+    # Determine grouping columns
+    if group_by is None:
+        group_by = ["start_datetime"]
+
+    # Build aggregation dictionary
+    agg_dict = build_aggregation_dict(
+        df,
+        base_agg={"DPM": "sum"},
+        extra_columns=extra_columns,
+    )
+
+    return df.groupby(group_by).agg(agg_dict).reset_index()
+
+
+def deploy_period(
+    df: DataFrame,
+    col_timestamp: str = "start_datetime",
+    col_deployment: str = "deploy.name",
+) -> DataFrame:
+    """Extract start and end timestamps for each deployment.
+
+    Parameters
+    ----------
+    df: DataFrame
+        Input dataframe with parsed timestamps.
+    col_timestamp: str, default="start_datetime"
+        Name of the timestamp column.
+    col_deployment: str, default="deploy.name"
+        Name of the deployment identifier column.
+
+    Returns
+    -------
+    DataFrame
+        DataFrame with columns: [col_deployment, 'Début', 'Fin'].
+
+    """
+    return (
+        df.groupby([col_deployment])
+        .agg(Début=(col_timestamp, "first"), Fin=(col_timestamp, "last"))
+        .reset_index()
+    )
+
+
+def first_last(
+    df: DataFrame,
+    col_timestamp: str = "start_datetime",
+    col_deployment: str = "deploy.name",
+    date_formats: list[str] | None = None,
+) -> DataFrame:
+    """Isolate beginning and end of every deployment.
+
+    Parameters
+    ----------
+    df: DataFrame
+        CPOD result DataFrame.
+    col_timestamp: str, default="start_datetime"
+        Name of the timestamps column.
+    col_deployment: str, default="deploy.name"
+        Name of the deployment identifier column.
+    date_formats: list[str], optional
+        List of date formats to try for parsing.
+
+    Returns
+    -------
+    DataFrame
+        DataFrame with deployment periods (Début, Fin).
+
+    """
+    df_parsed = parse_timestamps(df, col_timestamp, date_formats)
+    return deploy_period(df_parsed, col_timestamp, col_deployment)
+
+def actual_data(
+    df: DataFrame,
+    meta: DataFrame,
+) -> DataFrame:
+    """Create a table with beginning and end of every deployment using metadata.
+
+    Parameters
+    ----------
+    df: DataFrame
+        Contains beginning and end for every deployment.
+    meta: DataFrame
+        Contains metadata for every deployment.
+
+    Returns
+    -------
+    DataFrame
+        DataFrame with corrected deployment periods (Début, Fin).
+
+    """
+    required_columns(
+        df,["deploy.name","ChunkEnd"])
+    required_columns(
+        meta,["deploy.name", "deployment_date","recovery_date"])
+
+    beg_end = first_last(df, "ChunkEnd")
+
+    beg_end = add_utc(beg_end, ["Début", "Fin"])
+
+    final = beg_end.merge(meta[["deployment_date","recovery_date","deploy.name"]],
+                          on = "deploy.name", how="left")
+    final.loc[final["Début"] < final["deployment_date"], "Début"] = final["deployment_date"]
+    final.loc[final["Fin"] > final["recovery_date"], "Fin"] = final["recovery_date"]
+    return final.drop(["deployment_date", "recovery_date"], axis=1)
+
+def create_matrix(
+    df: DataFrame,
+    group_cols: list,
+    agg_cols: list,
+)-> DataFrame:
+    """Create a stats matrix (mean & std).
+
+    Parameters
+    ----------
+    df : DataFrame
+        Extended frame with raw data to calculate stats for
+    group_cols : list
+        Additional columns to group by
+    agg_cols : list
+        Columns to aggregate
+
+    Returns
+    -------
+    Give a matrix of the data in [agg_cols] grouped by [group_cols].
+
+    """
+    matrix = df.groupby(group_cols).agg({
+        col: ["mean", "std"] for col in agg_cols
+    })
+    matrix = matrix.reset_index()
+
+    matrix.columns = group_cols + [f"{col}_{stat}"
+                                    for col in agg_cols
+                                    for stat in ["mean", "std"]]
+    return matrix
+
+
+def extract_site(
+    df: DataFrame,
+) -> DataFrame:
     """Create new columns: site.name and campaign.name, in order to match the metadata.
 
     Parameters
@@ -695,11 +821,15 @@ def extract_site(df: DataFrame) -> DataFrame:
         The same dataframe with two additional columns.
 
     """
+    required_columns(df, ["deploy.name"])
     df[["site.name", "campaign.name"]] = df["deploy.name"].str.split("_", expand=True)
     return df
 
 
-def percent_calc(data: DataFrame, time_unit: str | None = None) -> DataFrame:
+def percent_calc(
+    data: DataFrame,
+    time_unit: str | None = None,
+) -> DataFrame:
     """Calculate percentage of clicks, feeding buzzes and positive hours to detection.
 
     Computed on the entire effort and for every site.
@@ -956,261 +1086,6 @@ def hour_percent(df: DataFrame, metric: str) -> None:
     plt.show()
 
 
-def is_dpm_col(df: DataFrame) -> DataFrame:
-    """Ensure DPM column exists with default value of 1.
-
-    Parameters
-    ----------
-    df: DataFrame
-        Input dataframe.
-
-    Returns
-    -------
-    DataFrame
-        Copy of df with DPM column.
-
-    """
-    df = df.copy()
-    if "DPM" not in df.columns:
-        df["DPM"] = 1
-    return df
-
-
-def pf_datetime(
-    df: DataFrame,
-    col_datetime: str,
-    frequency: str,
-) -> DataFrame:
-    """Parse datetime column and floor to specified frequency.
-
-    Parameters
-    ----------
-    df: DataFrame
-        Input dataframe.
-    col_datetime: str
-        Name of datetime column.
-    frequency: str
-        Pandas frequency string (e.g., "D", "h", "10min").
-
-    Returns
-    -------
-    DataFrame
-        Copy of df with parsed and floored datetime.
-
-    """
-    df = df.copy()
-    df[col_datetime] = to_datetime(df[col_datetime], utc=True)
-    df[col_datetime] = df[col_datetime].dt.floor(frequency)
-    return df
-
-
-def build_aggregation_dict(
-    df: DataFrame,
-    base_agg: dict[str, str],
-    extra_columns: list[str] | None = None,
-) -> dict[str, str]:
-    """Build aggregation dictionary with validation.
-
-    Parameters
-    ----------
-    df: DataFrame
-        Input dataframe to check column existence.
-    base_agg: dict[str, str]
-        Base aggregation dictionary (e.g., {"DPM": "sum"}).
-    extra_columns: list[str], optional
-        Additional columns to aggregate with "first" strategy.
-
-    Returns
-    -------
-    dict[str, str]
-        Complete aggregation dictionary.
-
-    """
-    agg_dict = base_agg.copy()
-
-    if extra_columns:
-        for col in extra_columns:
-            if col in df.columns:
-                agg_dict[col] = "first"
-            else:
-                logger.warning("Column '%s' does not exist and will be ignored.", col)
-
-    return agg_dict
-
-
-def resample_dpm(
-    df: DataFrame,
-    frq: str,
-    group_by: list[str] | None = None,
-    extra_columns: list[str] | None = None,
-) -> DataFrame:
-    """Resample DPM data to specified time frequency.
-
-    Aggregates Detection Positive Minutes (DPM) by time period,
-    optionally preserving grouping columns like deployment name.
-
-    Parameters
-    ----------
-    df: DataFrame
-        CPOD result DataFrame with DPM data.
-    frq: str
-        Pandas frequency string: "D" (day), "h" (hour), "10min", etc.
-    group_by: list[str], optional
-        Columns to group by (e.g., ["deploy.name", "start_datetime"]).
-        If None, groups only by start_datetime.
-    extra_columns: list[str], optional
-        Additional columns to preserve (uses "first" aggregation).
-
-    Returns
-    -------
-    DataFrame
-        Resampled DataFrame with aggregated DPM values.
-
-    Examples
-    --------
-    >>> # Daily aggregation per deployment
-    >>> resample_dpm(df, "D", group_by=["deploy.name"])
-
-    >>> # Hourly aggregation with site info preserved
-    >>> resample_dpm(df, "h", extra_columns=["site.name"])
-
-    """
-    df = is_dpm_col(df)
-    df = pf_datetime(df, "start_datetime", frq)
-
-    # Determine grouping columns
-    if group_by is None:
-        group_by = ["start_datetime"]
-
-    # Build aggregation dictionary
-    agg_dict = build_aggregation_dict(
-        df,
-        base_agg={"DPM": "sum"},
-        extra_columns=extra_columns,
-    )
-
-    return df.groupby(group_by).agg(agg_dict).reset_index()
-
-
-def date_format(
-    df: DataFrame,
-) -> DataFrame:
-    """Change the date time format of a DataFrame to "%d/%m/%Y %H:%M:%S".
-
-    Parameters
-    ----------
-    df: pd.DataFrame
-        CPOD result DataFrame
-
-    Returns
-    -------
-    Return the same dataframe with a different time format.
-
-    """
-    df["Date heure"] = to_datetime(df["Date heure"], format="%Y-%m-%d %H:%M:%S")
-    df["Date heure"] = df["Date heure"].dt.strftime("%d/%m/%Y %H:%M:%S")
-
-    return df
-
-
-def parse_timestamps(
-    df: DataFrame,
-    col_timestamp: str,
-    date_formats: list[str] | None = None,
-) -> DataFrame:
-    """Parse timestamp column with multiple possible formats.
-
-    Parameters
-    ----------
-    df: DataFrame
-        Input dataframe.
-    col_timestamp: str
-        Name of the timestamp column to parse.
-    date_formats: list[str], optional
-        List of strptime formats to try. If None, uses common formats.
-
-    Returns
-    -------
-    DataFrame
-        Copy of df with parsed timestamps.
-
-    Raises
-    ------
-    ValueError
-        If timestamps cannot be parsed with any format.
-
-    """
-    if date_formats is None:
-        date_formats = [
-            "%Y-%m-%dT%H:%M:%S:%Z",
-            "%Y-%m-%dT%H:%M:%S",
-            "%d/%m/%Y %H:%M",
-        ]
-
-    df = df.copy()
-    df[col_timestamp] = df[col_timestamp].apply(
-        lambda x: strptime_from_text(x, date_formats))
-    return df
-
-
-def deploy_period(
-    df: DataFrame,
-    col_timestamp: str = "start_datetime",
-    col_deployment: str = "deploy.name",
-) -> DataFrame:
-    """Extract start and end timestamps for each deployment.
-
-    Parameters
-    ----------
-    df: DataFrame
-        Input dataframe with parsed timestamps.
-    col_timestamp: str, default="start_datetime"
-        Name of the timestamp column.
-    col_deployment: str, default="deploy.name"
-        Name of the deployment identifier column.
-
-    Returns
-    -------
-    DataFrame
-        DataFrame with columns: [col_deployment, 'Début', 'Fin'].
-
-    """
-    return (
-        df.groupby([col_deployment])
-        .agg(Début=(col_timestamp, "first"), Fin=(col_timestamp, "last"))
-        .reset_index()
-    )
-
-
-def actual_data(
-    df: DataFrame,
-    col_timestamp: str = "start_datetime",
-    col_deployment: str = "deploy.name",
-    date_formats: list[str] | None = None,
-) -> DataFrame:
-    """Create a table with beginning and end of every deployment.
-
-    Parameters
-    ----------
-    df: DataFrame
-        CPOD result DataFrame.
-    col_timestamp: str, default="start_datetime"
-        Name of the timestamps column.
-    col_deployment: str, default="deploy.name"
-        Name of the deployment identifier column.
-    date_formats: list[str], optional
-        List of date formats to try for parsing.
-
-    Returns
-    -------
-    DataFrame
-        DataFrame with deployment periods (Début, Fin).
-
-    """
-    df_parsed = parse_timestamps(df, col_timestamp, date_formats)
-    return deploy_period(df_parsed, col_timestamp, col_deployment)
-
-
 def calendar(
     meta: DataFrame,
     data: DataFrame,
@@ -1287,34 +1162,3 @@ def calendar(
     plt.xticks(fontsize=12)
     plt.tight_layout()
     plt.show()
-
-
-def create_matrix(df: DataFrame,
-                   group_cols: list,
-                   agg_cols: list,
-                   )-> DataFrame:
-    """Create a stats matrix (mean & std).
-
-    Parameters
-    ----------
-    df : DataFrame
-        Extended frame with raw data to calculate stats for
-    group_cols : list
-        Additional columns to group by
-    agg_cols : list
-        Columns to aggregate
-
-    Returns
-    -------
-    Give a matrix of the data in [agg_cols] grouped by [group_cols].
-
-    """
-    matrix = df.groupby(group_cols).agg({
-        col: ["mean", "std"] for col in agg_cols
-    })
-    matrix = matrix.reset_index()
-
-    matrix.columns = group_cols + [f"{col}_{stat}"
-                                    for col in agg_cols
-                                    for stat in ["mean", "std"]]
-    return matrix
