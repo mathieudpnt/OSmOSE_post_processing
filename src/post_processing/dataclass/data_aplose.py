@@ -463,7 +463,7 @@ class DataAplose:
 
         """
         filters = DetectionFilter.from_yaml(file=file)
-        return cls.from_filters(filters, concat)
+        return cls.from_filters(filters, concat=concat)
 
     @classmethod
     def from_filters(
