@@ -72,6 +72,3 @@ class RecordingPeriod:
 
         msg = "Could not parse timestamps."
         raise ValueError(msg)
-
-
-

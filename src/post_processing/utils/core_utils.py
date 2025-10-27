@@ -40,6 +40,7 @@ if TYPE_CHECKING:
 
     import matplotlib.pyplot as plt
 
+
 def get_season(ts: Timestamp, *, northern: bool = True) -> tuple[str, int]:
     """Determine the meteorological season from a Timestamp.
 
@@ -84,7 +85,7 @@ def get_season(ts: Timestamp, *, northern: bool = True) -> tuple[str, int]:
         msg = "Invalid timestamp"
         raise ValueError(msg)
 
-    return season, ts.year - 1 if ts.month in [1,2] else ts.year
+    return season, ts.year - 1 if ts.month in [1, 2] else ts.year
 
 
 def get_sun_times(

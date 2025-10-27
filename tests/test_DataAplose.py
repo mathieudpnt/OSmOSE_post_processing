@@ -197,8 +197,3 @@ def test_concat(sample_yaml: Path, sample_df: DataFrame) -> None:
             assert got.equals(exp), f"Mismatch in {attr}"
         else:
             assert got == exp, f"Mismatch in {attr}"
-
-
-
-
-

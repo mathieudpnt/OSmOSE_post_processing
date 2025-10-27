@@ -5,7 +5,7 @@ from post_processing.dataclass.detection_filter import DetectionFilter
 
 def test_from_yaml(sample_yaml: Path,
                    sample_csv_result: Path,
-                   sample_csv_timestamp: Path
+                   sample_csv_timestamp: Path,
                    ) -> None:
     config = DetectionFilter.from_yaml(sample_yaml)
 
@@ -21,11 +21,9 @@ def test_from_yaml(sample_yaml: Path,
             "user_sel": "all",
             "f_min": None,
             "f_max": None,
-            "score": None
-        }
+            "score": None,
+        },
     }
 
     expected = DetectionFilter.from_dict(param)
     assert config == expected
-
-

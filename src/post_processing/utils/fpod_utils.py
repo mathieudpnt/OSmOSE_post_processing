@@ -503,7 +503,7 @@ def feeding_buzz(df: DataFrame, species: str) -> DataFrame:
                       df["MINUTE"].astype(str) + ":" +
                       df["MICROSEC"].astype(str))
         df["Time"] = to_datetime(df["Time"], dayfirst=True)
-    else :
+    else:
         df["Time"] = (df["MINUTE"].astype(str) + ":" + df["MICROSEC"].astype(str))
         df["Time"] = to_datetime(df["Time"], dayfirst=True)
 
@@ -513,7 +513,7 @@ def feeding_buzz(df: DataFrame, species: str) -> DataFrame:
     df["Buzz"] = 0
     if species == "Porpoise":
         feeding_idx = df.index[df["ICI"] < 0.01]
-    else :
+    else:
         feeding_idx = df.index[df["ICI"] >= 0.005]
 
     df.loc[feeding_idx, "Buzz"] = 1
@@ -550,7 +550,7 @@ def assign_daytime(
     start = df.iloc[0]["Time"]
     stop = df.iloc[-1]["Time"]
     lat, lon = get_coordinates()
-    _, _,dawn,day,dusk,night  = get_sun_times(start, stop, lat, lon)
+    _, _, dawn, day, dusk, night = get_sun_times(start, stop, lat, lon)
     dawn = Series(dawn, name="dawn")
     day = Series(day, name="day")
     dusk = Series(dusk, name="dusk")
@@ -583,7 +583,7 @@ def assign_daytime(
     return df
 
 
-def process_files_in_folder(folder_path:Path, species:str) -> DataFrame:
+def process_files_in_folder(folder_path: Path, species: str) -> DataFrame:
     """Process a folder containing all CPOD/FPOD feeding buzz detection files.
 
     Apply the feeding buzz function to these files.
@@ -729,7 +729,7 @@ def year_percent(df: DataFrame, metric: str) -> None:
                color=colors.get(site, "gray"),
                )
         ax.set_title(f"Site {site}")
-        ax.set_ylim(0,max(df[metric]) + 0.2)
+        ax.set_ylim(0, max(df[metric]) + 0.2)
         ax.set_ylabel(metric)
         if i != 3:
             ax.set_xlabel("")
@@ -767,10 +767,10 @@ def month_percent(df: DataFrame, metric: str) -> None:
                color=colors.get(site, "gray"),
                )
         ax.set_title(f"{site} - Percentage of postitive to detection minutes per month")
-        ax.set_ylim(0,max(df[metric]) + 0.2)
+        ax.set_ylim(0, max(df[metric]) + 0.2)
         ax.set_ylabel(metric)
         ax.set_xticks([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
-                      ["Jan", "Feb", "Mar", "Apr", "May","Jun",
+                      ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
                        "Jul", "Agu", "Sep", "Oct", "Nov", "Dec",
                        ],
                       )
@@ -810,7 +810,7 @@ def hour_percent(df: DataFrame, metric: str) -> None:
                color=colors.get(site, "gray"),
                )
         ax.set_title(f"Site {site} - Percentage of positive to detection per hour")
-        ax.set_ylim(0,max(df[metric]) + 0.2)
+        ax.set_ylim(0, max(df[metric]) + 0.2)
         ax.set_ylabel(metric)
         if i != 3:
             ax.set_xlabel("")

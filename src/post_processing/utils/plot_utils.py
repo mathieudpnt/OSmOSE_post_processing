@@ -92,12 +92,11 @@ def histo(
     effort = kwargs.get("effort", False)
     lat, lon = kwargs.get("coordinates")
 
-
     bin_size_str = get_bin_size_str(bin_size)
 
     begin, end, bin_size = round_begin_end_timestamps(list(df.index), bin_size)
 
-    color = color if color else get_colors(df)
+    color = color or get_colors(df)
 
     if len(df.columns) > 1 and legend:
         legend_labels = get_legend(labels, annotators)
@@ -235,7 +234,7 @@ def scatter(
     _prepare_timeline_plot(
         df=df,
         ax=ax,
-        bins = time_range,
+        bins=time_range,
         show_rise_set=show_rise_set,
         season=season,
         coordinates=coordinates,
@@ -354,7 +353,7 @@ def heatmap(df: DataFrame,
 
     if coordinates and season:
         lat, lon = coordinates
-        add_season_period(ax, northern=lat>=0)
+        add_season_period(ax, northern=lat >= 0)
 
     bin_size_str = get_bin_size_str(bin_size)
     freq_str = get_bin_size_str(freq)
@@ -364,7 +363,6 @@ def heatmap(df: DataFrame,
     cbar.ax.set_ylabel(f"{freq_str} detections per hour")
     ax.set_ylabel("Hour of day")
     ax.set_xlabel(f"Time ({bin_size_str} bin)")
-
 
 
 def overview(df: DataFrame) -> None:
@@ -556,9 +554,7 @@ def timeline(
     labels, _ = get_labels_and_annotators(df)
 
     color = (
-        color
-        if color
-        else [c for _, c in zip(range(len(labels)), cycle(default_colors))]
+        color or [c for _, c in zip(range(len(labels)), cycle(default_colors))]
     )
 
     for i, label in enumerate(labels):
@@ -576,9 +572,11 @@ def timeline(
         df["end_datetime"].max().ceil("1d"),
     )
 
+
 def get_colors(df: DataFrame) -> list[str]:
     """Return default plot colors."""
     return [c for _, c in zip(range(len(df.columns)), cycle(default_colors))]
+
 
 def get_legend(annotators: str | list[str], labels: str | list[str]) -> list[str]:
     """Return plot legend."""
@@ -587,6 +585,7 @@ def get_legend(annotators: str | list[str], labels: str | list[str]) -> list[str
     if len(set(annotators)) > 1 and len(set(labels)) == 1:
         return annotators
     return [f"{ant}\n{lbl}" for ant, lbl in zip(annotators, labels, strict=False)]
+
 
 def get_bin_size_str(bin_size: Timedelta | BaseOffset) -> str:
     """Return bin size as a string."""
@@ -605,8 +604,8 @@ def set_y_axis_to_percentage(
 
 def set_dynamic_ylim(ax: plt.Axes,
                      df: DataFrame,
-                     padding:float=0.05,
-                     nticks: int=4,
+                     padding: float = 0.05,
+                     nticks: int = 4,
                      ) -> None:
     """Set y-axis limits and ticks dynamically based on DataFrame values."""
     max_val = np.nanmax(df.to_numpy())

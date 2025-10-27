@@ -474,7 +474,7 @@ class DataAplose:
 
     @classmethod
     def concatenate(
-        cls, data_list: list[DataAplose], tz: tzinfo | str = None
+        cls, data_list: list[DataAplose], tz: tzinfo | str = None,
     ) -> DataAplose:
         """Concatenate a list of DataAplose objects into one."""
         df_concat = (
@@ -484,7 +484,7 @@ class DataAplose:
         )
         obj = cls(df_concat)
         if isinstance(get_timezone(df_concat), list):
-            obj.change_tz('utc')
+            obj.change_tz("utc")
             msg = "Several timezones found in DataFrame, all timestamps are converted to UTC."
             logging.info(msg)
         return obj
@@ -507,7 +507,7 @@ class DataAplose:
             if not end.tz:
                 new_data.end = end.tz_localize(tz)
 
-        new_data.df = new_data.df[(new_data.df["start_datetime"]>=new_data.begin) & (new_data.df["end_datetime"] <= new_data.end)]
+        new_data.df = new_data.df[(new_data.df["start_datetime"] >= new_data.begin) & (new_data.df["end_datetime"] <= new_data.end)]
         new_data.dataset = get_dataset(new_data.df)
         new_data.labels = get_labels(new_data.df)
         new_data.annotators = get_annotators(new_data.df)
