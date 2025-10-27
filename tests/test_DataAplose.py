@@ -171,7 +171,7 @@ def test_set_ax(sample_df: DataFrame) -> None:
 
 
 def test_from_yaml(sample_yaml: Path, sample_df: DataFrame) -> None:
-    df_from_yaml = DataAplose.from_yaml(sample_yaml).df
+    df_from_yaml = DataAplose.from_yaml(file=sample_yaml).df
     df_expected = DataAplose(sample_df).filter_df(annotator="ann1", label="lbl1").reset_index(drop=True)
     assert df_from_yaml.equals(df_expected)
 
