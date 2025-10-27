@@ -97,7 +97,14 @@ class DataAplose:
             APLOSE formatted DataFrame.
 
         """
-        self.df = df.sort_values(by=["start_datetime", "end_datetime", "annotator", "annotation"]).reset_index(drop=True)
+        self.df = df.sort_values(
+            by=[
+                "start_datetime",
+                "end_datetime",
+                "annotator",
+                "annotation",
+            ],
+        ).reset_index(drop=True)
         self.annotators = sorted(set(self.df["annotator"])) if df is not None else None
         self.labels = sorted(set(self.df["annotation"])) if df is not None else None
         self.begin = min(self.df["start_datetime"]) if df is not None else None
@@ -161,8 +168,14 @@ class DataAplose:
 
     def change_tz(self, tz: str | tzinfo) -> None:
         """Change the timezone of the DataFrame."""
-        self.df["start_datetime"] = [elem.tz_convert(tz) for elem in self.df["start_datetime"]]
-        self.df["end_datetime"] = [elem.tz_convert(tz) for elem in self.df["end_datetime"]]
+        self.df["start_datetime"] = [
+            elem.tz_convert(tz)
+            for elem in self.df["start_datetime"]
+        ]
+        self.df["end_datetime"] = [
+            elem.tz_convert(tz)
+            for elem in self.df["end_datetime"]
+        ]
 
     def filter_df(
         self,
@@ -177,6 +190,15 @@ class DataAplose:
             The annotator or list of annotators to filter.
         label: str | list[str]
             The label or list of labels to filter.
+
+        Returns
+        -------
+        The filtered DataFrame.
+
+        Raises
+        ------
+        ValueError
+            If annotator or label are not valid or if filtered Dataframe is empty.
 
         """
         if isinstance(label, str):
@@ -255,10 +277,10 @@ class DataAplose:
 
     def detection_perf(
         self,
-        annotators: [str, str],
-        labels: [str, str],
-        timestamps: [Timestamp] = None,
-    ) -> (float, float, float):
+        annotators: tuple[str, str],
+        labels: tuple[str, str],
+        timestamps: list[Timestamp] | None = None,
+    ) -> tuple[float, float, float]:
         """Compute performances metrics for detection.
 
         Performances are computed with a reference annotator in
@@ -315,7 +337,8 @@ class DataAplose:
           - "scatter" / "heatmap": Maps detections on a timeline.
           - "agreement": Plots inter-annotator agreement regression.
 
-        Args:
+        Parameters
+        ----------
             mode: str
                 Type of plot to generate.
                 Must be one of {"histogram", "scatter", "heatmap", "agreement"}.
@@ -420,6 +443,7 @@ class DataAplose:
     def from_yaml(
         cls,
         file: Path,
+        *,
         concat: bool = False,
     ) -> DataAplose | list[DataAplose]:
         """Return a DataAplose object from a yaml file.
@@ -445,6 +469,7 @@ class DataAplose:
     def from_filters(
         cls,
         filters: DetectionFilter | list[DetectionFilter],
+        *,
         concat: bool = False,
     ) -> DataAplose | list[DataAplose]:
         """Return a DataAplose object from a yaml file.
@@ -474,18 +499,25 @@ class DataAplose:
 
     @classmethod
     def concatenate(
-        cls, data_list: list[DataAplose], tz: tzinfo | str = None,
+        cls, data_list: list[DataAplose],
     ) -> DataAplose:
         """Concatenate a list of DataAplose objects into one."""
         df_concat = (
             concat([data.df for data in data_list], ignore_index=True)
-            .sort_values(by=["start_datetime", "end_datetime", "annotator", "annotation"])
+            .sort_values(
+                by=["start_datetime",
+                    "end_datetime",
+                    "annotator",
+                    "annotation",
+                    ],
+            )
             .reset_index(drop=True)
         )
         obj = cls(df_concat)
         if isinstance(get_timezone(df_concat), list):
             obj.change_tz("utc")
-            msg = "Several timezones found in DataFrame, all timestamps are converted to UTC."
+            msg = ("Several timezones found in DataFrame,"
+                   " all timestamps are converted to UTC.")
             logging.info(msg)
         return obj
 
@@ -507,7 +539,10 @@ class DataAplose:
             if not end.tz:
                 new_data.end = end.tz_localize(tz)
 
-        new_data.df = new_data.df[(new_data.df["start_datetime"] >= new_data.begin) & (new_data.df["end_datetime"] <= new_data.end)]
+        new_data.df = new_data.df[
+            (new_data.df["start_datetime"] >= new_data.begin) &
+            (new_data.df["end_datetime"] <= new_data.end)
+        ]
         new_data.dataset = get_dataset(new_data.df)
         new_data.labels = get_labels(new_data.df)
         new_data.annotators = get_annotators(new_data.df)
