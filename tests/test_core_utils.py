@@ -5,6 +5,7 @@ from pytz import timezone
 
 from post_processing.dataclass.data_aplose import DataAplose
 from post_processing.utils.core_utils import (
+    add_weak_detection,
     get_coordinates,
     get_count,
     get_labels_and_annotators,
@@ -13,12 +14,13 @@ from post_processing.utils.core_utils import (
     get_time_range_and_bin_size,
     localize_timestamps,
     round_begin_end_timestamps,
-    timedelta_to_str, add_weak_detection,
+    timedelta_to_str,
 )
 
 
 def test_coordinates_valid_input(monkeypatch: pytest.MonkeyPatch) -> None:
     inputs = ["42", "-71"]
+
     def fake_box(msg: str, title: str, fields: list[str]) -> list[str]:
         return inputs
     monkeypatch.setattr("easygui.multenterbox", fake_box)
@@ -37,6 +39,7 @@ def test_coordinates_cancelled_input(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_coordinates_invalid_then_valid_input(monkeypatch: pytest.MonkeyPatch) -> None:
     inputs = [["900", "50"], ["45", "100"]]  # first invalid, then valid
+
     def fake_box(msg: str, title: str, fields: list[str]) -> list[str]:
         return inputs.pop(0)
     monkeypatch.setattr("easygui.multenterbox", fake_box)
@@ -47,6 +50,7 @@ def test_coordinates_invalid_then_valid_input(monkeypatch: pytest.MonkeyPatch) -
 
 def test_coordinates_non_numeric_input(monkeypatch: pytest.MonkeyPatch) -> None:
     inputs = [["abc", "-20"], ["10", "-20"]]
+
     def fake_box(msg: str, title: str, fields: list[str]) -> list[str]:
         return inputs.pop(0)
     monkeypatch.setattr("easygui.multenterbox", fake_box)
@@ -77,7 +81,6 @@ def test_coordinates_non_numeric_input(monkeypatch: pytest.MonkeyPatch) -> None:
         (Timestamp("2025-12-25"), False, ("summer", 2025)),
     ],
 )
-
 def test_get_season(ts: Timestamp, northern: bool, expected: tuple[str, int]) -> None:
     assert get_season(ts, northern=northern) == expected
 
@@ -133,7 +136,7 @@ def test_get_sun_times_naive_timestamps(start: Timestamp,
         get_sun_times(start, stop, lat, lon)
 
 
-#%% get_count
+# %% get_count
 
 def test_get_count_basic(sample_df: DataFrame) -> None:
     df = DataAplose(sample_df).filter_df(annotator="ann1", label="lbl1")
@@ -145,7 +148,7 @@ def test_get_count_basic(sample_df: DataFrame) -> None:
     assert list(result.index) == date_range(
         Timestamp("2025-01-25 06:00:00+0000"),
         Timestamp("2025-01-26 06:00:00+0000"),
-        freq="30min"
+        freq="30min",
     ).to_list()
     assert result.columns == ["lbl1-ann1"]
     assert sum(result["lbl1-ann1"].tolist()) == len(expected)
@@ -169,7 +172,7 @@ def test_get_count_multiple_labels(sample_df: DataFrame) -> None:
     result = get_count(df, bin_size=Timedelta("1day"))
     expected = sample_df[
         (sample_df["annotator"] == "ann5") &
-        (sample_df["annotation"].isin(["lbl1", "lbl2", "lbl3"]) )
+        (sample_df["annotation"].isin(["lbl1", "lbl2", "lbl3"]))
         ]
 
     assert set(result.columns) == {"lbl1-ann5", "lbl2-ann5", "lbl3-ann5"}
@@ -180,7 +183,7 @@ def test_get_count_multiple_labels(sample_df: DataFrame) -> None:
 
 def test_get_count_multiple_labels_annotators(sample_df: DataFrame) -> None:
     df = DataAplose(sample_df).filter_df(annotator=["ann1", "ann2"],
-                                         label=["lbl1", "lbl2"]
+                                         label=["lbl1", "lbl2"],
                                          )
     result = get_count(df, bin_size=Timedelta("1day"))
     assert set(result.columns) == {"lbl1-ann1", "lbl2-ann2"}
@@ -192,7 +195,8 @@ def test_get_count_empty_df() -> None:
     with pytest.raises(ValueError, match="`df` contains no data"):
         get_count(DataFrame(), Timedelta("1h"))
 
-#%% get_labels_and_annotators
+# %% get_labels_and_annotators
+
 
 def test_get_labels_and_annotators_valid_entry(sample_df: DataFrame) -> None:
     data = DataAplose(sample_df).filter_df(annotator="ann1", label="lbl1")
@@ -228,7 +232,8 @@ def test_get_labels_and_annotators_empty_dataframe() -> None:
     with pytest.raises(ValueError, match="`df` contains no data"):
         get_labels_and_annotators(DataFrame())
 
-#%% localize_timestamps
+# %% localize_timestamps
+
 
 def test_localize_all_naive() -> None:
     tz = timezone("Europe/Paris")
@@ -259,7 +264,8 @@ def test_mixed_naive_and_aware() -> None:
     assert localized[0].tzinfo.zone == tz.zone
     assert localized[1].tzinfo.zone == tz.zone
 
-#%% get_time_range_and_bin_size
+# %% get_time_range_and_bin_size
+
 
 def test_time_range_timedelta() -> None:
     timestamps = [Timestamp("2025-08-20 12:00:00"), Timestamp("2025-08-20 14:30:00")]
@@ -301,11 +307,13 @@ def test_invalid_timestamp_list_content() -> None:
     with pytest.raises(TypeError, match=r"`timestamp_list` must be a list\[Timestamp\]"):
         get_time_range_and_bin_size(timestamps, bin_size)
 
-#%% round_begin_end_timestamps
+# %% round_begin_end_timestamps
+
 
 def test_round_begin_end_timestamps_empty_list() -> None:
     with pytest.raises(ValueError, match="`timestamp_list` is empty"):
         round_begin_end_timestamps([], Timedelta("1h"))
+
 
 def test_round_begin_end_timestamps_invalid_entry() -> None:
     ts_list = [
@@ -315,9 +323,11 @@ def test_round_begin_end_timestamps_invalid_entry() -> None:
     with pytest.raises(ValueError, match="Could not get start/end timestamps."):
         round_begin_end_timestamps(ts_list, "not_a_valid_entry")
 
+
 def test_round_begin_end_timestamps_invalid_entry_2() -> None:
     with pytest.raises(TypeError, match=r"timestamp_list must be a list\[Timestamp\]"):
         round_begin_end_timestamps("not_a_valid_entry", Timedelta("1h"))
+
 
 def test_round_begin_end_timestamps_valid_entry() -> None:
     ts_list = [
@@ -330,6 +340,7 @@ def test_round_begin_end_timestamps_valid_entry() -> None:
     assert end == Timestamp("2025-01-01 02:00:00")
     assert bin_size == Timedelta("1h")
 
+
 def test_round_begin_end_timestamps_valid_entry_2() -> None:
     ts_list = [
         Timestamp("2025-01-01 10:15:00"),
@@ -341,7 +352,8 @@ def test_round_begin_end_timestamps_valid_entry_2() -> None:
     assert end == Timestamp("2025-01-03 19:00:00")
     assert bin_size == Timedelta("1h")
 
-#%% timedelta_to_str
+# %% timedelta_to_str
+
 
 @pytest.mark.parametrize(
     ("td", "expected"),
@@ -357,7 +369,8 @@ def test_round_begin_end_timestamps_valid_entry_2() -> None:
 def test_timedelta_to_str(td, expected) -> None:
     assert timedelta_to_str(td) == expected
 
-#%% add_weak_detection / json2df
+# %% add_weak_detection / json2df
+
 
 def test_add_wd(sample_df: DataFrame) -> None:
     df_only_wd = sample_df[sample_df["is_box"] == 1]
@@ -365,5 +378,5 @@ def test_add_wd(sample_df: DataFrame) -> None:
     add_weak_detection(df=df_only_wd.copy(),
                        datetime_format="%Y_%m_%d_%H_%M_%S",
                        max_time=strong_det["end_time"],
-                       max_freq=strong_det["end_frequency"]
+                       max_freq=strong_det["end_frequency"],
                        )

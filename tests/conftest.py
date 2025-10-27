@@ -137,9 +137,11 @@ def sample_df() -> DataFrame:
     df = read_csv(io.StringIO(SAMPLE), parse_dates=["start_datetime", "end_datetime"])
     return df.sort_values(["start_datetime", "end_datetime", "annotator", "annotation"]).reset_index(drop=True)
 
+
 @pytest.fixture
 def sample_status() -> DataFrame:
     return read_csv(io.StringIO(STATUS)).reset_index(drop=True)
+
 
 @pytest.fixture
 def sample_csv_result(tmp_path: Path, sample_df: DataFrame) -> Path:
@@ -150,16 +152,18 @@ def sample_csv_result(tmp_path: Path, sample_df: DataFrame) -> Path:
     df_copy.to_csv(result_file, index=False)
     return result_file
 
+
 @pytest.fixture
 def sample_csv_timestamp(tmp_path: Path, sample_status: DataFrame) -> Path:
     ts_file = tmp_path / "status.csv"
     sample_status.to_csv(ts_file, index=False)
     return ts_file
 
+
 @pytest.fixture
 def sample_yaml(tmp_path: Path,
                            sample_csv_result: Path,
-                           sample_csv_timestamp: Path
+                           sample_csv_timestamp: Path,
                            ) -> Path:
     yaml_content = {
         f"{sample_csv_result}": {
@@ -173,8 +177,8 @@ def sample_yaml(tmp_path: Path,
             "user_sel": "all",
             "f_min": None,
             "f_max": None,
-            "score": None
-        }
+            "score": None,
+        },
     }
 
     yaml_file = tmp_path / "filters.yaml"

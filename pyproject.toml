@@ -44,6 +44,10 @@ exclude = ["scripts/**/*.py"]
 
 [tool.ruff.lint]
 select = ["ALL"]
+preview = true
+
+[tool.ruff.format]
+preview = true
 
 [build-system]
 requires = ["hatchling"]

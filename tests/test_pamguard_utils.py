@@ -23,6 +23,7 @@ def fake_audio() -> AudioData:
     audio.files = [file]
     return audio
 
+
 @pytest.fixture
 def fake_detection() -> GenericModule:
     det = MagicMock()
@@ -30,6 +31,7 @@ def fake_detection() -> GenericModule:
     det.sample_duration = 48000
     det.freq_limits = (1000, 5000)
     return det
+
 
 def test_process_binary_basic(fake_audio: AudioData, fake_detection: GenericModule) -> None:
     with patch("post_processing.utils.pamguard_utils.load_pamguard_binary_folder") as mock_loader:
@@ -42,7 +44,7 @@ def test_process_binary_basic(fake_audio: AudioData, fake_detection: GenericModu
             "dataset", "filename", "start_time", "end_time",
             "start_frequency", "end_frequency",
             "annotation", "annotator",
-            "start_datetime", "end_datetime", "is_box"
+            "start_datetime", "end_datetime", "is_box",
         }
         assert set(df.columns) == expected_cols
 
@@ -54,11 +56,13 @@ def test_process_binary_basic(fake_audio: AudioData, fake_detection: GenericModu
         assert row["annotation"] == "Label"
         assert row["is_box"]
 
+
 def test_process_binary_no_detections(fake_audio: AudioData) -> None:
     with patch("post_processing.utils.pamguard_utils.load_pamguard_binary_folder") as mock_loader:
         mock_loader.return_value = ([], None, None)
         df = process_binary(fake_audio, Path("/fake/binary"), "Dataset", "Label")
         assert df.empty
+
 
 def test_process_binary_detection_outside_audio(fake_audio: AudioData, fake_detection: GenericModule) -> None:
     fake_detection.date = "2025-05-28T23:59:00+0000"
