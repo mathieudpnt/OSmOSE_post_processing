@@ -42,6 +42,9 @@ dev = [
 [tool.ruff]
 exclude = ["scripts/**/*.py"]
 
+[tool.ruff.lint.flake8-copyright]
+author = "OSmOSE"
+
 [tool.ruff.lint]
 select = ["ALL"]
 preview = true
@@ -54,6 +57,12 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.ruff.lint.extend-per-file-ignores]
+"src/**/*.py" = [
+    "CPY001", # no copyright at top of file
+    "DOC201", # no return in function docstring
+    "DOC501", # no raised exceptions in docstring
+]
+
 "tests/**/*.py" = [
     # at least this three should be fine in tests:
     "S101", # asserts allowed in tests...
