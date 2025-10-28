@@ -43,10 +43,10 @@ site_colors = {
 }
 
 season_color = {
-    "spring": "#C5E0B4", #green
-    "summer": "#FCF97F", #darkgoldenrod
-    "autumn": "#ED7C2F", #orange
-    "winter": "#B4C7E8", #blue
+    "spring": "green", #C5E0B4
+    "summer": "darkgoldenrod", #FCF97F
+    "autumn": "orange", #ED7C2F
+    "winter": "blue", #B4C7E8
 }
 
 def fpod2aplose(
@@ -144,6 +144,7 @@ def cpod2aplose(
         df_deploy = df[df["deploy.name"] == deploy_name].copy()
 
         result = fpod2aplose(df_deploy, tz, dataset_name, annotation, bin_size)
+        result["annotator"] = result.loc[result["annotator"] == "FPOD"] = "CPOD"
 
         if extra_columns:
             for col in extra_columns:
@@ -153,6 +154,67 @@ def cpod2aplose(
         results.append(result)
 
     return concat(results, ignore_index=True)
+
+
+def pod2aplose(
+    df: DataFrame,
+    tz: pytz.timezone,
+    dataset_name: str,
+    annotation: str,
+    annotator: str,
+    bin_size: int = 60,
+) -> DataFrame:
+    """Format PODs DataFrame to match APLOSE format.
+
+    Parameters
+    ----------
+    df: DataFrame
+        FPOD result dataframe
+    tz: pytz.timezone
+        Timezone object to get non-naïve datetimes
+    dataset_name: str
+        dataset name
+    annotation: str
+        annotation name
+    annotator: str
+        annotator name
+    bin_size: int
+        Duration of the detections in seconds
+
+    Returns
+    -------
+    DataFrame
+        An APLOSE formatted DataFrame
+
+    """
+    df = df.copy()
+    df["_temp_dt"] = [
+        tz.localize(strptime_from_text(entry, "%d/%m/%Y %H:%M"))
+        for entry in df["ChunkEnd"]
+    ]
+
+    # Trier le DataFrame selon ces datetime
+    df = df.sort_values("_temp_dt").reset_index(drop=True)
+
+    # Maintenant extraire les colonnes triées
+    fpod_start_dt = df["_temp_dt"].tolist()
+    fpod_end_dt = [entry + Timedelta(seconds=bin_size) for entry in fpod_start_dt]
+
+    data = {
+        "dataset": [dataset_name] * len(df),
+        "filename": df["deploy.name"].tolist(),
+        "start_time": [0] * len(df),
+        "end_time": [bin_size] * len(df),
+        "start_frequency": [0] * len(df),
+        "end_frequency": [0] * len(df),
+        "annotation": [annotation] * len(df),
+        "annotator": [annotator] * len(df),
+        "start_datetime": [strftime_osmose_format(entry) for entry in fpod_start_dt],
+        "end_datetime": [strftime_osmose_format(entry) for entry in fpod_end_dt],
+        "is_box": [0] * len(df),
+    }
+
+    return DataFrame(data)
 
 
 def csv_folder(
@@ -359,6 +421,7 @@ def meta_cut_aplose(
         metadata,["deploy.name", "deployment_date","recovery_date"])
 
     raw = parse_timestamps(raw_data, "start_datetime")
+    raw = raw.sort_values(["start_datetime"])
 
     dfm = raw.merge(
         metadata[["deploy.name", "deployment_date","recovery_date"]],
@@ -428,11 +491,11 @@ def build_range(
         A full period of time with positive and negative hours to detections.
 
     """
-    add_utc(df, ["Début","Fin"], fr)
+    add_utc(df, ["Deb","Fin"], fr)
 
     all_ranges = []
     for _, row in df.iterrows():
-        hours = date_range(row["Début"], row["Fin"], freq=fr)
+        hours = date_range(row["Deb"], row["Fin"], freq=fr)
         tmp = DataFrame(
             {
                 "deploy.name": row["deploy.name"],
@@ -468,7 +531,9 @@ def feeding_buzz(
     df["microsec"] = df["microsec"] / 1e6
     df["ICI"] = df["microsec"].diff()
 
-    if species == "Marsouin":  # Nuuttila et al., 2013
+    if species == "Dauphin":  # Herzing et al., 2014
+        df["Buzz"] = (df["ICI"].between(0, 0.02)).astype(int)
+    elif species == "Marsouin":  # Nuuttila et al., 2013
         df["Buzz"] = (df["ICI"].between(0, 0.01)).astype(int)
     elif species == "Commerson":  # Reyes Reyes et al., 2015
         df["Buzz"] = (df["ICI"].between(0, 0.005)).astype(int)
@@ -701,12 +766,12 @@ def deploy_period(
     Returns
     -------
     DataFrame
-        DataFrame with columns: [col_deployment, 'Début', 'Fin'].
+        DataFrame with columns: [col_deployment, 'Deb', 'Fin'].
 
     """
     return (
         df.groupby([col_deployment])
-        .agg(Début=(col_timestamp, "first"), Fin=(col_timestamp, "last"))
+        .agg(Deb=(col_timestamp, "first"), Fin=(col_timestamp, "last"))
         .reset_index()
     )
 
@@ -733,7 +798,7 @@ def first_last(
     Returns
     -------
     DataFrame
-        DataFrame with deployment periods (Début, Fin).
+        DataFrame with deployment periods (Deb, Fin).
 
     """
     df_parsed = parse_timestamps(df, col_timestamp, date_formats)
@@ -755,7 +820,7 @@ def actual_data(
     Returns
     -------
     DataFrame
-        DataFrame with corrected deployment periods (Début, Fin).
+        DataFrame with corrected deployment periods (Deb, Fin).
 
     """
     required_columns(
@@ -765,12 +830,14 @@ def actual_data(
 
     beg_end = first_last(df, "ChunkEnd")
 
-    beg_end = add_utc(beg_end, ["Début", "Fin"])
+    beg_end = add_utc(beg_end, ["Deb", "Fin"])
 
     final = beg_end.merge(meta[["deployment_date","recovery_date","deploy.name"]],
                           on = "deploy.name", how="left")
-    final.loc[final["Début"] < final["deployment_date"], "Début"] = final["deployment_date"]
+    final.loc[final["Deb"] < final["deployment_date"], "Deb"] = final["deployment_date"]
     final.loc[final["Fin"] > final["recovery_date"], "Fin"] = final["recovery_date"]
+    final.loc[final["Deb"] > final["Fin"], ["Deb", "Fin"]] = None
+    final = final.sort_values(by=["Deb"])
     return final.drop(["deployment_date", "recovery_date"], axis=1)
 
 def create_matrix(
@@ -1108,14 +1175,14 @@ def calendar(
     meta["deployment_date"] = to_datetime(meta["deployment_date"])
     meta["recovery_date"] = to_datetime(meta["recovery_date"])
     meta = meta.sort_values(["deploy.name", "deployment_date"]).reset_index(drop=True)
-    data = data.sort_values(["deploy.name", "Début"]).reset_index(drop=True)
+    data = data.sort_values(["deploy.name", "Deb"]).reset_index(drop=True)
     df_fusion = data.merge(
         meta[["deploy.name", "deployment_date", "recovery_date"]],
         on=["deploy.name"],
         how="outer",
     )
 
-    df_fusion["Début"] = df_fusion["Début"].fillna(df_fusion["deployment_date"])
+    df_fusion["Deb"] = df_fusion["Deb"].fillna(df_fusion["deployment_date"])
     df_fusion["Fin"] = df_fusion["Fin"].fillna(df_fusion["deployment_date"])
 
     df_fusion[["Site", "Phase"]] = df_fusion["deploy.name"].str.split("_", expand=True)
@@ -1126,6 +1193,7 @@ def calendar(
 
     sites = sorted(df_fusion["Site"].unique(), reverse=True)
     site_mapping = {site: idx for idx, site in enumerate(sites)}
+
     for _, row in df_fusion.iterrows():
         y_pos = site_mapping[row["Site"]]
         ax.broken_barh(
@@ -1136,14 +1204,15 @@ def calendar(
             linewidth=0.8,
         )
 
-        if row["Début"] != row["deployment_date"]:
+        if notna(row["Deb"]) and notna(row["Fin"]) and row["Fin"] > row["Deb"]:
             ax.broken_barh(
-                [(row["Début"], row["Fin"] - row["Début"])],
+                [(row["Deb"], row["Fin"] - row["Deb"])],
                 (y_pos - 0.15, 0.3),
                 facecolors=row["color"],
                 edgecolors="black",
                 linewidth=0.8,
             )
+
 
     ax.set_yticks(range(len(sites)))
     ax.set_yticklabels(sites, fontsize=12)
@@ -1160,5 +1229,239 @@ def calendar(
     ax.legend(handles=legend_elements, loc="upper left", fontsize=11, frameon=True)
     # Layout final
     plt.xticks(fontsize=12)
+    plt.tight_layout()
+    plt.show()
+
+
+def hist_mean_m(
+    df: DataFrame,
+    metric_mean: str,
+    metric_std: str,
+    ylabel: str | None = None,
+    title_suffix: str | None = None,
+) -> None:
+    """Produce a histogram of the given data.
+
+    It shows mean and standard deviation of the metric.
+
+    Parameters
+    ----------
+    df: DataFrame
+        All data grouped by site and month
+    metric_mean: str
+        Column name for the mean values (e.g., "%click_mean")
+    metric_std: str
+        Column name for the standard deviation values (e.g., "%click_std")
+    ylabel: str, optional
+        Label for y-axis. If None, uses metric_mean
+    title_suffix: str, optional
+        Suffix for the main title. If None, uses metric_mean
+
+    Returns
+    -------
+    Return a plot of all deployments and associated data.
+
+    """
+    sites = df["site.name"].unique()
+    n_sites = len(sites)
+    fig, axs = plt.subplots(n_sites, 1, figsize=(14, 3 * n_sites), sharex=True)
+    if n_sites == 1:
+        axs = [axs]
+
+    # Calculate max for y-axis scaling
+    max_value = max(df[metric_mean] + df[metric_std])
+
+    for i, site in enumerate(sorted(sites)):
+        site_data = df[df["site.name"] == site]
+        ax = axs[i]
+
+        ax.bar(
+            x=site_data["Month"],
+            height=site_data[metric_mean],
+            yerr=site_data[metric_std],
+            capsize=4,
+            color=site_colors.get(site, "gray"),
+            alpha=0.8,
+            edgecolor="black",
+            linewidth=0.5,
+            label=f"Site {site}")
+
+        ax.set_title(f"{site}", fontsize=12)
+        ax.set_ylim(0, max_value * 1.1)
+        ax.set_ylabel(ylabel if ylabel else metric_mean, fontsize=10)
+
+        # Only set x-label on last subplot
+        if i == n_sites - 1:
+            ax.set_xlabel("Mois", fontsize=10)
+            ax.set_xticks(
+                [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+                [
+                    "Jan",
+                    "Fev",
+                    "Mar",
+                    "Avr",
+                    "Mai",
+                    "Jun",
+                    "Jul",
+                    "Aou",
+                    "Sep",
+                    "Oct",
+                    "Nov",
+                    "Dec",
+                ],
+            )
+        if metric_mean in ("%buzzes_mean", "FBR_mean"):
+            for _, bar in enumerate(ax.patches):
+                bar.set_hatch("/")
+
+    fig.suptitle(
+        f"{title_suffix if title_suffix else metric_mean} per month",
+        fontsize=16)
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    plt.show()
+
+
+def hist_mean_h(
+    df: DataFrame,
+    metric_mean: str,
+    metric_std: str,
+    ylabel: str | None = None,
+    title_suffix: str | None = None,
+) -> None:
+    """Produce a histogram of the given data.
+
+    It shows mean and standard deviation of the metric.
+
+    Parameters
+    ----------
+    df: DataFrame
+        All data grouped by site and month
+    metric_mean: str
+        Column name for the mean values (e.g., "%click_mean")
+    metric_std: str
+        Column name for the standard deviation values (e.g., "%click_std")
+    ylabel: str, optional
+        Label for y-axis. If None, uses metric_mean
+    title_suffix: str, optional
+        Suffix for the main title. If None, uses metric_mean
+
+    Returns
+    -------
+    Return a plot of all deployments and associated data.
+
+    """
+    sites = df["site.name"].unique()
+    n_sites = len(sites)
+    fig, axs = plt.subplots(n_sites, 1, figsize=(14, 5 * n_sites), sharex=True)
+    if n_sites == 1:
+        axs = [axs]
+
+    # Calculate max for y-axis scaling
+    max_value = max(df[metric_mean] + df[metric_std])
+
+    for i, site in enumerate(sorted(sites)):
+        site_data = df[df["site.name"] == site]
+        ax = axs[i]
+
+        ax.bar(
+            x=site_data["Hour"],
+            height=site_data[metric_mean],
+            yerr=site_data[metric_std],
+            capsize=4,
+            color=site_colors.get(site, "gray"),
+            alpha=0.8,
+            edgecolor="black",
+            linewidth=0.5,
+            label=f"Site {site}",
+        )
+
+        ax.set_title(f"{site}", fontsize=12)
+        ax.set_ylim(0, max_value * 1.1)
+        ax.set_ylabel(ylabel if ylabel else metric_mean, fontsize=10)
+        ax.set_xticks(range(24))
+
+        # Only set x-label on last subplot
+        if i == n_sites - 1:
+            ax.set_xlabel("Heure", fontsize=10)
+        if metric_mean in ("%buzzes_mean", "FBR_mean"):
+            for _, bar in enumerate(ax.patches):
+                bar.set_hatch("/")
+
+    fig.suptitle(
+        f"{title_suffix if title_suffix else metric_mean} per hour", fontsize=16)
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    plt.show()
+
+
+def hist_mean_s(
+    df: DataFrame,
+    metric_mean: str,
+    metric_std: str,
+    ylabel: str | None = None,
+    title_suffix: str | None = None,
+) -> None:
+    """Plot bar chart with mean values and error bars (std) per site.
+
+    Parameters
+    ----------
+    df: DataFrame
+        All data grouped by site
+    metric_mean: str
+        Column name for the mean values (e.g., "FBR_mean")
+    metric_std: str
+        Column name for the standard deviation values (e.g., "FBR_std")
+    ylabel: str, optional
+        Label for y-axis. If None, uses metric_mean
+    title_suffix: str, optional
+        Suffix for the title. If None, uses metric_mean
+    add_hatch: bool, optional
+        Add hatching pattern to bars (useful for FBR, %buzzes). Default False
+
+    """
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    # Group by site and calculate means if needed
+    plot_data = df.groupby("site.name")[[metric_mean, metric_std]].mean().reset_index()
+
+    x_pos = range(len(plot_data))
+
+    # Create bars
+    bars = ax.bar(
+        x=x_pos,
+        height=plot_data[metric_mean],
+        color=[site_colors.get(site, "gray") for site in plot_data["site.name"]],
+        alpha=0.8,
+        edgecolor="black",
+        linewidth=0.5)
+
+    # Add hatching if requested
+    if metric_mean in ("%buzzes_mean", "FBR_mean"):
+        for _, bar in enumerate(ax.patches):
+            bar.set_hatch("/")
+
+    # Add error bars
+    for i, (_, row) in enumerate(plot_data.iterrows()):
+        # Ensure error bar doesn't go below zero
+        yerr_lower = min(row[metric_mean], row[metric_std])
+        yerr_upper = row[metric_std]
+        ax.errorbar(
+            i,
+            row[metric_mean],
+            yerr=[[yerr_lower], [yerr_upper]],
+            fmt="none",
+            color="black",
+            capsize=5,
+            linewidth=2,
+        )
+
+    ax.set_xticks(x_pos)
+    ax.set_xticklabels(plot_data["site.name"])
+    ax.set_title(f"{title_suffix if title_suffix else metric_mean} per site",
+                 fontsize=12)
+    ax.set_ylabel(ylabel if ylabel else metric_mean, fontsize=10)
+    ax.set_xlabel("Site", fontsize=10)
+
     plt.tight_layout()
     plt.show()
