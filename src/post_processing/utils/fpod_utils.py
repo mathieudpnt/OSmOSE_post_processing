@@ -840,6 +840,66 @@ def actual_data(
     final = final.sort_values(by=["Deb"])
     return final.drop(["deployment_date", "recovery_date"], axis=1)
 
+
+def process_tl(tl_files: Path)->DataFrame:
+    """Process Environmental data extracted from cpod.exe to get a usable dataframe.
+
+    Parameters
+    ----------
+    tl_files: Path
+        All your Environmental data files.
+
+    Returns
+    -------
+    %TimeLost DataFrame.
+
+    """
+    df = csv_folder(tl_files)
+    df = df.dropna()
+    df = parse_timestamps(df, "ChunkEnd")
+    df = add_utc(df, ["ChunkEnd"], "h")
+    df["start_datetime"] = df["ChunkEnd"]
+
+    return df.sort_values(["start_datetime"])
+
+
+def filter_tl(df: DataFrame, tl: int)->DataFrame:
+    """Remove lines with a %TimeLost superior to the chosen threshold.
+
+    Parameters
+    ----------
+    df: DataFrame
+        Table of data and associated TimeLost.
+    tl: int
+        TimeLost filter threshold.
+
+    Returns
+    -------
+    Filtered DataFrame with few %TimeLost.
+
+    """
+    df["%TimeLost"] = (df["%TimeLost"].fillna(tl)).astype(int)
+
+    return df[df["%TimeLost"] < tl]
+
+def preserved_data(filtered_df: DataFrame, whole_df: DataFrame)-> float:
+    """Calculate the percentage of preserved data.
+
+    Parameters
+    ----------
+    filtered_df: DataFrame
+        Result of filter_tl.
+    whole_df: DataFrame
+        Table before filtering.
+
+    Returns
+    -------
+    Percentage of preserved data.
+
+    """
+    return (len(filtered_df) / len(whole_df)) *100
+
+
 def create_matrix(
     df: DataFrame,
     group_cols: list,
