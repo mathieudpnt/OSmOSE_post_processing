@@ -252,7 +252,7 @@ def csv_folder(
 
     all_data = []
     for file in all_files:
-        df = read_csv(file, sep=sep, encoding=encoding)
+        df = read_csv(file, sep=sep, encoding=encoding, dtype="O")
         df["deploy.name"] = file.stem
         all_data.append(df)
 
