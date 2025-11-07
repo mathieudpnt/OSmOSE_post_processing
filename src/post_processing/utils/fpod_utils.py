@@ -24,136 +24,12 @@ from pandas import (
 
 from post_processing.utils.core_utils import get_coordinates, get_sun_times
 
+from user_case.config import season_color, site_colors
+
 if TYPE_CHECKING:
     import pytz
 
 logger = logging.getLogger(__name__)
-site_colors = {
-    "Site A Haute": "#118B50",
-    "Site B Heugh": "#5DB996",
-    "Site C Chat": "#B0DB9C",
-    "Site D Simone": "#E3F0AF",
-    "CA4": "#80D8C3",
-    "Walde": "#4DA8DA",
-    "Point C": "#932F67",
-    "Point D": "#D92C54",
-    "Point E": "#DDDEAB",
-    "Point F": "#8ABB6C",
-    "Point G": "#456882",
-}
-
-season_color = {
-    "spring": "green", #C5E0B4
-    "summer": "darkgoldenrod", #FCF97F
-    "autumn": "orange", #ED7C2F
-    "winter": "blue", #B4C7E8
-}
-
-def fpod2aplose(
-    df: DataFrame,
-    tz: pytz.timezone,
-    dataset_name: str,
-    annotation: str,
-    bin_size: int = 60,
-) -> DataFrame:
-    """Format FPOD DataFrame to match APLOSE format.
-
-    Parameters
-    ----------
-    df: DataFrame
-        FPOD result dataframe
-    tz: pytz.timezone
-        Timezone object to get non-naïve datetimes
-    dataset_name: str
-        dataset name
-    annotation: str
-        annotation name
-    bin_size: int
-        Duration of the detections in seconds
-
-    Returns
-    -------
-    DataFrame
-        An APLOSE formatted DataFrame
-
-    """
-    fpod_start_dt = sorted(
-        [
-            tz.localize(strptime_from_text(entry, "%d/%m/%Y %H:%M"))
-            for entry in df["ChunkEnd"]
-        ],
-    )
-
-    fpod_end_dt = sorted(
-        [entry + Timedelta(seconds=bin_size) for entry in fpod_start_dt],
-    )
-
-    data = {
-        "dataset": [dataset_name] * len(df),
-        "filename": [""] * len(df),
-        "start_time": [0] * len(df),
-        "end_time": [bin_size] * len(df),
-        "start_frequency": [0] * len(df),
-        "end_frequency": [0] * len(df),
-        "annotation": [annotation] * len(df),
-        "annotator": ["FPOD"] * len(df),
-        "start_datetime": [strftime_osmose_format(entry) for entry in fpod_start_dt],
-        "end_datetime": [strftime_osmose_format(entry) for entry in fpod_end_dt],
-        "is_box": [0] * len(df),
-    }
-    if "deploy.name" in df.columns:
-        data["deploy.name"] = df["deploy.name"]
-
-    return DataFrame(data)
-
-
-def cpod2aplose(
-    df: DataFrame,
-    tz: pytz.BaseTzInfo,
-    dataset_name: str,
-    annotation: str,
-    bin_size: int = 60,
-    extra_columns: list | None = None,
-) -> DataFrame:
-    """Format CPOD DataFrame to match APLOSE format.
-
-    Parameters
-    ----------
-    df: DataFrame
-        CPOD result dataframe
-    tz: pytz.BaseTzInfo
-        Timezone object to get non-naïve datetimes
-    dataset_name: str
-        dataset name
-    annotation: str
-        annotation name
-    bin_size: int, optional
-        Duration of the detections in seconds
-    extra_columns: list, optional
-        Additional columns added from df to data
-
-    Returns
-    -------
-    DataFrame
-        An APLOSE formatted DataFrame
-
-    """
-    results = []
-
-    for deploy_name in df["deploy.name"].unique():
-        df_deploy = df[df["deploy.name"] == deploy_name].copy()
-
-        result = fpod2aplose(df_deploy, tz, dataset_name, annotation, bin_size)
-        result["annotator"] = result.loc[result["annotator"] == "FPOD"] = "CPOD"
-
-        if extra_columns:
-            for col in extra_columns:
-                if col in df_deploy.columns:
-                    result[col] = df_deploy[col].tolist()
-
-        results.append(result)
-
-    return concat(results, ignore_index=True)
 
 
 def pod2aplose(
@@ -1092,7 +968,7 @@ def ym_percent(df: DataFrame, metric: str) -> None:
             color=bar_colors,
             width=25,
         )
-        ax.set_title(f"{site} - Percentage of minutes postitive to detection per month")
+        ax.set_title(f"{site}")
         ax.set_ylim(0, max(df[metric]) + 0.2)
         ax.set_ylabel(metric)
         if i != 3:
@@ -1168,6 +1044,56 @@ def month_percent(df: DataFrame, metric: str) -> None:
         if metric in ("%buzzes", "FBR"):
             for _, bar in enumerate(ax.patches):
                 bar.set_hatch("/")
+    fig.suptitle(f"{metric} per month", fontsize=16)
+    plt.show()
+
+
+def day_percent(df: DataFrame, metric: str) -> None:
+    """Plot a graph with the percentage of DPM per site/month-year.
+
+    Parameters
+    ----------
+    df: DataFrame
+        All percentages grouped by site and month per year
+    metric: str
+        Type of percentage you want to show on the graph
+
+    """
+    sites = df["site.name"].unique()
+    n_sites = len(sites)
+    fig, axs = plt.subplots(n_sites, 1, figsize=(14, 2.5 * n_sites), sharex=True)
+    if n_sites == 1:
+        axs = [axs]
+    for i, site in enumerate(sorted(sites)):
+        site_data = df[df["site.name"] == site]
+        ax = axs[i]
+        bar_colors = site_data["Season"].map(season_color).fillna("gray")
+        ax.bar(
+            site_data["Date"],
+            site_data[metric],
+            label=f"Site {site}",
+            color=bar_colors,
+        )
+        ax.set_title(f"{site}")
+        ax.set_ylim(0, max(df[metric]) + 0.2)
+        ax.set_ylabel(metric)
+        if i != 3:
+            ax.set_xlabel("")
+        else:
+            ax.set_xlabel("Months")
+        if metric in ("%buzzes", "FBR"):
+            for _, bar in enumerate(ax.patches):
+                bar.set_hatch("/")
+    legend_elements = [
+        Patch(facecolor=col, edgecolor="black", label=season.capitalize())
+        for season, col in season_color.items()
+    ]
+    fig.legend(
+        handles=legend_elements,
+        loc="upper right",
+        title="Seasons",
+        bbox_to_anchor=(0.95, 0.95),
+    )
     fig.suptitle(f"{metric} per month", fontsize=16)
     plt.show()
 
