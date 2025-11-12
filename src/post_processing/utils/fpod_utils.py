@@ -220,8 +220,8 @@ def required_columns(
 
     Parameters
     ----------
-    df : DataFrame
-        Dataframe to validate.
+    df: DataFrame
+        Table to validate.
     columns : list[str]
         List of required column names.
 
@@ -507,73 +507,11 @@ def is_dpm_col(
     return df
 
 
-def pf_datetime(
-    df: DataFrame,
-    col_datetime: str,
-    frequency: str,
-) -> DataFrame:
-    """Parse datetime column and floor to specified frequency.
-
-    Parameters
-    ----------
-    df: DataFrame
-        Input dataframe.
-    col_datetime: str
-        Name of datetime column.
-    frequency: str
-        Pandas frequency string (e.g., "D", "h", "10min").
-
-    Returns
-    -------
-    DataFrame
-        Copy of df with parsed and floored datetime.
-
-    """
-    df = df.copy()
-    df[col_datetime] = to_datetime(df[col_datetime], utc=True)
-    df[col_datetime] = df[col_datetime].dt.floor(frequency)
-    return df
-
-
-def build_aggregation_dict(
-    df: DataFrame,
-    base_agg: dict[str, str],
-    extra_columns: list[str] | None = None,
-) -> dict[str, str]:
-    """Build aggregation dictionary with validation.
-
-    Parameters
-    ----------
-    df: DataFrame
-        Input dataframe to check column existence.
-    base_agg: dict[str, str]
-        Base aggregation dictionary (e.g., {"DPM": "sum"}).
-    extra_columns: list[str], optional
-        Additional columns to aggregate with "first" strategy.
-
-    Returns
-    -------
-    dict[str, str]
-        Complete aggregation dictionary.
-
-    """
-    agg_dict = base_agg.copy()
-
-    if extra_columns:
-        for col in extra_columns:
-            if col in df.columns:
-                agg_dict[col] = "first"
-            else:
-                logger.warning("Column '%s' does not exist and will be ignored.", col)
-
-    return agg_dict
-
-
 def resample_dpm(
     df: DataFrame,
     frq: str,
+    cols: dict[str, str],
     group_by: list[str] | None = None,
-    extra_columns: list[str] | None = None,
 ) -> DataFrame:
     """Resample DPM data to specified time frequency.
 
@@ -586,11 +524,11 @@ def resample_dpm(
         CPOD result DataFrame with DPM data.
     frq: str
         Pandas frequency string: "D" (day), "h" (hour), "10min", etc.
+    cols: dict[str, str]
+        Dictionary of column names and to process them.
     group_by: list[str], optional
         Columns to group by (e.g., ["deploy.name", "start_datetime"]).
         If None, groups only by start_datetime.
-    extra_columns: list[str], optional
-        Additional columns to preserve (uses "first" aggregation).
 
     Returns
     -------
@@ -600,10 +538,10 @@ def resample_dpm(
     Examples
     --------
     >>> # Daily aggregation per deployment
-    >>> resample_dpm(df, "D", group_by=["deploy.name"])
+    >>> resample_dpm(df, "D", {"Foraging":"sum"}, group_by=["deploy.name"])
 
     >>> # Hourly aggregation with site info preserved
-    >>> resample_dpm(df, "h", extra_columns=["site.name"])
+    >>> resample_dpm(df, "h", cols={"DPM":"sum","deploy.name":"first"})
 
     """
     df = is_dpm_col(df)
@@ -613,14 +551,7 @@ def resample_dpm(
     if group_by is None:
         group_by = ["start_datetime"]
 
-    # Build aggregation dictionary
-    agg_dict = build_aggregation_dict(
-        df,
-        base_agg={"DPM": "sum"},
-        extra_columns=extra_columns,
-    )
-
-    return df.groupby(group_by).agg(agg_dict).reset_index()
+    return df.groupby(group_by).agg(cols).reset_index()
 
 
 def deploy_period(
