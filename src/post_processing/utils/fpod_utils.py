@@ -327,7 +327,7 @@ def add_utc(
 
     Parameters
     ----------
-    df: pd.DataFrame
+    df: DataFrame
         Metadata dataframe with deployments information (previously exported as json).
     cols:list
         Timestamp column names.
@@ -336,7 +336,7 @@ def add_utc(
 
     Returns
     -------
-    pd.DataFrame
+    DataFrame
         A full period of time with positive and negative hours to detections.
 
     """
@@ -356,14 +356,14 @@ def build_range(
 
     Parameters
     ----------
-    df: pd.DataFrame
+    df: DataFrame
         Metadata dataframe with deployments information (previously exported as json)
     fr:str
         Frequency of the range of detections.
 
     Returns
     -------
-    pd.DataFrame
+    DataFrame
         A full period of time with positive and negative hours to detections.
 
     """
