@@ -20,6 +20,7 @@ from pandas import (
     read_csv,
     to_datetime,
     to_timedelta,
+    to_numeric,
 )
 
 from post_processing.utils.core_utils import get_coordinates, get_sun_times
@@ -427,7 +428,7 @@ def feeding_buzz(
 
     f = df.groupby(["start_datetime"])["Buzz"].sum().reset_index()
 
-    f["Foraging"] = (f["Buzz"] != 0).astype(int)
+    f["Foraging"] = to_numeric(f["Buzz"] != 0, downcast='integer').astype(int)
 
     return f
 
