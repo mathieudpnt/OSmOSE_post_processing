@@ -47,20 +47,20 @@ def pod2aplose(
     df: DataFrame
         FPOD result dataframe
     tz: pytz.timezone
-        Timezone object to get non-naïve datetimes
+        Timezone object to get non-naïve datetime.
     dataset_name: str
-        dataset name
+        dataset name.
     annotation: str
-        annotation name
+        annotation name.
     annotator: str
-        annotator name
+        annotator name.
     bin_size: int
-        Duration of the detections in seconds
+        Duration of the detections in seconds.
 
     Returns
     -------
     DataFrame
-        An APLOSE formatted DataFrame
+        An APLOSE formatted DataFrame.
 
     """
     df = df.copy()
@@ -248,7 +248,7 @@ def create_mask(
     Parameters
     ----------
     df : DataFrame
-        Dataframe with timestamp and deployment period columns.
+        Table with timestamp and deployment period columns.
     col_timestamp : str
         Name of timestamp column.
     col_start : str
@@ -281,7 +281,7 @@ def meta_cut_aplose(
     Parameters
     ----------
     raw_data : DataFrame
-        Dataframe containing deployment name and timestamps.
+        Table containing deployment name and timestamps.
     metadata : DataFrame
         Metadata with deployment periods (start/end dates).
 
@@ -573,7 +573,7 @@ def deploy_period(
     Returns
     -------
     DataFrame
-        DataFrame with columns: [col_deployment, 'Deb', 'Fin'].
+        Table with columns: [col_deployment, 'Deb', 'Fin'].
 
     """
     return (
@@ -596,7 +596,7 @@ def first_last(
     df: DataFrame
         CPOD result DataFrame.
     col_timestamp: str, default="start_datetime"
-        Name of the timestamps column.
+        Name of the timestamps' column.
     col_deployment: str, default="deploy.name"
         Name of the deployment identifier column.
     date_formats: list[str], optional
@@ -605,7 +605,7 @@ def first_last(
     Returns
     -------
     DataFrame
-        DataFrame with deployment periods (Deb, Fin).
+        Table with deployment periods (Deb, Fin).
 
     """
     df_parsed = parse_timestamps(df, col_timestamp, date_formats)
@@ -627,7 +627,7 @@ def actual_data(
     Returns
     -------
     DataFrame
-        DataFrame with corrected deployment periods (Deb, Fin).
+        Table with corrected deployment periods (Deb, Fin).
 
     """
     required_columns(
@@ -948,7 +948,7 @@ def month_percent(df: DataFrame, metric: str) -> None:
             label=f"Site {site}",
             color=site_colors.get(site, "gray"),
         )
-        ax.set_title(f"{site} - Percentage of minutes postitive to detection per month")
+        ax.set_title(f"{site} - Percentage of minutes positive to detection per month")
         ax.set_ylim(0, max(df[metric]) + 0.2)
         ax.set_ylabel(metric)
         ax.set_xticks(
@@ -1154,7 +1154,7 @@ def hist_mean_m(
     df: DataFrame,
     metric_mean: str,
     metric_std: str,
-    ylabel: str | None = None,
+    y_lab: str | None = None,
     title_suffix: str | None = None,
 ) -> None:
     """Produce a histogram of the given data.
@@ -1169,7 +1169,7 @@ def hist_mean_m(
         Column name for the mean values (e.g., "%click_mean")
     metric_std: str
         Column name for the standard deviation values (e.g., "%click_std")
-    ylabel: str, optional
+    y_lab: str, optional
         Label for y-axis. If None, uses metric_mean
     title_suffix: str, optional
         Suffix for the main title. If None, uses metric_mean
@@ -1205,7 +1205,7 @@ def hist_mean_m(
 
         ax.set_title(f"{site}", fontsize=12)
         ax.set_ylim(0, max_value * 1.1)
-        ax.set_ylabel(ylabel if ylabel else metric_mean, fontsize=10)
+        ax.set_ylabel(y_lab if y_lab else metric_mean, fontsize=10)
 
         # Only set x-label on last subplot
         if i == n_sites - 1:
@@ -1243,7 +1243,7 @@ def hist_mean_h(
     df: DataFrame,
     metric_mean: str,
     metric_std: str,
-    ylabel: str | None = None,
+    y_lab: str | None = None,
     title_suffix: str | None = None,
 ) -> None:
     """Produce a histogram of the given data.
@@ -1258,7 +1258,7 @@ def hist_mean_h(
         Column name for the mean values (e.g., "%click_mean")
     metric_std: str
         Column name for the standard deviation values (e.g., "%click_std")
-    ylabel: str, optional
+    y_lab: str, optional
         Label for y-axis. If None, uses metric_mean
     title_suffix: str, optional
         Suffix for the main title. If None, uses metric_mean
@@ -1295,7 +1295,7 @@ def hist_mean_h(
 
         ax.set_title(f"{site}", fontsize=12)
         ax.set_ylim(0, max_value * 1.1)
-        ax.set_ylabel(ylabel if ylabel else metric_mean, fontsize=10)
+        ax.set_ylabel(y_lab if y_lab else metric_mean, fontsize=10)
         ax.set_xticks(range(24))
 
         # Only set x-label on last subplot
@@ -1316,7 +1316,7 @@ def hist_mean_s(
     df: DataFrame,
     metric_mean: str,
     metric_std: str,
-    ylabel: str | None = None,
+    y_lab: str | None = None,
     title_suffix: str | None = None,
 ) -> None:
     """Plot bar chart with mean values and error bars (std) per site.
@@ -1329,12 +1329,10 @@ def hist_mean_s(
         Column name for the mean values (e.g., "FBR_mean")
     metric_std: str
         Column name for the standard deviation values (e.g., "FBR_std")
-    ylabel: str, optional
+    y_lab: str, optional
         Label for y-axis. If None, uses metric_mean
     title_suffix: str, optional
         Suffix for the title. If None, uses metric_mean
-    add_hatch: bool, optional
-        Add hatching pattern to bars (useful for FBR, %buzzes). Default False
 
     """
     fig, ax = plt.subplots(figsize=(10, 6))
@@ -1377,7 +1375,7 @@ def hist_mean_s(
     ax.set_xticklabels(plot_data["site.name"])
     ax.set_title(f"{title_suffix if title_suffix else metric_mean} per site",
                  fontsize=12)
-    ax.set_ylabel(ylabel if ylabel else metric_mean, fontsize=10)
+    ax.set_ylabel(y_lab if y_lab else metric_mean, fontsize=10)
     ax.set_xlabel("Site", fontsize=10)
 
     plt.tight_layout()
