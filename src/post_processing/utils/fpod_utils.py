@@ -69,10 +69,8 @@ def pod2aplose(
         for entry in df["ChunkEnd"]
     ]
 
-    # Trier le DataFrame selon ces datetime
     df = df.sort_values("_temp_dt").reset_index(drop=True)
 
-    # Maintenant extraire les colonnes triées
     fpod_start_dt = df["_temp_dt"].tolist()
     fpod_end_dt = [entry + Timedelta(seconds=bin_size) for entry in fpod_start_dt]
 
@@ -611,6 +609,7 @@ def first_last(
     df_parsed = parse_timestamps(df, col_timestamp, date_formats)
     return deploy_period(df_parsed, col_timestamp, col_deployment)
 
+
 def actual_data(
     df: DataFrame,
     meta: DataFrame,
@@ -688,6 +687,7 @@ def filter_tl(df: DataFrame, tl: int)->DataFrame:
     df["%TimeLost"] = (df["%TimeLost"].fillna(tl)).astype(int)
 
     return df[df["%TimeLost"] < tl]
+
 
 def preserved_data(filtered_df: DataFrame, whole_df: DataFrame)-> float:
     """Calculate the percentage of preserved data.
