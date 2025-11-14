@@ -129,12 +129,16 @@ def get_sun_times(
 
     h_sunrise, h_sunset = [], []
 
-    for date in [ts.date() for ts in date_range(start.normalize(),
-                                                stop.normalize(),
-                                                freq="D",
-                                                )]:
-        dt_sunrise = sunrise(gps.observer, date=date, tzinfo=tz)
-        dt_sunset = sunset(gps.observer, date=date, tzinfo=tz)
+    for date in [
+        ts.date()
+        for ts in date_range(
+            start.normalize(),
+            stop.normalize(),
+            freq="D",
+        )
+    ]:
+        dt_sunrise = Timestamp(sunrise(gps.observer, date=date)).tz_convert(tz)
+        dt_sunset = Timestamp(sunset(gps.observer, date=date)).tz_convert(tz)
 
         # Convert sunrise and sunset to decimal hours
         h_sunrise.append(dt_sunrise.hour + dt_sunrise.minute / 60 + dt_sunrise.second / 3600 + dt_sunrise.microsecond / 3_600_000_000)
