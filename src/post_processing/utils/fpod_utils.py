@@ -19,12 +19,11 @@ from pandas import (
     notna,
     read_csv,
     to_datetime,
-    to_timedelta,
     to_numeric,
+    to_timedelta,
 )
 
 from post_processing.utils.core_utils import get_coordinates, get_sun_times
-
 from user_case.config import season_color, site_colors
 
 if TYPE_CHECKING:
@@ -189,11 +188,6 @@ def parse_timestamps(
     DataFrame
         Copy of df with parsed timestamps.
 
-    Raises
-    ------
-    ValueError
-        If timestamps cannot be parsed with any format.
-
     """
     if date_formats is None:
         date_formats = [
@@ -291,15 +285,15 @@ def meta_cut_aplose(
 
     """
     required_columns(
-        raw_data,["deploy.name", "start_datetime"])
+        raw_data, ["deploy.name", "start_datetime"])
     required_columns(
-        metadata,["deploy.name", "deployment_date","recovery_date"])
+        metadata, ["deploy.name", "deployment_date", "recovery_date"])
 
     raw = parse_timestamps(raw_data, "start_datetime")
     raw = raw.sort_values(["start_datetime"])
 
     dfm = raw.merge(
-        metadata[["deploy.name", "deployment_date","recovery_date"]],
+        metadata[["deploy.name", "deployment_date", "recovery_date"]],
         on="deploy.name",
         how="left",
     )
@@ -307,7 +301,7 @@ def meta_cut_aplose(
     out = create_mask(dfm, "start_datetime", "deployment_date", "recovery_date")
 
     columns_to_drop = [
-        col for col in ["deployment_date","recovery_date"] if col not in raw_data.
+        col for col in ["deployment_date", "recovery_date"] if col not in raw_data.
         columns]
     if columns_to_drop:
         out = out.drop(columns=columns_to_drop)
@@ -318,7 +312,7 @@ def meta_cut_aplose(
 def add_utc(
     df: DataFrame,
     cols: list,
-    fr:str="h",
+    fr: str = "h",
 ) -> DataFrame:
     """Create a DataFrame with one line per hour between start and end dates.
 
@@ -347,7 +341,7 @@ def add_utc(
 
 def build_range(
     df: DataFrame,
-    fr:str="h",
+    fr: str = "h",
 ) -> DataFrame:
     """Create a DataFrame with one line per hour between start and end dates.
 
@@ -366,7 +360,7 @@ def build_range(
         A full period of time with positive and negative hours to detections.
 
     """
-    add_utc(df, ["Deb","Fin"], fr)
+    add_utc(df, ["Deb", "Fin"], fr)
 
     all_ranges = []
     for _, row in df.iterrows():
@@ -403,7 +397,7 @@ def feeding_buzz(
         Containing all ICIs for every positive minutes to clicks
 
     """
-    df["microsec"] = df["microsec"] / 1e6
+    df["microsec"] /= 1e6
     df["ICI"] = df["microsec"].diff()
 
     if species == "Dauphin":  # Herzing et al., 2014
@@ -428,7 +422,7 @@ def feeding_buzz(
 
     f = df.groupby(["start_datetime"])["Buzz"].sum().reset_index()
 
-    f["Foraging"] = to_numeric(f["Buzz"] != 0, downcast='integer').astype(int)
+    f["Foraging"] = to_numeric(f["Buzz"] != 0, downcast="integer").astype(int)
 
     return f
 
@@ -458,9 +452,9 @@ def assign_daytime(
     sunrise, sunset = get_sun_times(start, stop, lat, lon)
 
     sun_times = DataFrame(
-        {   "date": date_range(start, stop, freq="D"),
-            "sunrise": [Timedelta(h, "hours") for h in sunrise],
-            "sunset": [Timedelta(h, "hours") for h in sunset],
+        {"date": date_range(start, stop, freq="D"),
+        "sunrise": [Timedelta(h, "hours") for h in sunrise],
+        "sunset": [Timedelta(h, "hours") for h in sunset],
         })
 
     sun_times["sunrise"] = sun_times["date"].dt.floor("D") + sun_times["sunrise"]
@@ -631,16 +625,16 @@ def actual_data(
 
     """
     required_columns(
-        df,["deploy.name","ChunkEnd"])
+        df, ["deploy.name", "ChunkEnd"])
     required_columns(
-        meta,["deploy.name", "deployment_date","recovery_date"])
+        meta, ["deploy.name", "deployment_date", "recovery_date"])
 
     beg_end = first_last(df, "ChunkEnd")
 
     beg_end = add_utc(beg_end, ["Deb", "Fin"])
 
-    final = beg_end.merge(meta[["deployment_date","recovery_date","deploy.name"]],
-                          on = "deploy.name", how="left")
+    final = beg_end.merge(meta[["deployment_date", "recovery_date", "deploy.name"]],
+                          on="deploy.name", how="left")
     final.loc[final["Deb"] < final["deployment_date"], "Deb"] = final["deployment_date"]
     final.loc[final["Fin"] > final["recovery_date"], "Fin"] = final["recovery_date"]
     final.loc[final["Deb"] > final["Fin"], ["Deb", "Fin"]] = None
@@ -648,7 +642,7 @@ def actual_data(
     return final.drop(["deployment_date", "recovery_date"], axis=1)
 
 
-def process_tl(tl_files: Path)->DataFrame:
+def process_tl(tl_files: Path) -> DataFrame:
     """Process Environmental data extracted from cpod.exe to get a usable dataframe.
 
     Parameters
@@ -670,7 +664,7 @@ def process_tl(tl_files: Path)->DataFrame:
     return df.sort_values(["start_datetime"])
 
 
-def filter_tl(df: DataFrame, tl: int)->DataFrame:
+def filter_tl(df: DataFrame, tl: int) -> DataFrame:
     """Remove lines with a %TimeLost superior to the chosen threshold.
 
     Parameters
@@ -690,7 +684,7 @@ def filter_tl(df: DataFrame, tl: int)->DataFrame:
     return df[df["%TimeLost"] < tl]
 
 
-def preserved_data(filtered_df: DataFrame, whole_df: DataFrame)-> float:
+def preserved_data(filtered_df: DataFrame, whole_df: DataFrame) -> float:
     """Calculate the percentage of preserved data.
 
     Parameters
@@ -705,14 +699,14 @@ def preserved_data(filtered_df: DataFrame, whole_df: DataFrame)-> float:
     Percentage of preserved data.
 
     """
-    return (len(filtered_df) / len(whole_df)) *100
+    return (len(filtered_df) / len(whole_df)) * 100
 
 
 def create_matrix(
     df: DataFrame,
     group_cols: list,
     agg_cols: list,
-)-> DataFrame:
+) -> DataFrame:
     """Create a stats matrix (mean & std).
 
     Parameters
@@ -828,7 +822,7 @@ def site_percent(df: DataFrame, metric: str) -> None:
     )
     ax.set_title(f"{metric} per site")
     ax.set_ylabel(f"{metric}")
-    if metric in ("%buzzes", "FBR"):
+    if metric in {"%buzzes", "FBR"}:
         for _, bar in enumerate(ax.patches):
             bar.set_hatch("/")
     plt.show()
@@ -866,7 +860,7 @@ def year_percent(df: DataFrame, metric: str) -> None:
             ax.set_xlabel("")
         else:
             ax.set_xlabel("Year")
-        if metric in ("%buzzes", "FBR"):
+        if metric in {"%buzzes", "FBR"}:
             for _, bar in enumerate(ax.patches):
                 bar.set_hatch("/")
     fig.suptitle(f"{metric} per year", fontsize=16)
@@ -907,7 +901,7 @@ def ym_percent(df: DataFrame, metric: str) -> None:
             ax.set_xlabel("")
         else:
             ax.set_xlabel("Months")
-        if metric in ("%buzzes", "FBR"):
+        if metric in {"%buzzes", "FBR"}:
             for _, bar in enumerate(ax.patches):
                 bar.set_hatch("/")
     legend_elements = [
@@ -973,7 +967,7 @@ def month_percent(df: DataFrame, metric: str) -> None:
             ax.set_xlabel("")
         else:
             ax.set_xlabel("Months")
-        if metric in ("%buzzes", "FBR"):
+        if metric in {"%buzzes", "FBR"}:
             for _, bar in enumerate(ax.patches):
                 bar.set_hatch("/")
     fig.suptitle(f"{metric} per month", fontsize=16)
@@ -1013,7 +1007,7 @@ def day_percent(df: DataFrame, metric: str) -> None:
             ax.set_xlabel("")
         else:
             ax.set_xlabel("Months")
-        if metric in ("%buzzes", "FBR"):
+        if metric in {"%buzzes", "FBR"}:
             for _, bar in enumerate(ax.patches):
                 bar.set_hatch("/")
     legend_elements = [
@@ -1064,7 +1058,7 @@ def hour_percent(df: DataFrame, metric: str) -> None:
             ax.set_xlabel("")
         else:
             ax.set_xlabel("Hour")
-        if metric in ("%buzzes", "FBR"):
+        if metric in {"%buzzes", "FBR"}:
             for _, bar in enumerate(ax.patches):
                 bar.set_hatch("/")
     fig.suptitle(f"{metric} per hour", fontsize=16)
@@ -1083,10 +1077,6 @@ def calendar(
         metadatax file
     data: DataFrame
         cpod file from all sites and phases
-
-    Returns
-    -------
-    Return a plot of all deployments and associated data.
 
     """
     # format the dataframe
@@ -1131,7 +1121,6 @@ def calendar(
                 linewidth=0.8,
             )
 
-
     ax.set_yticks(range(len(sites)))
     ax.set_yticklabels(sites, fontsize=12)
 
@@ -1175,10 +1164,6 @@ def hist_mean_m(
     title_suffix: str, optional
         Suffix for the main title. If None, uses metric_mean
 
-    Returns
-    -------
-    Return a plot of all deployments and associated data.
-
     """
     sites = df["site.name"].unique()
     n_sites = len(sites)
@@ -1206,7 +1191,7 @@ def hist_mean_m(
 
         ax.set_title(f"{site}", fontsize=12)
         ax.set_ylim(0, max_value * 1.1)
-        ax.set_ylabel(y_lab if y_lab else metric_mean, fontsize=10)
+        ax.set_ylabel(y_lab or metric_mean, fontsize=10)
 
         # Only set x-label on last subplot
         if i == n_sites - 1:
@@ -1228,12 +1213,12 @@ def hist_mean_m(
                     "Dec",
                 ],
             )
-        if metric_mean in ("%buzzes_mean", "FBR_mean"):
+        if metric_mean in {"%buzzes_mean", "FBR_mean"}:
             for _, bar in enumerate(ax.patches):
                 bar.set_hatch("/")
 
     fig.suptitle(
-        f"{title_suffix if title_suffix else metric_mean} per month",
+        f"{title_suffix or metric_mean} per month",
         fontsize=16)
     plt.xticks(rotation=45)
     plt.tight_layout()
@@ -1264,10 +1249,6 @@ def hist_mean_h(
     title_suffix: str, optional
         Suffix for the main title. If None, uses metric_mean
 
-    Returns
-    -------
-    Return a plot of all deployments and associated data.
-
     """
     sites = df["site.name"].unique()
     n_sites = len(sites)
@@ -1296,18 +1277,17 @@ def hist_mean_h(
 
         ax.set_title(f"{site}", fontsize=12)
         ax.set_ylim(0, max_value * 1.1)
-        ax.set_ylabel(y_lab if y_lab else metric_mean, fontsize=10)
+        ax.set_ylabel(y_lab or metric_mean, fontsize=10)
         ax.set_xticks(range(24))
 
         # Only set x-label on last subplot
         if i == n_sites - 1:
             ax.set_xlabel("Heure", fontsize=10)
-        if metric_mean in ("%buzzes_mean", "FBR_mean"):
+        if metric_mean in {"%buzzes_mean", "FBR_mean"}:
             for _, bar in enumerate(ax.patches):
                 bar.set_hatch("/")
 
-    fig.suptitle(
-        f"{title_suffix if title_suffix else metric_mean} per hour", fontsize=16)
+    fig.suptitle(f"{title_suffix or metric_mean} per hour", fontsize=16)
     plt.xticks(rotation=45)
     plt.tight_layout()
     plt.show()
@@ -1344,16 +1324,16 @@ def hist_mean_s(
     x_pos = range(len(plot_data))
 
     # Create bars
-    bars = ax.bar(
-        x=x_pos,
-        height=plot_data[metric_mean],
-        color=[site_colors.get(site, "gray") for site in plot_data["site.name"]],
-        alpha=0.8,
-        edgecolor="black",
-        linewidth=0.5)
+    ax.bar(
+    x=x_pos,
+    height=plot_data[metric_mean],
+    color=[site_colors.get(site, "gray") for site in plot_data["site.name"]],
+    alpha=0.8,
+    edgecolor="black",
+    linewidth=0.5)
 
     # Add hatching if requested
-    if metric_mean in ("%buzzes_mean", "FBR_mean"):
+    if metric_mean in {"%buzzes_mean", "FBR_mean"}:
         for _, bar in enumerate(ax.patches):
             bar.set_hatch("/")
 
@@ -1374,9 +1354,9 @@ def hist_mean_s(
 
     ax.set_xticks(x_pos)
     ax.set_xticklabels(plot_data["site.name"])
-    ax.set_title(f"{title_suffix if title_suffix else metric_mean} per site",
+    ax.set_title(f"{title_suffix or metric_mean} per site",
                  fontsize=12)
-    ax.set_ylabel(y_lab if y_lab else metric_mean, fontsize=10)
+    ax.set_ylabel(y_lab or metric_mean, fontsize=10)
     ax.set_xlabel("Site", fontsize=10)
 
     plt.tight_layout()
