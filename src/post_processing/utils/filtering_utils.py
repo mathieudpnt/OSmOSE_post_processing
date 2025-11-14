@@ -6,7 +6,15 @@ import bisect
 import csv
 from typing import TYPE_CHECKING
 
-from pandas import DataFrame, Timedelta, Timestamp, concat, date_range, read_csv, to_datetime
+from pandas import (
+    DataFrame,
+    Timedelta,
+    Timestamp,
+    concat,
+    date_range,
+    read_csv,
+    to_datetime,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path

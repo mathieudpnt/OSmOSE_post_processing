@@ -19,7 +19,6 @@ def test_data_aplose_init(sample_df: DataFrame) -> None:
     assert data.begin == sample_df["start_datetime"].min()
     assert data.end == sample_df["end_datetime"].max()
 
-
 def test_filter_df_single_pair(sample_df: DataFrame) -> None:
     data = DataAplose(sample_df)
     filtered_data = data.filter_df(annotator="ann1", label="lbl1")
@@ -31,6 +30,16 @@ def test_filter_df_single_pair(sample_df: DataFrame) -> None:
     ].reset_index(drop=True)
     assert filtered_data.equals(expected)
 
+def test_change_tz(sample_df: DataFrame) -> None:
+    data = DataAplose(sample_df)
+    new_tz = 'Etc/GMT-7'
+    data.change_tz(new_tz)
+    start_dt = data.df['start_datetime']
+    end_dt = data.df['end_datetime']
+    assert all(ts.tz.zone == new_tz for ts in start_dt), f"The detection start timestamps have to be in {new_tz} timezone"
+    assert all(ts.tz.zone == new_tz for ts in end_dt), f"The detection end timestamps have to be in {new_tz} timezone"
+    assert data.begin.tz.zone == new_tz, f"The begin value of the DataAplose has to be in {new_tz} timezone"
+    assert data.end.tz.zone == new_tz, f"The end value of the DataAplose has to be in {new_tz} timezone"
 
 def test_filter_df_multiple_pairs(sample_df: DataFrame) -> None:
     data = DataAplose(sample_df)
@@ -130,8 +139,19 @@ def test_plot_scatter_heatmap_timeline(sample_df: DataFrame, mode: str) -> None:
     data = DataAplose(sample_df)
     data.lon = 0
     data.lat = 0
+    bin_size = frequencies.to_offset("1d")
     fig, ax = plt.subplots()
-    data.plot(mode=mode, ax=ax, annotator="ann1", label="lbl1", color="red")
+    data.plot(mode=mode, ax=ax, annotator="ann1", label="lbl1", bin_size=bin_size, color="red")
+
+
+def test_heatmap_wrong_bin(sample_df: DataFrame) -> None:
+    data = DataAplose(sample_df)
+    data.lon = 0
+    data.lat = 0
+    bins = frequencies.to_offset("10s")
+    fig, ax = plt.subplots()
+    with pytest.raises(ValueError, match="`bin_size` must be >= 24h for heatmap mode."):
+        data.plot(mode="heatmap", ax=ax, annotator="ann1", label="lbl1", bin_size=bins, color="red")
 
 
 def test_plot_invalid_mode(sample_df: DataFrame) -> None:
@@ -160,7 +180,7 @@ def test_set_ax(sample_df: DataFrame) -> None:
 
 
 def test_from_yaml(sample_yaml: Path, sample_df: DataFrame) -> None:
-    df_from_yaml = DataAplose.from_yaml(sample_yaml).df
+    df_from_yaml = DataAplose.from_yaml(file=sample_yaml).df
     df_expected = DataAplose(sample_df).filter_df(annotator="ann1", label="lbl1").reset_index(drop=True)
     assert df_from_yaml.equals(df_expected)
 
@@ -186,8 +206,3 @@ def test_concat(sample_yaml: Path, sample_df: DataFrame) -> None:
             assert got.equals(exp), f"Mismatch in {attr}"
         else:
             assert got == exp, f"Mismatch in {attr}"
-
-
-
-
-

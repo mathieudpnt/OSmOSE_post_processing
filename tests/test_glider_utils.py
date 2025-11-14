@@ -30,6 +30,7 @@ def nav_df() -> DataFrame:
         "NavState": [1, 2, 2, 3, 3],
     })
 
+
 @pytest.fixture
 def df_detections(nav_df: DataFrame) -> DataFrame:
     return DataFrame({
@@ -38,10 +39,12 @@ def df_detections(nav_df: DataFrame) -> DataFrame:
         "start_datetime": nav_df["Timestamp"][:3],
     })
 
+
 def test_set_trajectory(nav_df: DataFrame) -> None:
     traj = set_trajectory(nav_df)
     assert isinstance(traj, Trajectory)
     assert len(traj.timestamps) == len(nav_df)
+
 
 def test_get_position_from_timestamp(nav_df: DataFrame) -> None:
     traj = set_trajectory(nav_df)
@@ -49,6 +52,7 @@ def test_get_position_from_timestamp(nav_df: DataFrame) -> None:
     lat, lon, ts = get_position_from_timestamp(traj, times)
     assert len(lat) == len(times)
     assert all(isinstance(x, float) for x in lat)
+
 
 def test_plot_detections_with_nav_data(df_detections: DataFrame,
                                        nav_df: DataFrame) -> None:
@@ -59,6 +63,7 @@ def test_plot_detections_with_nav_data(df_detections: DataFrame,
         ticks=Timedelta(seconds=3600),
     )
 
+
 def test_load_glider_nav() -> None:
     input_dir = Path(__file__).parent.parent / "user_case" / "resource" / "OHAGEODAMS_nav"
     df = load_glider_nav(input_dir)
@@ -66,14 +71,17 @@ def test_load_glider_nav() -> None:
     assert "Lat" in df.columns
     assert not df.empty
 
+
 def test_load_glider_nav_missing_dir(tmp_path: Path) -> None:
     bad_dir = tmp_path / "doesnotexist"
     with pytest.raises(FileNotFoundError):
         load_glider_nav(bad_dir)
 
+
 def test_load_glider_nav_no_files(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError):
         load_glider_nav(tmp_path)
+
 
 def test_compute_acoustic_diversity(df_detections: DataFrame,
                                     nav_df: DataFrame) -> None:
@@ -81,6 +89,7 @@ def test_compute_acoustic_diversity(df_detections: DataFrame,
     result = compute_acoustic_diversity(df_detections, nav_df, time_vector)
     assert isinstance(result, DataFrame)
     assert "Acoustic Diversity" in result.columns
+
 
 def test_export_gpx(nav_df: DataFrame, tmp_path: Path) -> None:
     out_file = tmp_path / "trace.gpx"

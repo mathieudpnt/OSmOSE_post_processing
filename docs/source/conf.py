@@ -6,10 +6,10 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = 'OSmOSE_post_processing'
-copyright = '2025, Mathieu Dupont'
-author = 'Mathieu Dupont'
-release = '0.0.1'
+project = "OSmOSE_post_processing"
+copyright = "2025, Mathieu Dupont"
+author = "Mathieu Dupont"
+release = "0.0.1"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

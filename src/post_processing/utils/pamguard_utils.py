@@ -10,6 +10,7 @@ from tqdm import tqdm
 
 logger.set_verbosity(Verbosity.ERROR)
 
+
 def process_binary(audio: AudioData,
                    binary: Path,
                    dataset: str,
@@ -66,8 +67,8 @@ def process_binary(audio: AudioData,
 
     filter_obj = Filters(
         {
-        "daterange": DateFilter(start_date=begin, end_date=end, ordered=True)
-        }
+        "daterange": DateFilter(start_date=begin, end_date=end, ordered=True),
+        },
     )
 
     data, _, _ = load_pamguard_binary_folder(binary, "*/*.pgdf", filters=filter_obj)
@@ -123,5 +124,3 @@ def process_binary(audio: AudioData,
         "end_datetime": [strftime_osmose_format(end) for end in end_datetimes],
         "is_box": True,
     }).sort_values("start_datetime")
-
-

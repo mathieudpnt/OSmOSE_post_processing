@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 from collections import Counter
-from datetime import tzinfo
 from itertools import cycle
 from typing import TYPE_CHECKING
 
@@ -13,8 +12,8 @@ import numpy as np
 from matplotlib import dates as mdates
 from matplotlib.dates import num2date
 from matplotlib.ticker import PercentFormatter
-from numpy import ceil, histogram, polyfit, zeros
-from pandas import DataFrame, Index, Timedelta, Timestamp, date_range
+from numpy import ceil, histogram, polyfit
+from pandas import DataFrame, DatetimeIndex, Index, Timedelta, Timestamp, date_range
 from pandas.tseries import frequencies
 from scipy.stats import pearsonr
 from seaborn import scatterplot
@@ -28,10 +27,12 @@ from post_processing.utils.core_utils import (
     round_begin_end_timestamps,
     timedelta_to_str,
 )
+from post_processing.utils.filtering_utils import get_max_time, get_timezone
 from post_processing.utils.metrics_utils import normalize_counts_by_effort
-from post_processing.utils.filtering_utils import get_timezone
 
 if TYPE_CHECKING:
+    from datetime import tzinfo
+
     from matplotlib.axes import Axes
     from pandas.tseries.offsets import BaseOffset
 
@@ -91,12 +92,11 @@ def histo(
     effort = kwargs.get("effort", False)
     lat, lon = kwargs.get("coordinates")
 
-
     bin_size_str = get_bin_size_str(bin_size)
 
     begin, end, bin_size = round_begin_end_timestamps(list(df.index), bin_size)
 
-    color = color if color else get_colors(df)
+    color = color or get_colors(df)
 
     if len(df.columns) > 1 and legend:
         legend_labels = get_legend(labels, annotators)
@@ -117,7 +117,7 @@ def histo(
             "width": bar_width.total_seconds() / 86400,
             "align": "edge",
             "edgecolor": "black",
-            "color": color[i],
+            "color": color,
             "zorder": 2,
         }
         if legend_labels:
@@ -139,7 +139,7 @@ def histo(
     ax.set_xlim(begin, end)
 
     if season:
-        if not lat or not lon:
+        if lat is None or lon is None:
             get_coordinates()
         add_season_period(ax, northern=lat >= 0)
 
@@ -152,11 +152,11 @@ def histo(
         )
 
 
-def map_detection_timeline(
+def _prepare_timeline_plot(
     df: DataFrame,
     ax: Axes,
-    mode: str,
     *,
+    bins: DatetimeIndex = None,
     coordinates: tuple[float, float] | None = None,
     **kwargs: bool,
 ) -> None:
@@ -170,39 +170,23 @@ def map_detection_timeline(
         The matplotlib axis to draw on.
     coordinates : tuple[float, float]
         The latitude and longitude.
-    mode : {'scatter', 'heatmap'}
-        'scatter': Plot each detection as a point by time of day.
-        'heatmap': Plot hourly detection rate as a heatmap.
+    bins : DatetimeIndex
+        Pandas date range of the data to plot
     **kwargs: Additional keyword arguments depending on the mode.
         -show_rise_set : bool, default True
             Whether to overlay sunrise and sunset lines.
-        -season: bool
-            Whether to show the season.
 
     """
     lat, lon = coordinates
     if lat is None or lon is None:
         lat, lon = get_coordinates()
 
+    begin = bins[0]
+    end = bins[-1]
+
     show_rise_set = kwargs.get("show_rise_set", False)
-    season = kwargs.get("season", False)
 
-    datetime_list = list(df["start_datetime"])
-    freq = frequencies.to_offset("1D")
-    begin, end, _ = round_begin_end_timestamps(datetime_list, freq)
     labels, annotators = get_labels_and_annotators(df)
-
-    if mode == "scatter":
-        scatter(df=df, ax=ax)
-    elif mode == "heatmap":
-        heatmap(df=df, ax=ax)
-    else:
-        msg = f"Unsupported plot mode: {mode}"
-        raise ValueError(msg)
-
-    if show_rise_set:
-        tz = get_timezone(df)
-        add_sunrise_sunset(ax, lat, lon, tz)
 
     ax.set_xlim(begin, end)
     ax.set_ylim(0, 24)
@@ -213,15 +197,17 @@ def map_detection_timeline(
 
     set_plot_title(ax=ax, annotators=annotators, labels=labels)
 
-    if season:
-        northern = lat >= 0
-        add_season_period(ax, northern=northern)
+    if show_rise_set:
+        tz = get_timezone(df)
+        add_sunrise_sunset(ax, lat, lon, tz)
 
 
 def scatter(
     df: DataFrame,
     ax: Axes,
-) -> Axes:
+    time_range: DatetimeIndex,
+    **kwargs: bool | tuple[float, float],
+) -> None:
     """Scatter-plot of detections for a given annotator and label.
 
     Parameters
@@ -230,8 +216,30 @@ def scatter(
         data to plot
     ax : plt.Axes
         The matplotlib axis to draw on.
+    time_range: DatetimeIndex
+        The time range of the heatmap.
+    **kwargs: Additional keyword arguments depending on the mode.
+        -coordinates: tuple[float, float]
+            The latitude and longitude.
+        -show_rise_set : bool, default True
+            Whether to overlay sunrise and sunset lines.
+        -season: bool
+            Whether to show the season.
 
     """
+    show_rise_set = kwargs.get("show_rise_set", False)
+    season = kwargs.get("season", False)
+    coordinates = kwargs.get("coordinates", False)
+
+    _prepare_timeline_plot(
+        df=df,
+        ax=ax,
+        bins=time_range,
+        show_rise_set=show_rise_set,
+        season=season,
+        coordinates=coordinates,
+    )
+
     labels, annotators = get_labels_and_annotators(df)
     for ann in set(annotators):
         for lbl in set(labels):
@@ -261,9 +269,13 @@ def scatter(
         framealpha=0.6,
     )
 
-    return ax
 
-def heatmap(df: DataFrame, ax: Axes) -> None:
+def heatmap(df: DataFrame,
+            ax: Axes,
+            bin_size: Timedelta | BaseOffset,
+            time_range: DatetimeIndex,
+            **kwargs: bool | tuple[float, float],
+            ) -> None:
     """Heatmap of detections for a given annotator and label.
 
     Parameters
@@ -272,34 +284,85 @@ def heatmap(df: DataFrame, ax: Axes) -> None:
         data to plot
     ax : plt.Axes
         The matplotlib axis to draw on.
+    bin_size: Timedelta | BaseOffset
+        The size of the heatmap bins.
+        Must be >= 24h.
+    time_range: DatetimeIndex
+        The time range of the heatmap.
+    **kwargs: Additional keyword arguments depending on the mode.
+        -coordinates: tuple[float, float]
+            The latitude and longitude.
+        -show_rise_set : bool, default True
+            Whether to overlay sunrise and sunset lines.
+        -season: bool
+            Whether to show the season.
 
     """
     datetime_list = list(df["start_datetime"])
-    freq = frequencies.to_offset("1D")
-    begin, end, time_bin = round_begin_end_timestamps(datetime_list, freq)
-    dates, _ = get_time_range_and_bin_size(datetime_list, freq)
 
-    mat = zeros((24, len(dates)))
-    date_to_index = {date: i for i, date in enumerate(dates)}
+    _, bin_size_dt = get_time_range_and_bin_size(datetime_list, bin_size)
+    if bin_size_dt < Timedelta("1D"):
+        msg = "`bin_size` must be >= 24h for heatmap mode."
+        raise ValueError(msg)
 
-    for dt in datetime_list:
-        date = dt.normalize()
-        hour = dt.hour
-        if date in date_to_index:
-            j = date_to_index[date]
-            mat[hour, j] += 1  # count detections per hour per day
+    show_rise_set = kwargs.get("show_rise_set", False)
+    season = kwargs.get("season", False)
+    coordinates = kwargs.get("coordinates", False)
+
+    begin = time_range[0]
+    end = time_range[-1]
+
+    # Coarse bins (for display cells)
+    cell_bins = date_range(begin, end, freq=bin_size)
+
+    _prepare_timeline_plot(
+        df=df,
+        ax=ax,
+        bins=cell_bins,
+        show_rise_set=show_rise_set,
+        coordinates=coordinates,
+    )
+
+    freq = frequencies.to_offset(Timedelta(get_max_time(df), "s"))
+
+    # Fine bins (for counting detection)
+    fine_bins = date_range(begin, end, freq=freq)
+
+    # Assign each timestamp to fine bin
+    fine_idx = np.searchsorted(fine_bins, datetime_list, side="right") - 1
+
+    # Map fine bins to coarse cell index
+    fine_to_cell = np.searchsorted(cell_bins, fine_bins, side="right") - 1
+
+    mat = np.zeros((24, len(cell_bins) - 1), dtype=int)
+
+    for dt, f_idx in zip(datetime_list, fine_idx, strict=False):
+        if 0 <= f_idx < len(fine_bins) - 1:
+            c_idx = fine_to_cell[f_idx]
+            if 0 <= c_idx < len(cell_bins) - 1:
+                mat[dt.hour, c_idx] += 1
 
     im = ax.imshow(
         mat,
         extent=(begin, end, 0, 24),
         vmin=0,
-        vmax=1,
+        vmax=mat.max(),
         aspect="auto",
         origin="lower",
     )
+
+    if coordinates and season:
+        lat, lon = coordinates
+        add_season_period(ax, northern=lat >= 0)
+
+    bin_size_str = get_bin_size_str(bin_size)
+    freq_str = get_bin_size_str(freq)
+
     fig = ax.get_figure()
     cbar = fig.colorbar(im, ax=ax, pad=0.1)
-    cbar.ax.set_ylabel(f"Detections per {time_bin!s}s bin")
+    cbar.ax.set_ylabel(f"{freq_str} detections per hour")
+    ax.set_ylabel("Hour of day")
+    ax.set_xlabel(f"Time ({bin_size_str} bin)")
 
 
 def overview(df: DataFrame) -> None:
@@ -491,9 +554,7 @@ def timeline(
     labels, _ = get_labels_and_annotators(df)
 
     color = (
-        color
-        if color
-        else [c for _, c in zip(range(len(labels)), cycle(default_colors))]
+        color or [c for _, c in zip(range(len(labels)), cycle(default_colors))]
     )
 
     for i, label in enumerate(labels):
@@ -511,9 +572,11 @@ def timeline(
         df["end_datetime"].max().ceil("1d"),
     )
 
+
 def get_colors(df: DataFrame) -> list[str]:
     """Return default plot colors."""
     return [c for _, c in zip(range(len(df.columns)), cycle(default_colors))]
+
 
 def get_legend(annotators: str | list[str], labels: str | list[str]) -> list[str]:
     """Return plot legend."""
@@ -522,6 +585,7 @@ def get_legend(annotators: str | list[str], labels: str | list[str]) -> list[str
     if len(set(annotators)) > 1 and len(set(labels)) == 1:
         return annotators
     return [f"{ant}\n{lbl}" for ant, lbl in zip(annotators, labels, strict=False)]
+
 
 def get_bin_size_str(bin_size: Timedelta | BaseOffset) -> str:
     """Return bin size as a string."""
@@ -540,8 +604,8 @@ def set_y_axis_to_percentage(
 
 def set_dynamic_ylim(ax: plt.Axes,
                      df: DataFrame,
-                     padding:float=0.05,
-                     nticks: int=4,
+                     padding: float = 0.05,
+                     nticks: int = 4,
                      ) -> None:
     """Set y-axis limits and ticks dynamically based on DataFrame values."""
     max_val = np.nanmax(df.to_numpy())

@@ -107,6 +107,18 @@ sample_dataset,2025_01_25_06_20_50,0.0,10.0,0.0,72000.0,lbl1,ann6,2025-01-25T06:
 sample_dataset,2025_01_25_06_20_50,0.0,10.0,0.0,72000.0,lbl2,ann3,2025-01-25T06:20:50.000+00:00,2025-01-25T06:21:00.000+00:00,0,0.56
 sample_dataset,2025_01_25_06_20_50,4.01751241562975,4.9965526803843,5764.0,14729.0,lbl2,ann3,2025-01-25T06:20:54.017+00:00,2025-01-25T06:20:54.996+00:00,1,0.98
 sample_dataset,2025_01_25_06_20_50,8.40250965776985,9.58149476532639,7875.0,19124.0,lbl2,ann3,2025-01-25T06:20:58.402+00:00,2025-01-25T06:20:59.581+00:00,1,0.79
+sample_dataset,2025_01_26_06_20_00,0.0,10.0,0.0,72000.0,lbl2,ann2,2025-01-26T06:20:00.000+00:00,2025-01-26T06:20:10.000+00:00,0,0.11
+sample_dataset,2025_01_26_06_20_00,3.46662989520132,4.02371759514617,7523.0,15257.0,lbl2,ann2,2025-01-26T06:20:03.466+00:00,2025-01-26T06:20:04.023+00:00,1,0.23
+sample_dataset,2025_01_26_06_20_00,0.0,10.0,0.0,72000.0,lbl1,ann2,2025-01-26T06:20:00.000+00:00,2025-01-26T06:20:10.000+00:00,0,0.26
+sample_dataset,2025_01_26_06_20_00,0.0,10.0,0.0,72000.0,lbl1,ann5,2025-01-26T06:20:00.000+00:00,2025-01-26T06:20:10.000+00:00,0,0.35
+sample_dataset,2025_01_26_06_20_00,0.0717043574186431,8.90788747931605,1265.0,10265.0,lbl1,ann5,2025-01-26T06:20:00.071+00:00,2025-01-26T06:20:08.907+00:00,1,0.36
+sample_dataset,2025_01_26_06_20_00,0.0,10.0,0.0,72000.0,lbl2,ann1,2025-01-26T06:20:00.000+00:00,2025-01-26T06:20:10.000+00:00,0,0.72
+sample_dataset,2025_01_26_06_20_00,3.32873690016547,4.0457804743519,7031.0,16453.0,lbl2,ann1,2025-01-26T06:20:03.328+00:00,2025-01-26T06:20:04.045+00:00,1,0.31
+sample_dataset,2025_01_26_06_20_00,7.03530060672918,7.64754550468836,6468.0,15187.0,lbl2,ann1,2025-01-26T06:20:07.035+00:00,2025-01-26T06:20:07.647+00:00,1,0.86
+sample_dataset,2025_01_26_06_20_00,0.0,10.0,0.0,72000.0,lbl1,ann1,2025-01-26T06:20:00.000+00:00,2025-01-26T06:20:10.000+00:00,0,0.37
+sample_dataset,2025_01_26_06_20_00,0.0,10.0,0.0,72000.0,lbl2,ann4,2025-01-26T06:20:00.000+00:00,2025-01-26T06:20:10.000+00:00,0,0.11
+sample_dataset,2025_01_26_06_20_00,3.30667402095974,4.00165471594043,7875.0,19828.0,lbl2,ann4,2025-01-26T06:20:03.306+00:00,2025-01-26T06:20:04.001+00:00,1,0.81
+sample_dataset,2025_01_26_06_20_00,0.0,10.0,0.0,72000.0,lbl2,ann3,2025-01-26T06:20:00.000+00:00,2025-01-26T06:20:10.000+00:00,0,0.58
 """
 
 STATUS = """dataset,filename,ann1,ann2,ann3,ann4,ann5,ann6
@@ -116,6 +128,7 @@ sample_dataset,2025_01_25_06_20_20,FINISHED,FINISHED,FINISHED,FINISHED,FINISHED,
 sample_dataset,2025_01_25_06_20_30,FINISHED,FINISHED,FINISHED,FINISHED,FINISHED,FINISHED
 sample_dataset,2025_01_25_06_20_40,FINISHED,FINISHED,FINISHED,FINISHED,FINISHED,FINISHED
 sample_dataset,2025_01_25_06_20_50,FINISHED,FINISHED,FINISHED,FINISHED,FINISHED,FINISHED
+sample_dataset,2025_01_26_06_20_20,FINISHED,FINISHED,FINISHED,FINISHED,FINISHED,FINISHED
 """
 
 
@@ -124,9 +137,11 @@ def sample_df() -> DataFrame:
     df = read_csv(io.StringIO(SAMPLE), parse_dates=["start_datetime", "end_datetime"])
     return df.sort_values(["start_datetime", "end_datetime", "annotator", "annotation"]).reset_index(drop=True)
 
+
 @pytest.fixture
 def sample_status() -> DataFrame:
     return read_csv(io.StringIO(STATUS)).reset_index(drop=True)
+
 
 @pytest.fixture
 def sample_csv_result(tmp_path: Path, sample_df: DataFrame) -> Path:
@@ -137,16 +152,18 @@ def sample_csv_result(tmp_path: Path, sample_df: DataFrame) -> Path:
     df_copy.to_csv(result_file, index=False)
     return result_file
 
+
 @pytest.fixture
 def sample_csv_timestamp(tmp_path: Path, sample_status: DataFrame) -> Path:
     ts_file = tmp_path / "status.csv"
     sample_status.to_csv(ts_file, index=False)
     return ts_file
 
+
 @pytest.fixture
 def sample_yaml(tmp_path: Path,
                            sample_csv_result: Path,
-                           sample_csv_timestamp: Path
+                           sample_csv_timestamp: Path,
                            ) -> Path:
     yaml_content = {
         f"{sample_csv_result}": {
@@ -160,8 +177,8 @@ def sample_yaml(tmp_path: Path,
             "user_sel": "all",
             "f_min": None,
             "f_max": None,
-            "score": None
-        }
+            "score": None,
+        },
     }
 
     yaml_file = tmp_path / "filters.yaml"

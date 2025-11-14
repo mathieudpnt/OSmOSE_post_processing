@@ -7,27 +7,36 @@ plot time-based distributions, and manage metadata such as annotators and labels
 
 from __future__ import annotations
 
-from datetime import tzinfo
+import logging
+from copy import copy
 from typing import TYPE_CHECKING
 
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
-from pandas import DataFrame, Series, Timedelta, Timestamp, concat
+from pandas import DataFrame, Series, Timedelta, Timestamp, concat, date_range
 from pandas.tseries import offsets
 
 from post_processing.dataclass.detection_filter import DetectionFilter
 from post_processing.utils.core_utils import get_count
-from post_processing.utils.filtering_utils import load_detections
+from post_processing.utils.filtering_utils import (
+    get_annotators,
+    get_dataset,
+    get_labels,
+    get_timezone,
+    load_detections,
+)
 from post_processing.utils.metrics_utils import detection_perf
 from post_processing.utils.plot_utils import (
     agreement,
+    heatmap,
     histo,
-    map_detection_timeline,
     overview,
+    scatter,
     timeline,
 )
 
 if TYPE_CHECKING:
+    from datetime import tzinfo
     from pathlib import Path
 
     from pandas.tseries.offsets import BaseOffset
@@ -88,7 +97,14 @@ class DataAplose:
             APLOSE formatted DataFrame.
 
         """
-        self.df = df.sort_values(by=["start_datetime", "end_datetime", "annotator", "annotation"]).reset_index(drop=True)
+        self.df = df.sort_values(
+            by=[
+                "start_datetime",
+                "end_datetime",
+                "annotator",
+                "annotation",
+            ],
+        ).reset_index(drop=True)
         self.annotators = sorted(set(self.df["annotator"])) if df is not None else None
         self.labels = sorted(set(self.df["annotation"])) if df is not None else None
         self.begin = min(self.df["start_datetime"]) if df is not None else None
@@ -139,14 +155,29 @@ class DataAplose:
         """Coordinates of the audio data."""
         return self.lat, self.lon
 
+    @coordinates.setter
+    def coordinates(self, value: tuple[float, float]) -> None:
+        if not isinstance(value, tuple) or len(value) != 2:  # noqa: PLR2004
+            msg = "Coordinates must be a tuple of two floats: (lat, lon)."
+            raise ValueError(msg)
+        self.lat, self.lon = value
+
     def __getitem__(self, item: int) -> Series:
         """Return the row from the underlying DataFrame."""
         return self.df.iloc[item]
 
-    def change_tz(self, tz: str | tzinfo):
-        """Change the timezone of the DataFrame."""
-        self.df["start_datetime"] = [elem.tz_convert(tz) for elem in self.df["start_datetime"]]
-        self.df["end_datetime"] = [elem.tz_convert(tz) for elem in self.df["end_datetime"]]
+    def change_tz(self, tz: str | tzinfo) -> None:
+        """Change the timezone of the DataFrame and of the begin and end Timestamps."""
+        self.df["start_datetime"] = [
+            elem.tz_convert(tz)
+            for elem in self.df["start_datetime"]
+        ]
+        self.df["end_datetime"] = [
+            elem.tz_convert(tz)
+            for elem in self.df["end_datetime"]
+        ]
+        self.begin = self.begin.tz_convert(tz)
+        self.end = self.end.tz_convert(tz)
 
     def filter_df(
         self,
@@ -161,6 +192,15 @@ class DataAplose:
             The annotator or list of annotators to filter.
         label: str | list[str]
             The label or list of labels to filter.
+
+        Returns
+        -------
+        The filtered DataFrame.
+
+        Raises
+        ------
+        ValueError
+            If annotator or label are not valid or if filtered Dataframe is empty.
 
         """
         if isinstance(label, str):
@@ -239,10 +279,10 @@ class DataAplose:
 
     def detection_perf(
         self,
-        annotators: [str, str],
-        labels: [str, str],
-        timestamps: [Timestamp] = None,
-    ) -> (float, float, float):
+        annotators: tuple[str, str],
+        labels: tuple[str, str],
+        timestamps: list[Timestamp] | None = None,
+    ) -> tuple[float, float, float]:
         """Compute performances metrics for detection.
 
         Performances are computed with a reference annotator in
@@ -299,7 +339,8 @@ class DataAplose:
           - "scatter" / "heatmap": Maps detections on a timeline.
           - "agreement": Plots inter-annotator agreement regression.
 
-        Args:
+        Parameters
+        ----------
             mode: str
                 Type of plot to generate.
                 Must be one of {"histogram", "scatter", "heatmap", "agreement"}.
@@ -330,6 +371,8 @@ class DataAplose:
             label,
         )
 
+        time = date_range(self.begin, self.end)
+
         if mode == "histogram":
             bin_size = kwargs.get("bin_size")
             legend = kwargs.get("legend", True)
@@ -355,18 +398,31 @@ class DataAplose:
                 coordinates=(self.lat, self.lon),
             )
 
-        if mode in {"scatter", "heatmap"}:
+        if mode == "heatmap":
+            show_rise_set = kwargs.get("show_rise_set", True)
+            season = kwargs.get("season", False)
+            bin_size = kwargs.get("bin_size")
+
+            return heatmap(df=df_filtered,
+                           ax=ax,
+                           bin_size=bin_size,
+                           time_range=time,
+                           show_rise_set=show_rise_set,
+                           season=season,
+                           coordinates=self.coordinates,
+                           )
+
+        if mode == "scatter":
             show_rise_set = kwargs.get("show_rise_set", True)
             season = kwargs.get("season", False)
 
-            return map_detection_timeline(
-                df=df_filtered,
-                ax=ax,
-                coordinates=(self.lat, self.lon),
-                mode=mode,
-                show_rise_set=show_rise_set,
-                season=season,
-            )
+            return scatter(df=df_filtered,
+                           ax=ax,
+                           time_range=time,
+                           show_rise_set=show_rise_set,
+                           season=season,
+                           coordinates=self.coordinates,
+                           )
 
         if mode == "agreement":
             bin_size = kwargs.get("bin_size")
@@ -389,6 +445,7 @@ class DataAplose:
     def from_yaml(
         cls,
         file: Path,
+        *,
         concat: bool = False,
     ) -> DataAplose | list[DataAplose]:
         """Return a DataAplose object from a yaml file.
@@ -408,12 +465,13 @@ class DataAplose:
 
         """
         filters = DetectionFilter.from_yaml(file=file)
-        return cls.from_filters(filters, concat)
+        return cls.from_filters(filters, concat=concat)
 
     @classmethod
     def from_filters(
         cls,
         filters: DetectionFilter | list[DetectionFilter],
+        *,
         concat: bool = False,
     ) -> DataAplose | list[DataAplose]:
         """Return a DataAplose object from a yaml file.
@@ -443,12 +501,52 @@ class DataAplose:
 
     @classmethod
     def concatenate(
-        cls, data_list: list[DataAplose], tz: tzinfo | str = None
+        cls, data_list: list[DataAplose],
     ) -> DataAplose:
         """Concatenate a list of DataAplose objects into one."""
         df_concat = (
             concat([data.df for data in data_list], ignore_index=True)
-            .sort_values(by=["start_datetime", "end_datetime", "annotator", "annotation"])
+            .sort_values(
+                by=["start_datetime",
+                    "end_datetime",
+                    "annotator",
+                    "annotation",
+                    ],
+            )
             .reset_index(drop=True)
         )
-        return cls(df_concat)
+        obj = cls(df_concat)
+        if isinstance(get_timezone(df_concat), list):
+            obj.change_tz("utc")
+            msg = ("Several timezones found in DataFrame,"
+                   " all timestamps are converted to UTC.")
+            logging.info(msg)
+        return obj
+
+    def reshape(self, begin: Timestamp = None, end: Timestamp = None) -> DataAplose:
+        """Reshape the DataAplose with new begin and/or end."""
+        new_data = copy(self)
+
+        if not any([begin, end]):
+            msg = "Must provide begin and/or end timestamps."
+            raise ValueError(msg)
+
+        tz = get_timezone(new_data.df)
+        if begin:
+            new_data.begin = begin
+            if not begin.tz:
+                new_data.begin = begin.tz_localize(tz)
+        if end:
+            new_data.end = end
+            if not end.tz:
+                new_data.end = end.tz_localize(tz)
+
+        new_data.df = new_data.df[
+            (new_data.df["start_datetime"] >= new_data.begin) &
+            (new_data.df["end_datetime"] <= new_data.end)
+        ]
+        new_data.dataset = get_dataset(new_data.df)
+        new_data.labels = get_labels(new_data.df)
+        new_data.annotators = get_annotators(new_data.df)
+
+        return new_data
