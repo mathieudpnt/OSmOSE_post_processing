@@ -199,6 +199,9 @@ def _prepare_timeline_plot(
 
     if show_rise_set:
         tz = get_timezone(df)
+        if isinstance(tz, list):
+            msg = "Several timezones not supported."
+            raise ValueError(msg)
         add_sunrise_sunset(ax, lat, lon, tz)
 
 
