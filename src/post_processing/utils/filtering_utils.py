@@ -20,8 +20,6 @@ from pandas import (
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from dateutil.tz import tzoffset
-
     from post_processing.dataclass.detection_filter import DetectionFilter
 
 

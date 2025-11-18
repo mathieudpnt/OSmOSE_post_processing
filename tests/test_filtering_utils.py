@@ -1,5 +1,4 @@
 import csv
-from datetime import timezone
 from pathlib import Path
 
 import pytest
