@@ -179,20 +179,13 @@ def get_dataset(df: DataFrame) -> list[str]:
 
 def get_timezone(df: DataFrame):
     """Return timezone(s) from DataFrame."""
-    # timezones = {pytz.timezone(ts.tz.zone) for ts in df["start_datetime"]}
 
     def get_canonical_tz(tz):
-        # pytz timezones
         if hasattr(tz, "zone") and tz.zone:
             return pytz.timezone(tz.zone)
-
-        # zoneinfo timezones (Python 3.9+)
         if hasattr(tz, "key"):
             return pytz.timezone(tz.key)
-
-        # dateutil.tzutc or unknown → fallback to UTC
         return pytz.UTC
-
 
     timezones = {get_canonical_tz(ts.tzinfo) for ts in df["start_datetime"]}
 

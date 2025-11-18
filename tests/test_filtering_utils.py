@@ -3,6 +3,7 @@ from datetime import timezone
 from pathlib import Path
 
 import pytest
+import pytz
 from pandas import DataFrame, Timedelta, Timestamp, date_range
 
 from post_processing.utils.filtering_utils import (
@@ -170,10 +171,10 @@ def test_get_dataset(sample_df: DataFrame) -> None:
 
 def test_get_timezone_single(sample_df: DataFrame) -> None:
     tz = get_timezone(sample_df)
-    assert isinstance(tz, timezone)
+    assert tz == pytz.utc
+
 
 # %% read DataFrame
-
 
 def test_read_dataframe_comma_delimiter(tmp_path: Path) -> None:
     csv_file = tmp_path / "test.csv"
