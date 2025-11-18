@@ -167,7 +167,21 @@ class DataAplose:
         return self.df.iloc[item]
 
     def change_tz(self, tz: str | tzinfo) -> None:
-        """Change the timezone of the DataFrame and of the begin and end Timestamps."""
+        """Change the timezone of a DataAplose instance.
+
+        Examples
+        --------
+        >>> import pytz
+        >>> data = DataAplose(...)
+        >>> data.change_tz(pytz.timezone("Etc/GMT-2"))
+
+        >>> data = DataAplose(...)
+        >>> data.change_tz("UTC")
+
+        >>> data = DataAplose(...)
+        >>> data.change_tz("UTC+02:00")
+
+        """
         self.df["start_datetime"] = [
             elem.tz_convert(tz)
             for elem in self.df["start_datetime"]
