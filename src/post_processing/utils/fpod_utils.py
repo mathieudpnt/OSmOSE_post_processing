@@ -13,6 +13,7 @@ from matplotlib.patches import Patch
 from osekit.utils.timestamp_utils import strftime_osmose_format, strptime_from_text
 from pandas import (
     DataFrame,
+    NaT,
     Timedelta,
     concat,
     date_range,
@@ -398,27 +399,36 @@ def feeding_buzz(
 
     """
     df["microsec"] /= 1e6
-    df["ICI"] = df["microsec"].diff()
-
-    if species == "Dauphin":  # Herzing et al., 2014
-        df["Buzz"] = (df["ICI"].between(0, 0.02)).astype(int)
-    elif species == "Marsouin":  # Nuuttila et al., 2013
-        df["Buzz"] = (df["ICI"].between(0, 0.01)).astype(int)
-    elif species == "Commerson":  # Reyes Reyes et al., 2015
-        df["Buzz"] = (df["ICI"].between(0, 0.005)).astype(int)
-    else:
-        msg = "This species is not supported"
-        raise ValueError(msg)
 
     try:
         df["Minute"].astype(int)
-        df["datetime"] = (to_datetime("1900-01-01") +
-                            to_timedelta(df["Minute"], unit="min") +
-                            to_timedelta(df["microsec"], unit="us") -
-                            to_timedelta(2, unit="D"))
+        df["datetime"] = (
+            to_datetime("1900-01-01")
+            + to_timedelta(df["Minute"], unit="min")
+            + to_timedelta(df["microsec"], unit="us")
+            - to_timedelta(2, unit="D")
+        )
         df["start_datetime"] = df["datetime"].dt.floor("min")
     except (ValueError, TypeError):
+        df["datetime"] = (df["Minute"]).astype(str) + ":" + (df["microsec"]).astype(str)
+        df["datetime"] = to_datetime(df["datetime"], dayfirst=True)
         df["start_datetime"] = to_datetime(df["Minute"], dayfirst=True)
+
+    df["ICI"] = df["datetime"].diff()
+    df["ICI"] = to_timedelta(df["ICI"], errors="coerce")
+
+    mask = df["ICI"] > Timedelta("1 days")
+    df.loc[mask, "ICI"] = NaT
+
+    if species == "Dauphin":  # Herzing et al., 2014
+        df["Buzz"] = (df["ICI"] < Timedelta(seconds=0.02)).astype(int)
+    elif species == "Marsouin":  # Nuuttila et al., 2013
+        df["Buzz"] = (df["ICI"] < Timedelta(seconds=0.01)).astype(int)
+    elif species == "Commerson":  # Reyes Reyes et al., 2015
+        df["Buzz"] = (df["ICI"] < Timedelta(seconds=0.005)).astype(int)
+    else:
+        msg = "This species is not supported"
+        raise ValueError(msg)
 
     f = df.groupby(["start_datetime"])["Buzz"].sum().reset_index()
 
