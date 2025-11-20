@@ -6,6 +6,7 @@ import bisect
 import csv
 from typing import TYPE_CHECKING
 
+import pytz
 from pandas import (
     DataFrame,
     Timedelta,
@@ -18,8 +19,6 @@ from pandas import (
 
 if TYPE_CHECKING:
     from pathlib import Path
-
-    from dateutil.tz import tzoffset
 
     from post_processing.dataclass.detection_filter import DetectionFilter
 
@@ -176,12 +175,21 @@ def get_dataset(df: DataFrame) -> list[str]:
     return datasets if len(datasets) > 1 else datasets[0]
 
 
-def get_timezone(df: DataFrame) -> tzoffset | list[tzoffset]:
+def get_timezone(df: DataFrame):
     """Return timezone(s) from DataFrame."""
-    timezones = {ts.tz for ts in df["start_datetime"] if ts.tz is not None}
+
+    def get_canonical_tz(tz):
+        if hasattr(tz, "zone") and tz.zone:
+            return pytz.timezone(tz.zone)
+        if hasattr(tz, "key"):
+            return pytz.timezone(tz.key)
+        return pytz.UTC
+
+    timezones = {get_canonical_tz(ts.tzinfo) for ts in df["start_datetime"]}
+
     if len(timezones) == 1:
         return next(iter(timezones))
-    return sorted(timezones, key=lambda tz: tz.utcoffset(None))
+    return list(timezones)
 
 
 def reshape_timebin(
