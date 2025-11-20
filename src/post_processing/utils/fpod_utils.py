@@ -405,20 +405,18 @@ def feeding_buzz(
         df["datetime"] = (
             to_datetime("1900-01-01")
             + to_timedelta(df["Minute"], unit="min")
-            + to_timedelta(df["microsec"], unit="us")
+            + to_timedelta(df["microsec"], unit="sec")
             - to_timedelta(2, unit="D")
         )
         df["start_datetime"] = df["datetime"].dt.floor("min")
     except (ValueError, TypeError):
-        df["datetime"] = (df["Minute"]).astype(str) + ":" + (df["microsec"]).astype(str)
-        df["datetime"] = to_datetime(df["datetime"], dayfirst=True)
+        df["datetime"] = (
+                to_datetime(df["Minute"], dayfirst=True)
+                + to_timedelta(df["microsec"], unit="sec")
+        )
         df["start_datetime"] = to_datetime(df["Minute"], dayfirst=True)
 
     df["ICI"] = df["datetime"].diff()
-    df["ICI"] = to_timedelta(df["ICI"], errors="coerce")
-
-    mask = df["ICI"] > Timedelta("1 days")
-    df.loc[mask, "ICI"] = NaT
 
     if species == "Dauphin":  # Herzing et al., 2014
         df["Buzz"] = (df["ICI"] < Timedelta(seconds=0.02)).astype(int)
