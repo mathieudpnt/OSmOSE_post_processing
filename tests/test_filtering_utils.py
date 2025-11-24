@@ -7,6 +7,7 @@ from pandas import DataFrame, Timedelta, Timestamp, date_range
 
 from post_processing.utils.filtering_utils import (
     filter_by_annotator,
+    filter_strong_detection,
     filter_by_freq,
     filter_by_label,
     filter_by_score,
@@ -142,6 +143,25 @@ def test_filter_by_score_missing_column(sample_df: DataFrame) -> None:
     df = sample_df.drop(columns=["score"])
     with pytest.raises(ValueError, match="'score' column not present"):
         filter_by_score(df, 0.5)
+
+
+# filter_weak_strong_detection
+def test_filter_keep_all_detection(sample_df: DataFrame) -> None:
+    df = filter_strong_detection(sample_df, True)
+    assert df.equals(sample_df)
+
+
+def test_filter_weak_only(sample_df: DataFrame) -> None:
+    df = filter_strong_detection(sample_df, False)
+    assert set(df["is_box"]) == {0}
+
+
+def test_filter_weak_empty(sample_df: DataFrame) -> None:
+    with pytest.raises(ValueError, match="No weak detection found"):
+        filter_strong_detection(
+            sample_df[sample_df["is_box"]==1],
+            False,
+        )
 
 
 def test_get_annotators(sample_df: DataFrame) -> None:

@@ -27,7 +27,11 @@ from post_processing.utils.core_utils import (
     round_begin_end_timestamps,
     timedelta_to_str,
 )
-from post_processing.utils.filtering_utils import get_max_time, get_timezone
+from post_processing.utils.filtering_utils import (
+    get_max_time,
+    get_timezone,
+    filter_by_annotator,
+)
 from post_processing.utils.metrics_utils import normalize_counts_by_effort
 
 if TYPE_CHECKING:
@@ -368,15 +372,20 @@ def heatmap(df: DataFrame,
     ax.set_xlabel(f"Time ({bin_size_str} bin)")
 
 
-def overview(df: DataFrame) -> None:
+def overview(df: DataFrame, annotator: list[str] | None = None) -> None:
     """Overview of an APLOSE formatted DataFrame.
 
     Parameters
     ----------
     df: DataFrame
         The Dataframe to analyse.
+    annotator: list[str]
+        List of annotators.
 
     """
+    if annotator is not None:
+        df = filter_by_annotator(df, annotator)
+
     summary_label = (
         df.groupby("annotation")["annotator"]  # noqa: PD010
         .apply(Counter)

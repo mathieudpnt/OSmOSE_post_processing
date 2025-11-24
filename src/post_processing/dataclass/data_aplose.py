@@ -287,9 +287,9 @@ class DataAplose:
 
         return ax
 
-    def overview(self) -> None:
+    def overview(self, annotator: list[str] | None = None) -> None:
         """Overview of an APLOSE formatted DataFrame."""
-        overview(self.df)
+        overview(self.df, annotator)
 
     def detection_perf(
         self,
