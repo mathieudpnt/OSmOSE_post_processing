@@ -13,7 +13,6 @@ from matplotlib.patches import Patch
 from osekit.utils.timestamp_utils import strftime_osmose_format, strptime_from_text
 from pandas import (
     DataFrame,
-    NaT,
     Timedelta,
     concat,
     date_range,
@@ -793,7 +792,7 @@ def percent_calc(
         data.groupby(group_cols)
         .agg(
             {
-                "DPH": "sum",
+                "DPh": "sum",
                 "DPM": "sum",
                 "Day": "size",
                 "Foraging": "sum",
@@ -803,7 +802,7 @@ def percent_calc(
     )
 
     df["%click"] = df["DPM"] * 100 / (df["Day"] * 60)
-    df["%DPH"] = df["DPH"] * 100 / df["Day"]
+    df["%DPh"] = df["DPh"] * 100 / df["Day"]
     df["FBR"] = df["Foraging"] * 100 / df["DPM"]
     df["%buzzes"] = df["Foraging"] * 100 / (df["Day"] * 60)
     return df
