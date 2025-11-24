@@ -35,6 +35,7 @@ def find_delimiter(file: Path) -> str:
             raise ValueError(msg) from err
         return delimiter
 
+
 def filter_strong_detection(
     df: DataFrame,
     box: bool,
@@ -44,12 +45,12 @@ def filter_strong_detection(
         if "type" in df.columns:
             df = df[df["type"] == "WEAK"]
         elif "is_box" in df.columns:
-            df = df[df["is_box"] == False]
+            df = df[not df["is_box"]]
         else:
-            msg = f"Could not determine annotation type."
+            msg = "Could not determine annotation type."
             raise ValueError(msg)
         if df.empty:
-            msg = f"No weak detection found."
+            msg = "No weak detection found."
             raise ValueError(msg)
     return df
 
