@@ -36,6 +36,23 @@ def find_delimiter(file: Path) -> str:
         return delimiter
 
 
+def filter_strong_detection(
+    df: DataFrame,
+) -> DataFrame:
+    """Filter strong detections of a DataFrame."""
+    if "type" in df.columns:
+        df = df[df["type"] == "WEAK"]
+    elif "is_box" in df.columns:
+        df = df[df["is_box"] == 0]
+    else:
+        msg = "Could not determine annotation type."
+        raise ValueError(msg)
+    if df.empty:
+        msg = "No weak detection found."
+        raise ValueError(msg)
+    return df
+
+
 def filter_by_time(
     df: DataFrame,
     begin: Timestamp | None,
@@ -333,6 +350,8 @@ def load_detections(filters: DetectionFilter) -> DataFrame:
 
     """
     df = read_dataframe(filters.detection_file)
+    if filters.box:
+        df = filter_strong_detection(df)
     df = filter_by_time(df, filters.begin, filters.end)
     df = filter_by_annotator(df, annotator=filters.annotator)
     df = filter_by_label(df, label=filters.annotation)
