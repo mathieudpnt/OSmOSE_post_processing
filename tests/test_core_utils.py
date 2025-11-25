@@ -464,7 +464,7 @@ def test_json2df_valid(tmp_path):
     }
 
     json_file = tmp_path / "metadatax.json"
-    json_file.write_text("{}", encoding="utf-8")  # contents don't matter; json.load is mocked
+    json_file.write_text("{}", encoding="utf-8")
 
     with patch("json.load", return_value=fake_json):
         df = json2df(json_file)
