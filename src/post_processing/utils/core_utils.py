@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import astral
 import easygui
 import numpy as np
 from astral.sun import sunrise, sunset
 from matplotlib import pyplot as plt
+from numpy import ndarray, dtype
 from osekit.config import TIMESTAMP_FORMAT_AUDIO_FILE
 from osekit.utils.timestamp_utils import strptime_from_text
 from pandas import (
@@ -79,11 +80,8 @@ def get_season(ts: Timestamp, *, northern: bool = True) -> tuple[str, int]:
         season = "summer"
     elif ts.month in autumn:
         season = "autumn"
-    elif ts.month in winter:
-        season = "winter"
     else:
-        msg = "Invalid timestamp"
-        raise ValueError(msg)
+        season = "winter"
 
     return season, ts.year - 1 if ts.month in [1, 2] else ts.year
 
@@ -93,10 +91,7 @@ def get_sun_times(
     stop: Timestamp,
     lat: float,
     lon: float,
-) -> (
-    list[float],
-    list[float],
-):
+) -> tuple[list[float], list[float]]:
     """Fetch sunrise and sunset hours for dates between start and stop.
 
     Parameters
@@ -171,7 +166,7 @@ def get_coordinates() -> tuple:
                     f"'{lat}' is not a valid latitude. It must be between -90 and 90.\n"
                 )
         except ValueError:
-            errmsg += f"'{lat}' is not a valid entry for latitude.\n"
+            errmsg += f"'lat', invalid entry: '{lat}'.\n"
 
         try:
             lon_val = float(lon.strip())  # Convert to float for longitude
@@ -349,7 +344,7 @@ def set_bar_height(ax: plt.Axes, pixel_height: int = 10) -> float:
 
     """
     if not ax.has_data():
-        msg = "Axe has no data"
+        msg = "Axe have no data"
         raise ValueError(msg)
 
     display_to_data = ax.transData.inverted().transform
@@ -380,7 +375,7 @@ def add_recording_period(
 
     """
     if not ax.has_data():
-        msg = "Axe has no data"
+        msg = "Axe have no data"
         raise ValueError(msg)
 
     recorder_intervals = [
@@ -419,10 +414,6 @@ def get_count(df: DataFrame, bin_size: Timedelta | BaseOffset) -> DataFrame:
         "<label>-<annotator>", containing the count of observations in that bin.
 
     """
-    if not isinstance(df, DataFrame):
-        msg = "`df` must be a DataFrame"
-        raise TypeError(msg)
-
     if df.empty:
         msg = "`df` contains no data"
         raise ValueError(msg)
@@ -464,10 +455,6 @@ def get_labels_and_annotators(df: DataFrame) -> tuple[list, list]:
         A tuple containing the labels and annotators lists.
 
     """
-    if not isinstance(df, DataFrame):
-        msg = "`df` must be a DataFrame"
-        raise TypeError(msg)
-
     if df.empty:
         msg = "`df` contains no data"
         raise ValueError(msg)
@@ -497,9 +484,10 @@ def localize_timestamps(timestamps: list[Timestamp], tz: tzinfo) -> list[Timesta
     return localized
 
 
-def get_time_range_and_bin_size(timestamp_list: list[Timestamp],
-                    bin_size: Timedelta | BaseOffset,
-                    ) -> (DatetimeIndex, Timedelta):
+def get_time_range_and_bin_size(
+    timestamp_list: list[Timestamp],
+    bin_size: Timedelta | BaseOffset,
+) -> tuple[DatetimeIndex, Timedelta]:
     """Return time vector given a bin size."""
     if (not isinstance(timestamp_list, list) or
             not all(isinstance(ts, Timestamp) for ts in timestamp_list)):
@@ -512,18 +500,20 @@ def get_time_range_and_bin_size(timestamp_list: list[Timestamp],
 
     start, end, _ = round_begin_end_timestamps(timestamp_list, bin_size)
     timestamp_range = date_range(start=start, end=end, freq=bin_size)
+
     if isinstance(bin_size, Timedelta):
         return timestamp_range, bin_size
-    if isinstance(bin_size, BaseOffset):
+    elif isinstance(bin_size, BaseOffset):
         return timestamp_range, timestamp_range[1] - timestamp_range[0]
+    else:
+        msg = "bin_size must be a Timedelta or BaseOffset."
+        raise TypeError(msg)
 
-    msg = "Could not get time range."
-    raise ValueError(msg)
 
-
-def round_begin_end_timestamps(timestamp_list: list[Timestamp],
-                    bin_size: Timedelta | BaseOffset,
-                    ) -> (Timestamp, Timestamp, Timedelta):
+def round_begin_end_timestamps(
+    timestamp_list: list[Timestamp],
+    bin_size: Timedelta | BaseOffset,
+) -> tuple[Timestamp, Timestamp, Timedelta]:
     """Return time vector given a bin size."""
     if (not isinstance(timestamp_list, list) or
             not all(isinstance(ts, Timestamp) for ts in timestamp_list)):
