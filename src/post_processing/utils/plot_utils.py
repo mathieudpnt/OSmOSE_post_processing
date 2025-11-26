@@ -438,7 +438,7 @@ def overview(df: DataFrame, annotator: list[str] | None = None) -> None:
     plt.tight_layout()
 
     # log
-    msg = f"{" Overview ":#^40}"
+    msg = f"""{" Overview ":#^40}"""
     msg += f"\n\n {summary_label}"
     logging.info(msg)
 
