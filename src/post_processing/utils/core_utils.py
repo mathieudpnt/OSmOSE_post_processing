@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import astral
 import easygui
 import numpy as np
 from astral.sun import sunrise, sunset
 from matplotlib import pyplot as plt
-from numpy import ndarray, dtype
 from osekit.config import TIMESTAMP_FORMAT_AUDIO_FILE
 from osekit.utils.timestamp_utils import strptime_from_text
 from pandas import (
@@ -64,12 +63,10 @@ def get_season(ts: Timestamp, *, northern: bool = True) -> tuple[str, int]:
 
     """
     if northern:
-        winter = [1, 2, 12]
         spring = [3, 4, 5]
         summer = [6, 7, 8]
         autumn = [9, 10, 11]
     else:
-        winter = [6, 7, 8]
         spring = [9, 10, 11]
         summer = [1, 2, 12]
         autumn = [3, 4, 5]
