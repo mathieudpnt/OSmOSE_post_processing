@@ -1,6 +1,3 @@
-import logging
-from unittest.mock import patch
-
 import matplotlib.pyplot as plt
 import pytest
 from matplotlib.ticker import PercentFormatter
