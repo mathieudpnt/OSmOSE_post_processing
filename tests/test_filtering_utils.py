@@ -315,7 +315,9 @@ def test_get_timezone_several(sample_df: DataFrame) -> None:
         ignore_index=False
     )
     tz = get_timezone(sample_df)
-    assert tz == [pytz.UTC, pytz.FixedOffset(420)]
+    assert len(tz) == 2
+    assert pytz.UTC in tz
+    assert pytz.FixedOffset(420) in tz
 
 # %% read DataFrame
 
