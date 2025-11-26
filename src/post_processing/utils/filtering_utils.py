@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import bisect
 import csv
+import datetime
 from typing import TYPE_CHECKING
 
 import pytz
@@ -68,7 +69,7 @@ def filter_by_time(
     if end is not None:
         df = df[df["end_datetime"] <= end]
         if df.empty:
-            msg = f"No detection found after '{end}'."
+            msg = f"No detection found before '{end}'."
             raise ValueError(msg)
 
     return df
@@ -80,9 +81,6 @@ def filter_by_annotator(
 ) -> DataFrame:
     """Filter a DataFrame based on annotator selection."""
     list_annotators = get_annotators(df)
-
-    if not annotator:
-        return df
 
     if isinstance(annotator, str):
         ensure_in_list(annotator, list_annotators, "annotator")
@@ -100,9 +98,6 @@ def filter_by_label(
 ) -> DataFrame:
     """Filter a DataFrame based on label selection."""
     list_labels = get_labels(df)
-
-    if not label:
-        return df
 
     if isinstance(label, str):
         ensure_in_list(label, list_labels, "label")
@@ -192,16 +187,24 @@ def get_dataset(df: DataFrame) -> list[str]:
     return datasets if len(datasets) > 1 else datasets[0]
 
 
+def get_canonical_tz(tz):
+    """Return timezone of object as a pytz timezone."""
+    if isinstance(tz, datetime.timezone):
+        if tz == datetime.timezone.utc:
+            return pytz.utc
+        offset_minutes = int(tz.utcoffset(None).total_seconds() / 60)
+        return pytz.FixedOffset(offset_minutes)
+    if hasattr(tz, "zone") and tz.zone:
+        return pytz.timezone(tz.zone)
+    if hasattr(tz, "key"):
+        return pytz.timezone(tz.key)
+    else:
+        msg = f"Unknown timezone: {tz}"
+        raise TypeError(msg)
+
+
 def get_timezone(df: DataFrame):
     """Return timezone(s) from DataFrame."""
-
-    def get_canonical_tz(tz):
-        if hasattr(tz, "zone") and tz.zone:
-            return pytz.timezone(tz.zone)
-        if hasattr(tz, "key"):
-            return pytz.timezone(tz.key)
-        return pytz.UTC
-
     timezones = {get_canonical_tz(ts.tzinfo) for ts in df["start_datetime"]}
 
     if len(timezones) == 1:
