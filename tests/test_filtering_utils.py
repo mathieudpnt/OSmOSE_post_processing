@@ -222,12 +222,10 @@ def test_filter_by_score_missing_column(sample_df: DataFrame) -> None:
 # filter_weak_strong_detection
 def test_filter_weak_only_is_box_colum(sample_df: DataFrame) -> None:
     df = filter_strong_detection(sample_df)
-    assert set(df["is_box"]) == {0}
+    assert set(df["type"]) == {"WEAK"}
 
 
 def test_filter_weak_only_type_column(sample_df: DataFrame) -> None:
-    sample_df = sample_df.rename(columns={"is_box": "type"})
-    sample_df["type"] = ["WEAK" if not cell else "BOX" for cell in sample_df["type"]]
     df = filter_strong_detection(sample_df)
     assert set(df["type"]) == {"WEAK"}
 
@@ -240,7 +238,7 @@ def test_filter_weak_only_invalid() -> None:
 
 def test_filter_weak_empty(sample_df: DataFrame) -> None:
     with pytest.raises(ValueError, match="No weak detection found"):
-        filter_strong_detection(sample_df[sample_df["is_box"] == 1])
+        filter_strong_detection(sample_df[sample_df["type"] == "BOX"])
 
 
 def test_get_annotators(sample_df: DataFrame) -> None:

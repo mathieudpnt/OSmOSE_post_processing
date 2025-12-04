@@ -238,7 +238,7 @@ class DataAplose:
                 msg = f'Label "{lbl}" not in APLOSE DataFrame'
                 raise ValueError(msg)
             if self.df[
-                (self.df["is_box"] == 0)
+                (self.df["type"] == "WEAK")
                 & (self.df["annotator"] == ant)
                 & (self.df["annotation"] == lbl)
             ].empty:
