@@ -77,9 +77,12 @@ def filter_by_time(
 
 def filter_by_annotator(
     df: DataFrame,
-    annotator: str | list[str],
+    annotator: str | list[str] | None,
 ) -> DataFrame:
     """Filter a DataFrame based on annotator selection."""
+    if annotator is None:
+        return df
+
     list_annotators = get_annotators(df)
 
     if isinstance(annotator, str):
@@ -94,9 +97,12 @@ def filter_by_annotator(
 
 def filter_by_label(
     df: DataFrame,
-    label: str | list[str],
+    label: str | list[str] | None,
 ) -> DataFrame:
     """Filter a DataFrame based on label selection."""
+    if label is None:
+        return df
+
     list_labels = get_labels(df)
 
     if isinstance(label, str):

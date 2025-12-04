@@ -382,7 +382,7 @@ def test_timedelta_to_str(td, expected) -> None:
 
 
 def test_add_wd(sample_df: DataFrame) -> None:
-    df_only_wd = sample_df[sample_df["is_box"] == 1]
+    df_only_wd = sample_df[sample_df["type"] == "BOX"]
     add_weak_detection(
         df=df_only_wd.copy(),
         datetime_format="%Y_%m_%d_%H_%M_%S",

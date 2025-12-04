@@ -11,7 +11,7 @@ import numpy as np
 from astral.sun import sunrise, sunset
 from matplotlib import pyplot as plt
 from osekit.config import TIMESTAMP_FORMAT_AUDIO_FILE
-from osekit.utils.timestamp_utils import strptime_from_text
+from osekit.utils.timestamp_utils import strptime_from_text, strftime_osmose_format
 from pandas import (
     DataFrame,
     DatetimeIndex,
@@ -213,7 +213,10 @@ def add_weak_detection(
     if not max_freq:
         max_freq = get_max_freq(df)
     if not max_time:
-        max_time = get_max_time(df)
+        max_time = Timedelta(get_max_time(df), "s")
+
+    df["start_datetime"] = [strftime_osmose_format(start) for start in df["start_datetime"]]
+    df["end_datetime"] = [strftime_osmose_format(stop) for stop in df["end_datetime"]]
 
     for ant in annotators:
         for lbl in labels:
@@ -223,29 +226,35 @@ def add_weak_detection(
                 .tolist()
             )
             for f in filenames:
-                test = df[(df["filename"] == f) & (df["annotation"] == lbl)]["is_box"]
+                test = df[(df["filename"] == f) & (df["annotation"] == lbl)]["type"]
                 if test.any():
                     start_datetime = strptime_from_text(
                         text=f,
                         datetime_template=datetime_format,
-                    ).tz_localize(tz)
+                    )
+
+                    if not start_datetime.tz:
+                        start_datetime = tz.localize(start_datetime)
+
                     end_datetime = start_datetime + Timedelta(max_time, unit="s")
                     new_line = [
                         dataset_id,
                         f,
                         0,
-                        max_time,
+                        max_time.total_seconds(),
                         0,
                         max_freq,
                         lbl,
                         ant,
-                        start_datetime,
-                        end_datetime,
+                        strftime_osmose_format(start_datetime),
+                        strftime_osmose_format(end_datetime),
                         0,
                     ]
+
                     if "score" in df.columns:
                         new_line.append(np.nan)
                     df.loc[df.index.max() + 1] = new_line
+
 
     return df.sort_values(by=["start_datetime", "annotator"]).reset_index(drop=True)
 
