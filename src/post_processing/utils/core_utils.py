@@ -248,7 +248,7 @@ def add_weak_detection(
                         ant,
                         strftime_osmose_format(start_datetime),
                         strftime_osmose_format(end_datetime),
-                        0,
+                        "WEAK",
                     ]
 
                     if "score" in df.columns:
