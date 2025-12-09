@@ -322,7 +322,7 @@ def reshape_timebin(
                             "annotator": [ant] * len(file_vector),
                             "start_datetime": start_datetime,
                             "end_datetime": end_datetime,
-                            "is_box": [0] * len(file_vector),
+                            "type": ["WEAK"] * len(file_vector),
                         },
                     ),
                 )
