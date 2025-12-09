@@ -478,7 +478,7 @@ def test_no_timebin_original_timebin(sample_df: DataFrame) -> None:
                               [Timestamp("2025-01-26 06:20:00+00:00")] * 7,
             "end_datetime": [Timestamp("2025-01-25 06:21:00+00:00")] * 11 +
                             [Timestamp("2025-01-26 06:21:00+00:00")] * 7,
-            "is_box": [0] * 18,
+            "type": ["WEAK"] * 18,
         },
     )
 
