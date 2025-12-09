@@ -121,7 +121,7 @@ def histo(
             "width": bar_width.total_seconds() / 86400,
             "align": "edge",
             "edgecolor": "black",
-            "color": color,
+            "color": color[i],
             "zorder": 2,
         }
         if legend_labels:

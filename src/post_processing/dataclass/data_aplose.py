@@ -460,7 +460,7 @@ class DataAplose:
         cls,
         file: Path,
         *,
-        concat: bool = False,
+        concat: bool = True,
     ) -> DataAplose | list[DataAplose]:
         """Return a DataAplose object from a yaml file.
 
