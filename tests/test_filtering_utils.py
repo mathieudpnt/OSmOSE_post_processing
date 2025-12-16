@@ -400,7 +400,6 @@ def test_no_timebin_several_tz(sample_df: DataFrame) -> None:
         [sample_df, DataFrame([new_row])],
         ignore_index=False
     )
-    tz = get_timezone(sample_df)
     timestamp_wav = to_datetime(sample_df["filename"],
                                 format="%Y_%m_%d_%H_%M_%S").dt.tz_localize(pytz.UTC)
     df_out = reshape_timebin(sample_df, timestamp_audio=timestamp_wav, timebin_new=None)
@@ -532,7 +531,6 @@ def test_reshape_daily_multiple_bins(sample_df: DataFrame) -> None:
 def test_with_manual_timestamps_vector(sample_df: DataFrame) -> None:
     t0 = sample_df["start_datetime"].min().floor("30min")
     t1 = sample_df["end_datetime"].max().ceil("30min")
-    ts_vec = list(date_range(t0, t1, freq="30min"))
     tz = get_timezone(sample_df)
     timestamp_wav = to_datetime(sample_df["filename"],
                                 format="%Y_%m_%d_%H_%M_%S").dt.tz_localize(tz)
