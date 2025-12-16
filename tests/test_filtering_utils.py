@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 import pytz
-from pandas import DataFrame, Timedelta, Timestamp, date_range, concat, to_datetime
+from pandas import DataFrame, Timedelta, Timestamp, concat, to_datetime
 
 from post_processing.utils.filtering_utils import (
     filter_by_annotator,
@@ -529,8 +529,7 @@ def test_reshape_daily_multiple_bins(sample_df: DataFrame) -> None:
 
 
 def test_with_manual_timestamps_vector(sample_df: DataFrame) -> None:
-    t0 = sample_df["start_datetime"].min().floor("30min")
-    t1 = sample_df["end_datetime"].max().ceil("30min")
+
     tz = get_timezone(sample_df)
     timestamp_wav = to_datetime(sample_df["filename"],
                                 format="%Y_%m_%d_%H_%M_%S").dt.tz_localize(tz)
