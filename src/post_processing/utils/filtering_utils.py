@@ -196,7 +196,7 @@ def get_dataset(df: DataFrame) -> list[str]:
 def get_canonical_tz(tz):
     """Return timezone of object as a pytz timezone."""
     if isinstance(tz, datetime.timezone):
-        if tz == datetime.timezone.utc:
+        if tz == datetime.UTC:
             return pytz.utc
         offset_minutes = int(tz.utcoffset(None).total_seconds() / 60)
         return pytz.FixedOffset(offset_minutes)
@@ -204,13 +204,24 @@ def get_canonical_tz(tz):
         return pytz.timezone(tz.zone)
     if hasattr(tz, "key"):
         return pytz.timezone(tz.key)
-    else:
-        msg = f"Unknown timezone: {tz}"
-        raise TypeError(msg)
+    msg = f"Unknown timezone: {tz}"
+    raise TypeError(msg)
 
 
 def get_timezone(df: DataFrame):
-    """Return timezone(s) from DataFrame."""
+    """Return timezone(s) from APLOSE DataFrame.
+
+    Parameters
+    ----------
+    df: DataFrame
+        APLOSE result Dataframe
+
+    Returns
+    -------
+        tzoffset: list[tzoffset]
+            list of timezones
+
+    """
     timezones = {get_canonical_tz(ts.tzinfo) for ts in df["start_datetime"]}
 
     if len(timezones) == 1:
@@ -218,10 +229,29 @@ def get_timezone(df: DataFrame):
     return list(timezones)
 
 
+def check_timestamp(df: DataFrame, timestamp_audio: list[Timestamp]) -> None:
+    """Check if provided timestamp_audio list is correctly formated.
+
+    Parameters
+    ----------
+    df: DataFrame APLOSE results Dataframe.
+    timestamp_audio: A list of timestamps. Each timestamp is the start datetime of the
+    corresponding audio file for each detection in df.
+
+    """
+    if timestamp_audio is None:
+        msg = "`timestamp_wav` is empty"
+        raise ValueError(msg)
+    if len(timestamp_audio) != len(df):
+        msg = "`timestamp_wav` is not the same length as `df`"
+        raise ValueError(msg)
+
+
 def reshape_timebin(
     df: DataFrame,
+    *,
     timebin_new: Timedelta | None,
-    timestamp: list[Timestamp] | None = None,
+    timestamp_audio: list[Timestamp] | None = None,
 ) -> DataFrame:
     """Reshape an APLOSE result DataFrame according to a new time bin.
 
@@ -231,8 +261,9 @@ def reshape_timebin(
         An APLOSE result DataFrame.
     timebin_new: Timedelta
         The size of the new time bin.
-    timestamp: list[Timestamp]
-        A list of Timestamp objects.
+    timestamp_audio: list[Timestamp]
+        A list of Timestamp objects corresponding to the shape
+        in which the data should be reshaped.
 
     Returns
     -------
@@ -247,14 +278,20 @@ def reshape_timebin(
     if not timebin_new:
         return df
 
+    check_timestamp(df, timestamp_audio)
+
     annotators = get_annotators(df)
     labels = get_labels(df)
     max_freq = get_max_freq(df)
     dataset = get_dataset(df)
 
     if isinstance(get_timezone(df), list):
-       df["start_datetime"] = [to_datetime(elem, utc=True) for elem in df["start_datetime"]]
-       df["end_datetime"] = [to_datetime(elem, utc=True) for elem in df["end_datetime"]]
+        df["start_datetime"] = [to_datetime(elem, utc=True)
+                                for elem in df["start_datetime"]
+                                ]
+        df["end_datetime"] = [to_datetime(elem, utc=True)
+                              for elem in df["end_datetime"]
+                              ]
 
     results = []
     for ant in annotators:
@@ -264,13 +301,13 @@ def reshape_timebin(
             if df_1annot_1label.empty:
                 continue
 
-            if timestamp is not None:
+            if timestamp_audio is not None:
                 # I do not remember if this is a regular case or not
                 # might need to be deleted
-                origin_timebin = timestamp[1] - timestamp[0]
-                step = int(timebin_new / origin_timebin)
-                time_vector = timestamp[0::step]
-            else:
+                #origin_timebin = timestamp_audio[1] - timestamp_audio[0]
+                #step = int(timebin_new / origin_timebin)
+                #time_vector = timestamp_audio[0::step]
+            #else:
                 t1 = min(df_1annot_1label["start_datetime"]).floor(timebin_new)
                 t2 = max(df_1annot_1label["end_datetime"]).ceil(timebin_new)
                 time_vector = date_range(start=t1, end=t2, freq=timebin_new)
@@ -280,14 +317,19 @@ def reshape_timebin(
             filenames = df_1annot_1label["filename"].to_list()
 
             # filename_vector
-            filename_vector = [
-                filenames[
-                    bisect.bisect_left(ts_detect_beg, ts) - (ts not in ts_detect_beg)
-                ]
-                if bisect.bisect_left(ts_detect_beg, ts) > 0
-                else filenames[0]
-                for ts in time_vector
-            ]
+            filename_vector = []
+            for ts in time_vector:
+                if (bisect.bisect_left(ts_detect_beg, ts) > 0 and
+                        bisect.bisect_left(ts_detect_beg, ts) != len(ts_detect_beg)):
+                    idx = bisect.bisect_left(ts_detect_beg, ts)
+                    filename_vector.append(
+                        filenames[idx] if timestamp_audio[idx] <= ts else
+                        filenames[idx - 1],
+                    )
+                elif bisect.bisect_left(ts_detect_beg, ts) == len(ts_detect_beg):
+                    filename_vector.append(filenames[-1])
+                else:
+                    filename_vector.append(filenames[0])
 
             # detection vector
             detect_vec = [0] * len(time_vector)
@@ -327,8 +369,39 @@ def reshape_timebin(
                     ),
                 )
 
-    return concat(results).sort_values(by=["start_datetime", "end_datetime", "annotator", "annotation"]).reset_index(drop=True)
+    return (concat(results).
+            sort_values(by=["start_datetime", "end_datetime",
+                            "annotator", "annotation"]).reset_index(drop=True)
+            )
 
+
+def get_filename_timestamps(df: DataFrame, date_parser: str) -> list[Timestamp]:
+    """Get start timestamps of the wav files of each detection contained in df.
+
+    Parameters.
+    ----------
+    df: DataFrame
+        An APLOSE result DataFrame.
+    date_parser: str
+        date parser of the wav file
+
+    Returns
+    -------
+    List of Timestamps corresponding to the wav files' start timestamps
+    of each detection contained in df.
+
+    """
+    tz = get_timezone(df)
+    try:
+        return [
+        to_datetime(
+            ts,
+            format=date_parser,
+        ).tz_localize(tz) for ts in df["filename"]
+        ]
+    except ValueError:
+        msg = """Could not parse timestamps from `df["filename"]`."""
+        raise ValueError(msg) from None
 
 def ensure_in_list(value: str, candidates: list[str], label: str) -> None:
     """Check for non-valid elements of a list."""
@@ -366,10 +439,14 @@ def load_detections(filters: DetectionFilter) -> DataFrame:
     df = filter_by_label(df, label=filters.annotation)
     df = filter_by_freq(df, filters.f_min, filters.f_max)
     df = filter_by_score(df, filters.score)
-    df = reshape_timebin(df, filters.timebin_new)
+    filename_ts = get_filename_timestamps(df, filters.filename_format)
+    df = reshape_timebin(df,
+                         timebin_new=filters.timebin_new,
+                         timestamp_audio=filename_ts
+                         )
 
     annotators = get_annotators(df)
-    if len(annotators) > 1 and filters.user_sel in ["union", "intersection"]:
+    if len(annotators) > 1 and filters.user_sel in {"union", "intersection"}:
         df = intersection_or_union(df, user_sel=filters.user_sel)
 
     return df.sort_values(by=["start_datetime", "end_datetime"]).reset_index(drop=True)
@@ -385,7 +462,7 @@ def intersection_or_union(df: DataFrame, user_sel: str) -> DataFrame:
     if user_sel == "all":
         return df
 
-    if user_sel not in ("intersection", "union"):
+    if user_sel not in {"intersection", "union"}:
         msg = "'user_sel' must be either 'intersection' or 'union'"
         raise ValueError(msg)
 
