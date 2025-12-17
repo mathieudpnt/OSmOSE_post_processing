@@ -49,12 +49,12 @@ class DetectionFilter:
         cls,
         file: Path,
     ) -> DetectionFilter | list[DetectionFilter]:
-        """Return a DetectionFilter object from a yaml file.
+        """Return a DetectionFilter object from a YAML file.
 
         Parameters
         ----------
         file: Path
-            The path to a yaml configuration file.
+            The path to a YAML configuration file.
 
         Returns
         -------
@@ -86,7 +86,7 @@ class DetectionFilter:
         """
         filters = []
         for detection_file, filters_dict in parameters.items():
-            df_preview = read_dataframe(Path(detection_file), nrows=5)
+            df_preview = read_dataframe(Path(detection_file), rows=5)
             filters_dict["timebin_origin"] = Timedelta(
                 max(df_preview["end_time"]),
                 "s",

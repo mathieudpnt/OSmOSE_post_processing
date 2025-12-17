@@ -9,24 +9,24 @@ import pytz
 from pandas import DataFrame, Timedelta, Timestamp, concat, to_datetime
 
 from post_processing.utils.filtering_utils import (
+    ensure_no_invalid,
     filter_by_annotator,
-    filter_strong_detection,
     filter_by_freq,
     filter_by_label,
     filter_by_score,
     filter_by_time,
+    filter_strong_detection,
     find_delimiter,
     get_annotators,
+    get_canonical_tz,
     get_dataset,
     get_labels,
     get_max_freq,
     get_max_time,
     get_timezone,
+    intersection_or_union,
     read_dataframe,
     reshape_timebin,
-    get_canonical_tz,
-    ensure_no_invalid,
-    intersection_or_union,
 )
 
 # %% find delimiter
@@ -49,9 +49,15 @@ def test_find_delimiter_valid(tmp_path: Path,
     assert detected == delimiter
 
 
-def test_find_delimiter_invalid(tmp_path: Path) -> None:
-    file = tmp_path / "invalid.csv"
-    file.write_text("this is not really&csv&content")
+def test_find_delimiter_invalid(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    file = tmp_path / "bad.csv"
+    file.write_text("a,b,c")
+
+    def raise_error(*args, **kwargs):
+        raise csv.Error("sniff failed")
+
+    monkeypatch.setattr(csv.Sniffer, "sniff", raise_error)
+
     with pytest.raises(ValueError, match="Could not determine delimiter"):
         find_delimiter(file)
 
@@ -60,6 +66,19 @@ def test_find_delimiter_empty_file(tmp_path: Path) -> None:
     file = tmp_path / "empty.csv"
     file.write_text("")
     with pytest.raises(ValueError, match="Could not determine delimiter"):
+        find_delimiter(file)
+
+
+def test_find_delimiter_unsupported_delimiter(tmp_path: Path) -> None:
+    file = tmp_path / "lame.csv"
+
+    # '&' is consistent and sniffable, but not allowed
+    file.write_text("a&b&c\n1&2&3\n")
+
+    with pytest.raises(
+        ValueError,
+        match=r"unsupported delimiter '&'"
+    ):
         find_delimiter(file)
 
 
@@ -369,7 +388,7 @@ def test_read_dataframe_nrows(tmp_path: Path) -> None:
         "2025-01-01 13:00:00,2025-01-01 13:05:00,dolphin\n",
     )
 
-    df = read_dataframe(csv_file, nrows=1)
+    df = read_dataframe(csv_file, rows=1)
     assert len(df) == 1
     assert df.iloc[0]["annotation"] in {"whale", "dolphin"}
 
@@ -377,7 +396,7 @@ def test_read_dataframe_nrows(tmp_path: Path) -> None:
 # %% reshape_timebin
 
 def test_no_timebin_returns_original(sample_df: DataFrame) -> None:
-    df_out = reshape_timebin(sample_df, timebin_new=None)
+    df_out = reshape_timebin(sample_df, timebin_new=None, timestamp_audio=None)
     assert df_out.equals(sample_df)
 
 
