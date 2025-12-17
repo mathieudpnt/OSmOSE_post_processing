@@ -388,7 +388,7 @@ def test_read_dataframe_nrows(tmp_path: Path) -> None:
         "2025-01-01 13:00:00,2025-01-01 13:05:00,dolphin\n",
     )
 
-    df = read_dataframe(csv_file, nrows=1)
+    df = read_dataframe(csv_file, rows=1)
     assert len(df) == 1
     assert df.iloc[0]["annotation"] in {"whale", "dolphin"}
 
@@ -396,7 +396,7 @@ def test_read_dataframe_nrows(tmp_path: Path) -> None:
 # %% reshape_timebin
 
 def test_no_timebin_returns_original(sample_df: DataFrame) -> None:
-    df_out = reshape_timebin(sample_df, timebin_new=None)
+    df_out = reshape_timebin(sample_df, timebin_new=None, timestamp_audio=None)
     assert df_out.equals(sample_df)
 
 
