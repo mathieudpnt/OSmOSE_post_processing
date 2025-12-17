@@ -26,15 +26,29 @@ if TYPE_CHECKING:
 
 def find_delimiter(file: Path) -> str:
     """Find the proper delimiter for a csv file."""
-    with file.open(newline="") as csv_file:
-        try:
-            temp_lines = csv_file.readline() + "\n" + csv_file.readline()
-            dialect = csv.Sniffer().sniff(temp_lines, delimiters=",;")
-            delimiter = dialect.delimiter
-        except csv.Error as err:
-            msg = "Could not determine delimiter"
-            raise ValueError(msg) from err
-        return delimiter
+    allowed_delimiters = {",", ";", "\t", "|"}
+    try:
+        with file.open("r", encoding="utf-8") as f:
+            # Read first few lines to detect delimiter
+            sample = f.read(4096)
+
+            if not sample.strip():
+                msg = f"Could not determine delimiter for '{file}': file is empty"
+                raise ValueError(msg)
+
+            sniffer = csv.Sniffer()
+            dialect = sniffer.sniff(sample)
+
+            if dialect.delimiter not in allowed_delimiters:
+                msg = (f"Could not determine delimiter for '{file}': "
+                       f"unsupported delimiter '{dialect.delimiter}'")
+                raise ValueError(msg)
+
+            return dialect.delimiter
+
+    except csv.Error as e:
+        msg = f"Could not determine delimiter for '{file}': {e}"
+        raise ValueError(msg) from e
 
 
 def filter_strong_detection(
