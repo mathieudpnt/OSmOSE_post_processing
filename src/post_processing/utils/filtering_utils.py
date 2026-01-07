@@ -509,8 +509,8 @@ def reshape_timebin(
     timebin_new: Timedelta
         The size of the new time bin.
     timestamp_audio: list[Timestamp]
-        A list of Timestamp objects corresponding to the shape
-        in which the data should be reshaped.
+        A list of Timestamp objects corresponding to the start of each wav
+         that corresponds to a detection
 
     Returns
     -------

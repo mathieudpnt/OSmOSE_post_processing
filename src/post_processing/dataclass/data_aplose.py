@@ -393,7 +393,7 @@ class DataAplose:
             color = kwargs.get("color")
             season = kwargs.get("season")
             effort = kwargs.get("effort")
-
+            show_recording_OFF = kwargs.get("show_recording_OFF")
             if not bin_size:
                 msg = "'bin_size' missing for histogram plot."
                 raise ValueError(msg)
@@ -409,7 +409,7 @@ class DataAplose:
                 color=color,
                 season=season,
                 effort=effort,
-                coordinates=(self.lat, self.lon),
+                coordinates=(self.lat, self.lon)
             )
 
         if mode == "heatmap":

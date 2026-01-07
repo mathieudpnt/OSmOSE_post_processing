@@ -13,7 +13,7 @@ from matplotlib import dates as mdates
 from matplotlib.dates import num2date
 from matplotlib.ticker import PercentFormatter
 from numpy import ceil, histogram, polyfit
-from pandas import DataFrame, DatetimeIndex, Index, Timedelta, Timestamp, date_range
+from pandas import DataFrame, DatetimeIndex, Index, Timedelta, Timestamp, date_range, Series
 from pandas.tseries import frequencies
 from scipy.stats import pearsonr
 from seaborn import scatterplot
@@ -107,8 +107,9 @@ def histo(
     else:
         legend_labels = None
 
-    if effort:
-        normalize_counts_by_effort(df, effort, time_bin)
+    # if effort:
+    #     normalize_counts_by_effort(df, effort, time_bin)
+
 
     n_groups = len(labels) if legend_labels else 1
     bar_width = bin_size / n_groups
@@ -128,6 +129,8 @@ def histo(
             bar_kwargs["label"] = legend_labels[i]
 
         ax.bar(bin_starts + offset, df.iloc[:, i], **bar_kwargs)
+    if kwargs.get("show_recording_OFF"):
+        ax.set_facecolor("lightgrey")
 
     if len(df.columns) > 1 and legend:
         ax.legend(labels=legend_labels, bbox_to_anchor=(1.01, 1), loc="upper left")
@@ -138,7 +141,7 @@ def histo(
         f" - bin size: {bin_size_str})"
     )
     ax.set_ylabel(y_label)
-    set_y_axis_to_percentage(ax) if effort else set_dynamic_ylim(ax, df)
+    #set_y_axis_to_percentage(ax) if effort else set_dynamic_ylim(ax, df)
     set_plot_title(ax, annotators, labels)
     ax.set_xlim(begin, end)
 
@@ -659,20 +662,70 @@ def shade_no_effort(
 
 
     """
+    """Shade areas of the plot where no observation effort was made."""
     width_days = bar_width.total_seconds() / 86400
-    no_effort_bins = bin_starts[observed.counts.reindex(bin_starts) == 0]
-    for ts in no_effort_bins:
-        start = mdates.date2num(ts)
-        ax.axvspan(start, start + width_days, color="grey", alpha=0.08, zorder=1.5)
 
+    # Convert effort IntervalIndex → DatetimeIndex (bin starts)
+    effort_by_start = Series(
+        observed.counts.values,
+        index=[i.left for i in observed.counts.index],
+    ).tz_localize("UTC")
+
+    # Align effort to plotting bins
+    effort_aligned = effort_by_start.reindex(bin_starts)
+    max_effort = bar_width / observed.timebin_origin
+    effort_fraction = effort_aligned / max_effort
+
+    no_effort = effort_fraction == 0
+    partial_effort = (effort_fraction > 0) & (effort_fraction < 1)
+    # Draw partial effort first (lighter)
+    for ts in bin_starts[partial_effort]:
+        start = mdates.date2num(ts - bar_width)
+        ax.axvspan(
+            start,
+            start + width_days,
+            facecolor="0.65",
+            alpha=0.08,
+            linewidth=0,
+            zorder=0,
+        )
+
+    # Draw no effort on top (darker)
+    for ts in bin_starts[no_effort]:
+        start = mdates.date2num(ts - bar_width)
+        ax.axvspan(
+            start,
+            start + width_days,
+            facecolor="0.45",
+            alpha=0.15,
+            linewidth=0,
+            zorder=0,
+        )
+
+    # Outside data coverage
     x_min, x_max = ax.get_xlim()
-    data_min = mdates.date2num(bin_starts[0])
-    data_max = mdates.date2num(bin_starts[-1]) + width_days
+    data_min = mdates.date2num(bin_starts[0] - bar_width)
+    data_max = mdates.date2num(bin_starts[-1] + bar_width)
 
     if x_min < data_min:
-        ax.axvspan(x_min, data_min, color="grey", alpha=0.08, zorder=1.5)
+        ax.axvspan(
+            x_min,
+            data_min,
+            facecolor="0.45",
+            alpha=0.15,
+            linewidth=0,
+            zorder=0,
+        )
     if x_max > data_max:
-        ax.axvspan(data_max, x_max, color="grey", alpha=0.08, zorder=1.5)
+        ax.axvspan(
+            data_max,
+            x_max,
+            facecolor="0.45",
+            alpha=0.15,
+            linewidth=0,
+            zorder=0,
+        )
+
     ax.set_xlim(x_min, x_max)
 
 
