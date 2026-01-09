@@ -13,7 +13,15 @@ from matplotlib import dates as mdates
 from matplotlib.dates import num2date
 from matplotlib.ticker import PercentFormatter
 from numpy import ceil, histogram, polyfit
-from pandas import DataFrame, DatetimeIndex, Index, Timedelta, Timestamp, date_range, Series
+from pandas import (
+    DataFrame,
+    DatetimeIndex,
+    Index,
+    Series,
+    Timedelta,
+    Timestamp,
+    date_range,
+)
 from pandas.tseries import frequencies
 from scipy.stats import pearsonr
 from seaborn import scatterplot
@@ -28,11 +36,10 @@ from post_processing.utils.core_utils import (
     timedelta_to_str,
 )
 from post_processing.utils.filtering_utils import (
+    filter_by_annotator,
     get_max_time,
     get_timezone,
-    filter_by_annotator,
 )
-from post_processing.utils.metrics_utils import normalize_counts_by_effort
 
 if TYPE_CHECKING:
     from datetime import tzinfo
@@ -110,7 +117,6 @@ def histo(
     # if effort:
     #     normalize_counts_by_effort(df, effort, time_bin)
 
-
     n_groups = len(labels) if legend_labels else 1
     bar_width = bin_size / n_groups
     bin_starts = mdates.date2num(df.index)
@@ -141,7 +147,7 @@ def histo(
         f" - bin size: {bin_size_str})"
     )
     ax.set_ylabel(y_label)
-    #set_y_axis_to_percentage(ax) if effort else set_dynamic_ylim(ax, df)
+    # set_y_axis_to_percentage(ax) if effort else set_dynamic_ylim(ax, df)
     set_plot_title(ax, annotators, labels)
     ax.set_xlim(begin, end)
 

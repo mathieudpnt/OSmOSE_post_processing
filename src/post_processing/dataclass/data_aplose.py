@@ -408,7 +408,7 @@ class DataAplose:
                 color=color,
                 season=season,
                 effort=effort,
-                coordinates=(self.lat, self.lon)
+                coordinates=(self.lat, self.lon),
             )
 
         if mode == "heatmap":

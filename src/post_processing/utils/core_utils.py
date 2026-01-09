@@ -11,7 +11,7 @@ import numpy as np
 from astral.sun import sunrise, sunset
 from matplotlib import pyplot as plt
 from osekit.config import TIMESTAMP_FORMAT_AUDIO_FILE
-from osekit.utils.timestamp_utils import strptime_from_text, strftime_osmose_format
+from osekit.utils.timestamp_utils import strftime_osmose_format, strptime_from_text
 from pandas import (
     DataFrame,
     DatetimeIndex,
@@ -254,7 +254,6 @@ def add_weak_detection(
                     if "score" in df.columns:
                         new_line.append(np.nan)
                     df.loc[df.index.max() + 1] = new_line
-
 
     return df.sort_values(by=["start_datetime", "annotator"]).reset_index(drop=True)
 
@@ -509,11 +508,10 @@ def get_time_range_and_bin_size(
 
     if isinstance(bin_size, Timedelta):
         return timestamp_range, bin_size
-    elif isinstance(bin_size, BaseOffset):
+    if isinstance(bin_size, BaseOffset):
         return timestamp_range, timestamp_range[1] - timestamp_range[0]
-    else:
-        msg = "bin_size must be a Timedelta or BaseOffset."
-        raise TypeError(msg)
+    msg = "bin_size must be a Timedelta or BaseOffset."
+    raise TypeError(msg)
 
 
 def round_begin_end_timestamps(

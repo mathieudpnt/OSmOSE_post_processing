@@ -4,10 +4,10 @@ from matplotlib.ticker import PercentFormatter
 from numpy import arange, testing
 
 from post_processing.utils.plot_utils import (
-    overview,
     _wrap_xtick_labels,
-    set_y_axis_to_percentage,
     get_legend,
+    overview,
+    set_y_axis_to_percentage,
 )
 
 
