@@ -7,7 +7,8 @@ import pytest
 import soundfile as sf
 import yaml
 from osekit.utils.timestamp_utils import strftime_osmose_format
-from pandas import DataFrame, Timedelta, read_csv
+from pandas import DataFrame, read_csv
+from pandas.tseries import frequencies
 
 SAMPLE = """dataset,filename,start_time,end_time,start_frequency,end_frequency,annotation,annotator,start_datetime,end_datetime,type,score
 sample_dataset,2025_01_25_06_20_00,0.0,10.0,0.0,72000.0,lbl2,ann2,2025-01-25T06:20:00.000+00:00,2025-01-25T06:20:10.000+00:00,WEAK,0.11
@@ -137,7 +138,7 @@ sample_dataset,2025_01_26_06_20_20,FINISHED,FINISHED,FINISHED,FINISHED,FINISHED,
 # ---------------------------------------------------------------------------
 RECORDING_PLANNING_CSV = """start_recording,end_recording,start_deployment,end_deployment
 2024-01-01 00:00:00+0000,2024-04-09 02:00:00+0000,2024-01-02 00:00:00+0000,2024-04-30 02:00:00+0000
-2024-04-30 01:00:00+0000,2024-07-03 06:00:00+0000,2024-04-09 04:00:00+0000,2024-07-14 14:00:00+0000
+2024-04-30 01:00:00+0000,2024-07-14 06:00:00+0000,2024-04-30 02:00:00+0000,2024-07-06 14:00:00+0000
 """
 
 
@@ -249,6 +250,6 @@ def recording_planning_config(recording_planning_csv):
     """Minimal config object compatible with RecordingPeriod.from_path."""
     class RecordingPlanningConfig:
         timestamp_file: Path = recording_planning_csv
-        timebin_origin = Timedelta("1min")
+        timebin_origin = frequencies.to_offset("1min")
 
     return RecordingPlanningConfig()

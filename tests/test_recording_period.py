@@ -1,4 +1,5 @@
 import pandas as pd
+from pandas.tseries import frequencies
 
 from post_processing.dataclass.recording_period import RecordingPeriod
 
@@ -14,7 +15,7 @@ def test_recording_period_with_gaps(recording_planning_config):
     """
     recording_period = RecordingPeriod.from_path(
         config=recording_planning_config,
-        bin_size="1W",
+        bin_size=frequencies.to_offset("1W"),
     )
 
     counts = recording_period.counts
