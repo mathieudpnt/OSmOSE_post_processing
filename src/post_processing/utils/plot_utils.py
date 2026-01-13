@@ -708,32 +708,6 @@ def shade_no_effort(
             zorder=0,
         )
 
-    # Outside data coverage
-    x_min, x_max = ax.get_xlim()
-    data_min = mdates.date2num(bin_starts[0] - bar_width)
-    data_max = mdates.date2num(bin_starts[-1] + bar_width)
-
-    if x_min < data_min:
-        ax.axvspan(
-            x_min,
-            data_min,
-            facecolor="0.45",
-            alpha=0.15,
-            linewidth=0,
-            zorder=0,
-        )
-    if x_max > data_max:
-        ax.axvspan(
-            data_max,
-            x_max,
-            facecolor="0.45",
-            alpha=0.15,
-            linewidth=0,
-            zorder=0,
-        )
-
-    ax.set_xlim(x_min, x_max)
-
 
 def add_sunrise_sunset(ax: Axes, lat: float, lon: float, tz: tzinfo) -> None:
     """Display sunrise/sunset times on plot."""
