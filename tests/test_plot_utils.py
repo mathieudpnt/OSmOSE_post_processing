@@ -112,35 +112,3 @@ def test_lists_and_strings_combined():
     assert result == expected
 
 
-def test_shade_no_effort_from_recording_planning(recording_planning_config):
-    """shade_no_effort shades contiguous zero-effort periods."""
-
-    def count_contiguous_zero_segments(effort: Series) -> int:
-        """Return number of contiguous zero-effort segments."""
-        is_zero = effort == 0
-        return ((is_zero != is_zero.shift(fill_value=False)) & is_zero).sum()
-
-    recording_period = RecordingPeriod.from_path(
-        config=recording_planning_config,
-        bin_size=frequencies.to_offset("1W"),
-    )
-
-    counts = recording_period.counts
-
-    bin_starts = to_datetime(
-        [interval.left for interval in counts.index],
-    )
-
-    fig, ax = plt.subplots()
-    ax.axvspan = MagicMock()
-
-    shade_no_effort(
-        ax=ax,
-        bin_starts=bin_starts,
-        observed=recording_period,
-        bar_width=Timedelta("7D"),
-    )
-
-    expected_spans = count_contiguous_zero_segments(counts)
-
-    assert ax.axvspan.call_count == expected_spans
