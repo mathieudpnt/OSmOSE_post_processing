@@ -106,16 +106,16 @@ class RecordingPeriod:
             df[col] = pd.to_datetime(df[col], utc=True).dt.tz_convert(None)
 
         # 3. Compute effective recording intervals (intersection)
-        df["start_recording"] = df[
+        df["effective_start_recording"] = df[
             ["start_recording", "start_deployment"]
         ].max(axis=1)
 
-        df["end_recording"] = df[
+        df["effective_end_recording"] = df[
             ["end_recording", "end_deployment"]
         ].min(axis=1)
 
         # Remove rows with no actual recording interval
-        df = df.loc[df["start_recording"] < df["end_recording"]].copy()
+        df = df.loc[df["effective_start_recording"] < df["effective_end_recording"]].copy()
 
         if df.empty:
             raise ValueError("No valid recording intervals after deployment intersection.")
@@ -123,8 +123,8 @@ class RecordingPeriod:
         # 4. Build fine-grained timeline at `timebin_origin` resolution
         origin = config.timebin_origin
         time_index = pd.date_range(
-            start=df["start_recording"].min(),
-            end=df["end_recording"].max(),
+            start=df["effective_start_recording"].min(),
+            end=df["effective_end_recording"].max(),
             freq=origin,
         )
 
@@ -134,8 +134,8 @@ class RecordingPeriod:
 
         # 5. Vectorized interval coverage
         tvals = time_index.values[:, None]
-        start_vals = df["start_recording"].values
-        end_vals = df["end_recording"].values
+        start_vals = df["effective_start_recording"].values
+        end_vals = df["effective_end_recording"].values
 
         # Boolean matrix: True if timestamp is within any recording interval
         covered = (tvals >= start_vals) & (tvals < end_vals)
@@ -151,4 +151,5 @@ class RecordingPeriod:
             freq=bin_size,
             closed="left",
         )
+
         return cls(counts=counts, timebin_origin=origin)

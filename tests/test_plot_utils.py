@@ -1,19 +1,14 @@
-from unittest.mock import MagicMock
 
 import matplotlib.pyplot as plt
 import pytest
 from matplotlib.ticker import PercentFormatter
 from numpy import arange, testing
-from pandas import Series, Timedelta, to_datetime
-from pandas.tseries import frequencies
 
-from post_processing.dataclass.recording_period import RecordingPeriod
 from post_processing.utils.plot_utils import (
     _wrap_xtick_labels,
     get_legend,
     overview,
     set_y_axis_to_percentage,
-    shade_no_effort,
 )
 
 
@@ -110,5 +105,3 @@ def test_lists_and_strings_combined():
     result = get_legend(annotators, labels)
     expected = ["Alice\nLabel1", "Bob\nLabel2"]
     assert result == expected
-
-
