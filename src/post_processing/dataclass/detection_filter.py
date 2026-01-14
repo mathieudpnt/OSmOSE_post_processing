@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, fields
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal, Any
+from typing import TYPE_CHECKING, Literal
 
 import yaml
 from pandas import Timedelta, Timestamp
