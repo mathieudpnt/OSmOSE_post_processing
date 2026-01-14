@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib import dates as mdates
 from matplotlib.dates import num2date
+from matplotlib.patches import Patch
 from matplotlib.ticker import PercentFormatter
 from numpy import ceil, histogram, polyfit
 from pandas import (
@@ -113,9 +114,6 @@ def histo(
         legend_labels = get_legend(labels, annotators)
     else:
         legend_labels = None
-
-    # if effort:
-    #     normalize_counts_by_effort(df, effort, time_bin)
 
     n_groups = len(labels) if legend_labels else 1
     bar_width = bin_size / n_groups
@@ -684,6 +682,7 @@ def shade_no_effort(
 
     no_effort = effort_fraction == 0
     partial_effort = (effort_fraction > 0) & (effort_fraction < 1)
+
     # Draw partial effort first (lighter)
     for ts in bin_starts[partial_effort]:
         start = mdates.date2num(ts - bar_width)
@@ -691,9 +690,10 @@ def shade_no_effort(
             start,
             start + width_days,
             facecolor="0.65",
-            alpha=0.08,
+            alpha=0.1,
             linewidth=0,
             zorder=0,
+            label="partial data",
         )
 
     # Draw no effort on top (darker)
@@ -706,7 +706,23 @@ def shade_no_effort(
             alpha=0.15,
             linewidth=0,
             zorder=0,
+            label="no data",
         )
+
+    handles = []
+
+    if partial_effort.any():
+        handles.append(
+            Patch(facecolor="0.65", alpha=0.1, label="partial data")
+        )
+
+    if no_effort.any():
+        handles.append(
+            Patch(facecolor="0.45", alpha=0.15, label="no data")
+        )
+
+    if handles:
+        ax.legend(handles=handles)
 
 
 def add_sunrise_sunset(ax: Axes, lat: float, lon: float, tz: tzinfo) -> None:
