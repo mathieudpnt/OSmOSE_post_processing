@@ -691,7 +691,7 @@ def shade_no_effort(
             start,
             start + width_days,
             facecolor="0.65",
-            alpha=0.08,
+            alpha=0.1,
             linewidth=0,
             zorder=0,
         )

@@ -7,9 +7,9 @@ and other parameters.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, Any
 
 import yaml
 from pandas import Timedelta, Timestamp
@@ -43,6 +43,12 @@ class DetectionFilter:
     score: float | None = None
     box: bool = False
     filename_format: str = None
+
+    def __getitem__(self, key: str):
+        """Return the value of the given key."""
+        if key in {f.name for f in fields(self)}:
+            return getattr(self, key)
+        raise KeyError(key)
 
     @classmethod
     def from_yaml(

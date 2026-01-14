@@ -8,10 +8,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-import pandas as pd
 from pandas import (
     Series,
     Timedelta,
+    date_range,
+    interval_range,
+    read_csv,
+    to_datetime,
 )
 
 from post_processing.utils.filtering_utils import (
@@ -20,6 +23,8 @@ from post_processing.utils.filtering_utils import (
 
 if TYPE_CHECKING:
     from pandas.tseries.offsets import BaseOffset
+
+    from post_processing.dataclass.detection_filter import DetectionFilter
 
 
 @dataclass(frozen=True)
@@ -32,17 +37,17 @@ class RecordingPeriod:
     @classmethod
     def from_path(
         cls,
-        config,
+        config: DetectionFilter,
         *,
         bin_size: Timedelta | BaseOffset,
     ) -> RecordingPeriod:
         """Vectorized creation of recording coverage from CSV with start/end datetimes.
 
         This method reads a CSV with columns:
-        - 'start_recording'
-        - 'end_recording'
-        - 'start_deployment'
-        - 'end_deployment'
+        - "start_recording"
+        - "end_recording"
+        - "start_deployment"
+        - "end_deployment"
 
         It computes the **effective recording interval** as the intersection between
         recording and deployment periods, builds a fine-grained timeline at
@@ -55,7 +60,7 @@ class RecordingPeriod:
             - `timestamp_file`: path to CSV
             - `timebin_origin`: Timedelta resolution of detections
         bin_size : Timedelta or BaseOffset
-            Size of the aggregation bin (e.g., pd.Timedelta("1H") or "1D").
+            Size of the aggregation bin (e.g., Timedelta("1H") or "1D").
 
         Returns
         -------
@@ -64,10 +69,10 @@ class RecordingPeriod:
             `timebin_origin`.
 
         """
-        # 1. Read CSV and parse datetime columns
+        # Read CSV and parse datetime columns
         timestamp_file = config.timestamp_file
         delim = find_delimiter(timestamp_file)
-        df = pd.read_csv(
+        df = read_csv(
             config.timestamp_file,
             parse_dates=[
                 "start_recording",
@@ -79,7 +84,8 @@ class RecordingPeriod:
         )
 
         if df.empty:
-            raise ValueError("CSV is empty.")
+            msg = "CSV is empty."
+            raise ValueError(msg)
 
         # Ensure all required columns are present
         required_columns = {
@@ -92,20 +98,19 @@ class RecordingPeriod:
         missing = required_columns - set(df.columns)
 
         if missing:
-            raise ValueError(
-                f"CSV is missing required columns: {', '.join(sorted(missing))}",
-            )
+            msg = f"CSV is missing required columns: {', '.join(sorted(missing))}"
+            raise ValueError(msg)
 
-        # 2. Normalize timezones: convert to UTC, then remove tz info (naive)
+        # Normalize timezones: convert to UTC, then remove tz info (naive)
         for col in [
             "start_recording",
             "end_recording",
             "start_deployment",
             "end_deployment",
         ]:
-            df[col] = pd.to_datetime(df[col], utc=True).dt.tz_convert(None)
+            df[col] = to_datetime(df[col], utc=True).dt.tz_convert(None)
 
-        # 3. Compute effective recording intervals (intersection)
+        # Compute effective recording intervals (intersection)
         df["effective_start_recording"] = df[
             ["start_recording", "start_deployment"]
         ].max(axis=1)
@@ -118,11 +123,12 @@ class RecordingPeriod:
         df = df.loc[df["effective_start_recording"] < df["effective_end_recording"]].copy()
 
         if df.empty:
-            raise ValueError("No valid recording intervals after deployment intersection.")
+            msg = "No valid recording intervals after deployment intersection."
+            raise ValueError(msg)
 
-        # 4. Build fine-grained timeline at `timebin_origin` resolution
+        # Build fine-grained timeline at `timebin_origin` resolution
         origin = config.timebin_origin
-        time_index = pd.date_range(
+        time_index = date_range(
             start=df["effective_start_recording"].min(),
             end=df["effective_end_recording"].max(),
             freq=origin,
@@ -130,22 +136,22 @@ class RecordingPeriod:
 
         # Initialize effort vector (0 = no recording, 1 = recording)
         # Compare each timestamp to all intervals in a vectorized manner
-        effort = pd.Series(0, index=time_index)
+        effort = Series(0, index=time_index)
 
-        # 5. Vectorized interval coverage
-        tvals = time_index.values[:, None]
-        start_vals = df["effective_start_recording"].values
-        end_vals = df["effective_end_recording"].values
+        # Vectorized interval coverage
+        t_vals = time_index.to_numpy()[:, None]
+        start_vals = df["effective_start_recording"].to_numpy()
+        end_vals = df["effective_end_recording"].to_numpy()
 
-        # Boolean matrix: True if timestamp is within any recording interval
-        covered = (tvals >= start_vals) & (tvals < end_vals)
+        # Boolean matrix: True if the timestamp is within any recording interval
+        covered = (t_vals >= start_vals) & (t_vals < end_vals)
         effort[:] = covered.any(axis=1).astype(int)
 
-        # 6. Aggregate effort into user-defined bin_size
+        # Aggregate effort into user-defined bin_size
         counts = effort.resample(bin_size).sum()
 
         # Replace index with IntervalIndex for downstream compatibility
-        counts.index = pd.interval_range(
+        counts.index = interval_range(
             start=counts.index[0],
             periods=len(counts),
             freq=bin_size,
