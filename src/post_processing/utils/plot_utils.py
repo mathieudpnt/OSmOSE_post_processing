@@ -12,7 +12,6 @@ import numpy as np
 from matplotlib import dates as mdates
 from matplotlib.dates import num2date
 from matplotlib.patches import Patch
-from matplotlib.ticker import PercentFormatter
 from numpy import ceil, histogram, polyfit
 from pandas import (
     DataFrame,
