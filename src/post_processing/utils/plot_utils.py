@@ -133,19 +133,17 @@ def histo(
             bar_kwargs["label"] = legend_labels[i]
 
         ax.bar(bin_starts + offset, df.iloc[:, i], **bar_kwargs)
-    if kwargs.get("show_recording_OFF"):
-        ax.set_facecolor("lightgrey")
 
     if len(df.columns) > 1 and legend:
-        ax.legend(labels=legend_labels, bbox_to_anchor=(1.01, 1), loc="upper left")
+        legend_histo = ax.legend(
+            labels=legend_labels,
+            bbox_to_anchor=(1.01, 1),
+            loc="upper left",
+        )
+        ax.add_artist(legend_histo)
 
-    y_label = (
-        f"Detections{(' normalized by effort' if effort else '')}"
-        f"\n(detections: {timedelta_to_str(time_bin)}"
-        f" - bin size: {bin_size_str})"
-    )
-    ax.set_ylabel(y_label)
-    # set_y_axis_to_percentage(ax) if effort else set_dynamic_ylim(ax, df)
+    ax.set_ylabel(f"Detections ({timedelta_to_str(time_bin)})")
+    ax.set_xlabel(f"Bin size ({bin_size_str})")
     set_plot_title(ax, annotators, labels)
     ax.set_xlim(begin, end)
 
@@ -613,12 +611,15 @@ def get_bin_size_str(bin_size: Timedelta | BaseOffset) -> str:
     return str(bin_size.n) + bin_size.freqstr
 
 
-def set_y_axis_to_percentage(
-    ax: plt.Axes,
-) -> None:
+def set_y_axis_to_percentage(ax: plt.Axes, max_val: float) -> None:
     """Set y-axis to percentage."""
-    ax.yaxis.set_major_formatter(PercentFormatter(xmax=1.0))
-    ax.set_yticks(np.arange(0, 1.02, 0.2))
+    ax.yaxis.set_major_formatter(
+        plt.FuncFormatter(lambda y, _: f"{(y / max_val) * 100:.0f}%")
+    )
+
+    current_label = ax.get_ylabel()
+    if current_label and "%" not in current_label:
+        ax.set_ylabel(f"{current_label} (%)")
 
 
 def set_dynamic_ylim(ax: plt.Axes,
@@ -691,6 +692,9 @@ def shade_no_effort(
     no_effort = effort_fraction[effort_fraction == 0]
     partial_effort = effort_fraction[(effort_fraction > 0) & (effort_fraction < 1)]
 
+    # Get legend handle
+    handles1, labels1 = ax.get_legend_handles_labels()
+
     # Draw partial effort first (lighter)
     for ts in partial_effort.index:
         start = mdates.date2num(ts - bar_width)
@@ -698,7 +702,7 @@ def shade_no_effort(
             start,
             start + width_days,
             facecolor="0.65",
-            alpha=.1,
+            alpha=0.1,
             linewidth=0,
             zorder=3,
             label="partial data",
@@ -711,25 +715,31 @@ def shade_no_effort(
             start,
             start + width_days,
             facecolor="0.45",
-            alpha=.15,
+            alpha=0.15,
             linewidth=0,
             zorder=3,
             label="no data",
         )
 
-    handles = []
+    handles_effort = []
     if len(partial_effort) > 0:
-        handles.append(
-            Patch(facecolor="0.65", alpha=0.1, label="partial data")
-        )
+        handles_effort.append(Patch(facecolor="0.65", alpha=0.1, label="partial data"))
     if len(no_effort) > 0:
-        handles.append(
+        handles_effort.append(
             Patch(facecolor="0.45", alpha=0.15, label="no data")
         )
-    if handles:
+    if handles_effort:
+
+        labels_effort = [h.get_label() for h in handles_effort]
+
+        handles = handles1 + handles_effort
+        labels = labels1 + labels_effort
+
         ax.legend(
-            handles=handles,
-            loc="best",
+            handles,
+            labels,
+            bbox_to_anchor=(1.01, 1),
+            loc="upper left",
         )
 
 
