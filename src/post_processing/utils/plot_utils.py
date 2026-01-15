@@ -721,6 +721,7 @@ def shade_no_effort(
             label="no data",
         )
 
+    # Add effort legend to current plot legend
     handles_effort = []
     if len(partial_effort) > 0:
         handles_effort.append(Patch(facecolor="0.65", alpha=0.1, label="partial data"))
@@ -729,12 +730,9 @@ def shade_no_effort(
             Patch(facecolor="0.45", alpha=0.15, label="no data")
         )
     if handles_effort:
-
         labels_effort = [h.get_label() for h in handles_effort]
-
         handles = handles1 + handles_effort
         labels = labels1 + labels_effort
-
         ax.legend(
             handles,
             labels,
