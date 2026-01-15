@@ -305,10 +305,10 @@ def add_season_period(
     )
 
     season_colors = {
-        "winter": "#2ce5e3",
-        "spring": "#4fcf50",
-        "summer": "#ffcf50",
-        "autumn": "#fb9a67",
+        "winter": "#84eceb",
+        "spring": "#91de92",
+        "summer": "#fce097",
+        "autumn": "#f9c1a5",
     }
 
     bin_centers = [
@@ -329,8 +329,9 @@ def add_season_period(
             width=(bins[i + 1] - bins[i]),
             color=season_colors[season],
             align="center",
-            zorder=0,
-            alpha=0.6,
+            zorder=6,
+            alpha=1,
+            linewidth=0,
         )
 
     ax.set_ylim(ax.dataLim.ymin, ax.dataLim.ymax)

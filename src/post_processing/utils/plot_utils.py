@@ -149,11 +149,6 @@ def histo(
     set_plot_title(ax, annotators, labels)
     ax.set_xlim(begin, end)
 
-    if season:
-        if lat is None or lon is None:
-            get_coordinates()
-        add_season_period(ax, northern=lat >= 0)
-
     if effort:
         shade_no_effort(
             ax=ax,
@@ -161,6 +156,11 @@ def histo(
             observed=effort,
             bar_width=bin_size,
         )
+
+    if season:
+        if lat is None or lon is None:
+            get_coordinates()
+        add_season_period(ax, northern=lat >= 0)
 
 
 def _prepare_timeline_plot(
@@ -675,54 +675,62 @@ def shade_no_effort(
         index=[i.left for i in observed.counts.index],
     ).tz_localize("UTC")
 
-    # Align effort to plotting bins
-    effort_aligned = effort_by_start.reindex(bin_starts)
-    max_effort = bar_width / observed.timebin_origin
-    effort_fraction = effort_aligned / max_effort
+    effort_by_end = Series(
+        observed.counts.values,
+        index=[i.left for i in observed.counts.index],
+    ).tz_localize("UTC")
 
-    no_effort = effort_fraction == 0
-    partial_effort = (effort_fraction > 0) & (effort_fraction < 1)
+    # Align effort to plotting bins
+    effort_aligned_start = effort_by_start.reindex(bin_starts).fillna(0)
+    effort_aligned_end = effort_by_end.reindex(bin_starts + bar_width).fillna(0)
+    combined_effort = .5 * effort_aligned_start.add(effort_aligned_end, fill_value=0)
+
+    max_effort = bar_width / observed.timebin_origin
+    effort_fraction = combined_effort / max_effort
+
+    no_effort = effort_fraction[effort_fraction == 0]
+    partial_effort = effort_fraction[(effort_fraction > 0) & (effort_fraction < 1)]
 
     # Draw partial effort first (lighter)
-    for ts in bin_starts[partial_effort]:
+    for ts in partial_effort.index:
         start = mdates.date2num(ts - bar_width)
         ax.axvspan(
             start,
             start + width_days,
             facecolor="0.65",
-            alpha=0.1,
+            alpha=.1,
             linewidth=0,
-            zorder=0,
+            zorder=3,
             label="partial data",
         )
 
     # Draw no effort on top (darker)
-    for ts in bin_starts[no_effort]:
+    for ts in no_effort.index:
         start = mdates.date2num(ts - bar_width)
         ax.axvspan(
             start,
             start + width_days,
             facecolor="0.45",
-            alpha=0.15,
+            alpha=.15,
             linewidth=0,
-            zorder=0,
+            zorder=3,
             label="no data",
         )
 
     handles = []
-
-    if partial_effort.any():
+    if len(partial_effort) > 0:
         handles.append(
             Patch(facecolor="0.65", alpha=0.1, label="partial data")
         )
-
-    if no_effort.any():
+    if len(no_effort) > 0:
         handles.append(
             Patch(facecolor="0.45", alpha=0.15, label="no data")
         )
-
     if handles:
-        ax.legend(handles=handles)
+        ax.legend(
+            handles=handles,
+            loc="best",
+        )
 
 
 def add_sunrise_sunset(ax: Axes, lat: float, lon: float, tz: tzinfo) -> None:
