@@ -20,6 +20,7 @@ from pandas import (
     Series,
     Timedelta,
     Timestamp,
+    concat,
     date_range,
 )
 from pandas.tseries import frequencies
@@ -134,12 +135,11 @@ def histo(
         ax.bar(bin_starts + offset, df.iloc[:, i], **bar_kwargs)
 
     if len(df.columns) > 1 and legend:
-        legend_histo = ax.legend(
+        ax.legend(
             labels=legend_labels,
             bbox_to_anchor=(1.01, 1),
             loc="upper left",
         )
-        ax.add_artist(legend_histo)
 
     ax.set_ylabel(f"Detections ({timedelta_to_str(time_bin)})")
     ax.set_xlabel(f"Bin size ({bin_size_str})")
@@ -149,9 +149,7 @@ def histo(
     if effort:
         shade_no_effort(
             ax=ax,
-            bin_starts=df.index,
             observed=effort,
-            bar_width=bin_size,
         )
 
     if season:
@@ -200,7 +198,6 @@ def _prepare_timeline_plot(
     ax.set_ylim(0, 24)
     ax.set_yticks(range(0, 25, 2))
     ax.set_ylabel("Hour")
-    ax.set_xlabel("Date")
     ax.grid(color="k", linestyle="-", linewidth=0.2)
 
     set_plot_title(ax=ax, annotators=annotators, labels=labels)
@@ -217,7 +214,7 @@ def scatter(
     df: DataFrame,
     ax: Axes,
     time_range: DatetimeIndex,
-    **kwargs: bool | tuple[float, float],
+    **kwargs: bool | tuple[float, float] | RecordingPeriod,
 ) -> None:
     """Scatter-plot of detections for a given annotator and label.
 
@@ -241,6 +238,7 @@ def scatter(
     show_rise_set = kwargs.get("show_rise_set", False)
     season = kwargs.get("season", False)
     coordinates = kwargs.get("coordinates", False)
+    effort = kwargs.get("effort", False)
 
     _prepare_timeline_plot(
         df=df,
@@ -279,6 +277,12 @@ def scatter(
         frameon=True,
         framealpha=0.6,
     )
+
+    if effort:
+        shade_no_effort(
+            ax=ax,
+            observed=effort,
+        )
 
 
 def heatmap(df: DataFrame,
@@ -646,9 +650,7 @@ def set_plot_title(ax: plt.Axes, annotators: list[str], labels: list[str]) -> No
 
 def shade_no_effort(
     ax: plt.Axes,
-    bin_starts: Index,
     observed: RecordingPeriod,
-    bar_width: Timedelta,
 ) -> None:
     """Shade areas of the plot where no observation effort was made.
 
@@ -656,37 +658,31 @@ def shade_no_effort(
     ----------
     ax : plt.Axes
         The axes on which to draw the shaded regions.
-    bin_starts : Index
-        A datetime index representing the start times of each bin.
     observed : RecordingPeriod
         A Series with observation counts or flags, indexed by datetime.
         Should be aligned or re-indexable to `bin_starts`.
-    bar_width : Timedelta
-        Width of each time bin. Used to compute the span of the shaded areas.
-
 
     """
-    """Shade areas of the plot where no observation effort was made."""
-    width_days = bar_width.total_seconds() / 86400
-
     # Convert effort IntervalIndex → DatetimeIndex (bin starts)
     effort_by_start = Series(
         observed.counts.values,
         index=[i.left for i in observed.counts.index],
-    ).tz_localize("UTC")
-
+    )
     effort_by_end = Series(
         observed.counts.values,
         index=[i.left for i in observed.counts.index],
-    ).tz_localize("UTC")
+    )
+    combined_effort = .5 * effort_by_start.add(effort_by_end, fill_value=0)
 
-    # Align effort to plotting bins
-    effort_aligned_start = effort_by_start.reindex(bin_starts).fillna(0)
-    effort_aligned_end = effort_by_end.reindex(bin_starts + bar_width).fillna(0)
-    combined_effort = .5 * effort_aligned_start.add(effort_aligned_end, fill_value=0)
+    bar_width = effort_by_start.index[1] - effort_by_start.index[0]
+    width_days = bar_width.total_seconds() / 86400
 
     max_effort = bar_width / observed.timebin_origin
     effort_fraction = combined_effort / max_effort
+
+    first_elem = Series([0], index=[effort_fraction.index[0] - bar_width])
+    last_elem = Series([0], index=[effort_fraction.index[-1] + bar_width])
+    effort_fraction = concat([first_elem, effort_fraction, last_elem])
 
     no_effort = effort_fraction[effort_fraction == 0]
     partial_effort = effort_fraction[(effort_fraction > 0) & (effort_fraction < 1)]
@@ -703,7 +699,7 @@ def shade_no_effort(
             facecolor="0.65",
             alpha=0.1,
             linewidth=0,
-            zorder=3,
+            zorder=1,
             label="partial data",
         )
 
@@ -716,7 +712,7 @@ def shade_no_effort(
             facecolor="0.45",
             alpha=0.15,
             linewidth=0,
-            zorder=3,
+            zorder=1,
             label="no data",
         )
 
