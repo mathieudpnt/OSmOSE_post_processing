@@ -366,7 +366,7 @@ def heatmap(df: DataFrame,
     )
 
     if coordinates and season:
-        lat, lon = coordinates
+        lat, _ = coordinates
         add_season_period(ax, northern=lat >= 0)
 
     bin_size_str = get_bin_size_str(bin_size)
@@ -494,41 +494,33 @@ def agreement(
     """
     labels, annotators = get_labels_and_annotators(df)
 
-    datetimes1 = list(
-        df[(df["annotator"] == annotators[0]) & (df["annotation"] == labels[0])][
-            "start_datetime"
-        ],
-    )
-    datetimes2 = list(
-        df[(df["annotator"] == annotators[1]) & (df["annotation"] == labels[1])][
-            "start_datetime"
-        ],
-    )
+    datetimes = [
+        list(
+            df[
+                (df["annotator"] == annotators[i]) & (df["annotation"] == labels[i])
+                ]["start_datetime"],
+        )
+        for i in range(2)
+    ]
 
     # scatter plot
     n_annot_max = bin_size.total_seconds() / df["end_time"].iloc[0]
-
-    start = df["start_datetime"].min()
-    stop = df["start_datetime"].max()
 
     freq = (
         bin_size if isinstance(bin_size, Timedelta) else str(bin_size.n) + bin_size.name
     )
 
     bins = date_range(
-        start=start.floor(bin_size),
-        end=stop.ceil(bin_size),
+        start=df["start_datetime"].min().floor(bin_size),
+        end=df["start_datetime"].max().ceil(bin_size),
         freq=freq,
     )
-
-    hist1, _ = histogram(datetimes1, bins=bins)
-    hist2, _ = histogram(datetimes2, bins=bins)
 
     df_hist = (
         DataFrame(
             {
-                annotators[0]: hist1,
-                annotators[1]: hist2,
+                annotators[0]: histogram(datetimes[0], bins=bins)[0],
+                annotators[1]: histogram(datetimes[1], bins=bins)[0],
             },
         )
         / n_annot_max
@@ -616,7 +608,7 @@ def get_bin_size_str(bin_size: Timedelta | BaseOffset) -> str:
 def set_y_axis_to_percentage(ax: plt.Axes, max_val: float) -> None:
     """Set y-axis to percentage."""
     ax.yaxis.set_major_formatter(
-        plt.FuncFormatter(lambda y, _: f"{(y / max_val) * 100:.0f}%")
+        plt.FuncFormatter(lambda y, _: f"{(y / max_val) * 100:.0f}%"),
     )
 
     current_label = ax.get_ylabel()
@@ -667,17 +659,12 @@ def shade_no_effort(
         observed.counts.values,
         index=[i.left for i in observed.counts.index],
     )
-    effort_by_end = Series(
-        observed.counts.values,
-        index=[i.left for i in observed.counts.index],
-    )
-    combined_effort = .5 * effort_by_start.add(effort_by_end, fill_value=0)
 
     bar_width = effort_by_start.index[1] - effort_by_start.index[0]
     width_days = bar_width.total_seconds() / 86400
 
     max_effort = bar_width / observed.timebin_origin
-    effort_fraction = combined_effort / max_effort
+    effort_fraction = effort_by_start / max_effort
 
     first_elem = Series([0], index=[effort_fraction.index[0] - bar_width])
     last_elem = Series([0], index=[effort_fraction.index[-1] + bar_width])
@@ -689,39 +676,35 @@ def shade_no_effort(
     # Get legend handle
     handles1, labels1 = ax.get_legend_handles_labels()
 
-    # Draw partial effort first (lighter)
-    for ts in partial_effort.index:
-        start = mdates.date2num(ts - bar_width)
-        ax.axvspan(
-            start,
-            start + width_days,
-            facecolor="0.65",
-            alpha=0.1,
-            linewidth=0,
-            zorder=1,
-            label="partial data",
-        )
+    _draw_effort_spans(
+        ax=ax,
+        effort_index=partial_effort.index,
+        bar_width=bar_width,
+        width_days=width_days,
+        facecolor="0.65",
+        alpha=0.1,
+        label="partial data",
+    )
 
-    # Draw no effort on top (darker)
-    for ts in no_effort.index:
-        start = mdates.date2num(ts - bar_width)
-        ax.axvspan(
-            start,
-            start + width_days,
-            facecolor="0.45",
-            alpha=0.15,
-            linewidth=0,
-            zorder=1,
-            label="no data",
-        )
+    _draw_effort_spans(
+        ax=ax,
+        effort_index=no_effort.index,
+        bar_width=bar_width,
+        width_days=width_days,
+        facecolor="0.45",
+        alpha=0.15,
+        label="no data",
+    )
 
     # Add effort legend to current plot legend
     handles_effort = []
     if len(partial_effort) > 0:
-        handles_effort.append(Patch(facecolor="0.65", alpha=0.1, label="partial data"))
+        handles_effort.append(
+            Patch(facecolor="0.65", alpha=0.1, label="partial data"),
+        )
     if len(no_effort) > 0:
         handles_effort.append(
-            Patch(facecolor="0.45", alpha=0.15, label="no data")
+            Patch(facecolor="0.45", alpha=0.15, label="no data"),
         )
     if handles_effort:
         labels_effort = [h.get_label() for h in handles_effort]
@@ -732,6 +715,29 @@ def shade_no_effort(
             labels,
             bbox_to_anchor=(1.01, 1),
             loc="upper left",
+        )
+
+
+def _draw_effort_spans(
+        ax: plt.Axes,
+        effort_index: DatetimeIndex,
+        bar_width: Timedelta,
+        width_days: float,
+        facecolor: str,
+        alpha: float,
+        label: str,
+) -> None:
+    """Draw vertical lines for effort plot."""
+    for ts in effort_index:
+        start = mdates.date2num(ts - bar_width)
+        ax.axvspan(
+            start,
+            start + width_days,
+            facecolor=facecolor,
+            alpha=alpha,
+            linewidth=0,
+            zorder=1,
+            label=label,
         )
 
 
