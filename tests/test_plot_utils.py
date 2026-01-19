@@ -1,8 +1,5 @@
-
 import matplotlib.pyplot as plt
 import pytest
-from matplotlib.ticker import PercentFormatter
-from numpy import arange, testing
 
 from post_processing.utils.plot_utils import (
     _wrap_xtick_labels,
