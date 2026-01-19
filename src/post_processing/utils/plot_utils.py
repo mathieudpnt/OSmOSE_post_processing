@@ -16,7 +16,6 @@ from numpy import ceil, histogram, polyfit
 from pandas import (
     DataFrame,
     DatetimeIndex,
-    Index,
     Series,
     Timedelta,
     Timestamp,

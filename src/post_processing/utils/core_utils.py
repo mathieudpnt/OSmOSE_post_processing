@@ -300,10 +300,6 @@ def add_season_period(
         raise ValueError(msg)
 
     bins = date_range(
-        start=Timestamp(ax.get_xlim()[0], unit="D").floor("1D"),
-        end=Timestamp(ax.get_xlim()[1], unit="D").ceil("1D"),
-    )
-    bins = date_range(
         start=Timestamp(ax.get_xlim()[0], unit="D"),
         end=Timestamp(ax.get_xlim()[1], unit="D"),
     )
@@ -540,7 +536,6 @@ def round_begin_end_timestamps(
         return start, end, bin_size
 
     if isinstance(bin_size, BaseOffset):
-        bin_size = offsets.Week(n=bin_size.n, weekday=timestamp_list[0].weekday())
         start = bin_size.rollback(min(timestamp_list))
         end = bin_size.rollforward(max(timestamp_list))
         if not isinstance(bin_size, (offsets.Hour, offsets.Minute, offsets.Second)):
@@ -551,7 +546,8 @@ def round_begin_end_timestamps(
 
         timestamp_range = date_range(start=start, end=end, freq=bin_size)
         bin_size = timestamp_range[1] - timestamp_range[0]
-        # return start.floor(bin_size), end.ceil(bin_size), bin_size
+        if bin_size.resolution_string in ["s", "min", "h"]:
+            return start.floor(bin_size), end.ceil(bin_size), bin_size
         return start, end, bin_size
 
     msg = "Could not get start/end timestamps."
