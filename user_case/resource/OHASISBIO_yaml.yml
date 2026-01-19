@@ -17,7 +17,6 @@
   'annotator': 'lleboul'
   # annotation: ['annotation1', 'annotation2']
   'annotation': null
-  # box: boolean value, whether to keep strong annotations
   'box': False
   # timestamp file
   'timestamp_file': 'C:\Users\dupontma2\Documents\Git\OSmOSE\OSmOSE_post_processing\user_case\resource\ELAN_status.csv'
@@ -42,7 +41,6 @@
   'annotator': 'lleboul'
   # annotation: ['annotation1', 'annotation2']
   'annotation': null
-  # box: boolean value, whether to keep strong annotations
   'box': False
   # timestamp file
   'timestamp_file': 'C:\Users\dupontma2\Documents\Git\OSmOSE\OSmOSE_post_processing\user_case\resource\NEAMS_status.csv'
@@ -67,7 +65,6 @@
   'annotator': 'lleboul'
   # annotation: ['annotation1', 'annotation2']
   'annotation': null
-  # box: boolean value, whether to keep strong annotations
   'box': False
   # timestamp file
   'timestamp_file': 'C:\Users\dupontma2\Documents\Git\OSmOSE\OSmOSE_post_processing\user_case\resource\MADW_status.csv'

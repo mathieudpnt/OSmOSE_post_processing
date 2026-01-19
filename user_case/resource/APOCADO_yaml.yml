@@ -17,7 +17,6 @@
   'annotator': null
   # annotation: ['annotation1', 'annotation2']
   'annotation': null
-  # box: boolean value, whether to keep strong annotations
   'box': False
   # timestamp file
   'timestamp_file': 'C:\Users\dupontma2\Documents\Git\OSmOSE\OSmOSE_post_processing\user_case\resource\APOCADO_status.csv'
