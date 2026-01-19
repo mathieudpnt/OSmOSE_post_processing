@@ -723,6 +723,7 @@ def _draw_effort_spans(
         effort_index: DatetimeIndex,
         bar_width: Timedelta,
         width_days: float,
+        *,
         facecolor: str,
         alpha: float,
         label: str,
