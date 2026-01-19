@@ -62,16 +62,13 @@ def process_binary(audio: AudioData,
     >>> df = process_binary(ad, binary_path, dataset, annotation)
 
     """
-    begin = audio.begin
-    end = audio.end
-
     filter_obj = Filters(
         {
-        "daterange": DateFilter(start_date=begin, end_date=end, ordered=True),
+        "daterange": DateFilter(start_date=audio.begin, end_date=audio.end, ordered=True),
         },
     )
 
-    data, _, _ = load_pamguard_binary_folder(binary, "*/*.pgdf", filters=filter_obj)
+    data, _, _ = load_pamguard_binary_folder(binary, r"**/*.pgdf", filters=filter_obj)
 
     (
         start_datetimes,
