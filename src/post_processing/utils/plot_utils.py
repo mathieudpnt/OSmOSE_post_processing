@@ -75,15 +75,15 @@ def histo(
         - legend: bool
             Whether to show the legend.
         - color: str | list[str]
-            Color or list of colors for the histogram bars.
-            If not provided, default colors will be used.
+            Colour or list of colours for the histogram bars.
+            If not provided, default colours will be used.
         - season: bool
             Whether to show the season.
         - coordinates: tuple[float, float]
             The coordinates of the plotted detections.
         - effort: RecordingPeriod
             Object corresponding to the observation effort.
-            If provided, data will be normalized by observation effort.
+            If provided, data will be normalised by observation effort.
 
     """
     labels, annotators = zip(*[col.rsplit("-", 1) for col in df.columns], strict=False)
@@ -473,7 +473,7 @@ def agreement(
     bin_size: Timedelta | BaseOffset,
     ax: plt.Axes,
 ) -> None:
-    """Compute and visualize agreement between two annotators.
+    """Compute and visualise agreement between two annotators.
 
     This function compares annotation timestamps from two annotators over a time range.
     It also fits and plots a linear regression line and displays the coefficient
@@ -556,8 +556,8 @@ def timeline(
         Matplotlib axes object where the scatterplot and regression line will be drawn.
     **kwargs: Additional keyword arguments depending on the mode.
         - color: str | list[str]
-            Color or list of colors for the histogram bars.
-            If not provided, default colors will be used.
+            Colour or list of colours for the histogram bars.
+            If not provided, default colours will be used.
 
     """
     color = kwargs.get("color")
