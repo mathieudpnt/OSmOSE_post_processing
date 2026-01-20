@@ -15,13 +15,11 @@ import yaml
 from pandas import Timedelta, Timestamp
 
 from post_processing.utils.filtering_utils import (
-    get_timezone,
     read_dataframe,
 )
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
-    from datetime import tzinfo
 
 
 @dataclass(frozen=True)
@@ -33,7 +31,6 @@ class DetectionFilter:
     timebin_new: Timedelta = None
     begin: Timestamp | None = None
     end: Timestamp | None = None
-    timezone: tzinfo = None
     annotator: str | Iterable[str] | None = None
     annotation: str | Iterable[str] | None = None
     timestamp_file: Path | None = None
@@ -91,7 +88,6 @@ class DetectionFilter:
                 max(df_preview["end_time"]),
                 "s",
             )
-            filters_dict["timezone"] = get_timezone(df_preview)
             filters_dict["detection_file"] = Path(detection_file)
             if filters_dict.get("timebin_new"):
                 filters_dict["timebin_new"] = Timedelta(
