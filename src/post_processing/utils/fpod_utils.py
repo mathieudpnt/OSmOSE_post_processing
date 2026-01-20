@@ -6,13 +6,17 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import matplotlib.dates as mdates
+import numpy as np
 import pytz
 import seaborn as sns
+from matplotlib import patches
 from matplotlib import pyplot as plt
-from matplotlib.patches import Patch
 from osekit.utils.timestamp_utils import strftime_osmose_format, strptime_from_text
 from pandas import (
     DataFrame,
+    DateOffset,
+    Series,
     Timedelta,
     concat,
     date_range,
@@ -22,6 +26,7 @@ from pandas import (
     to_numeric,
     to_timedelta,
 )
+from sklearn.mixture import GaussianMixture
 
 from post_processing.utils.core_utils import get_coordinates, get_sun_times
 from user_case.config import season_color, site_colors
@@ -76,7 +81,7 @@ def pod2aplose(
 
     data = {
         "dataset": [dataset_name] * len(df),
-        "filename": df["deploy.name"].tolist(),
+        "filename": [strftime_osmose_format(entry) for entry in fpod_start_dt],
         "start_time": [0] * len(df),
         "end_time": [bin_size] * len(df),
         "start_frequency": [0] * len(df),
@@ -86,6 +91,7 @@ def pod2aplose(
         "start_datetime": [strftime_osmose_format(entry) for entry in fpod_start_dt],
         "end_datetime": [strftime_osmose_format(entry) for entry in fpod_end_dt],
         "is_box": [0] * len(df),
+        "deploy.name": df["deploy.name"].tolist(),
     }
 
     return DataFrame(data)
@@ -418,11 +424,14 @@ def feeding_buzz(
     df["ICI"] = df["datetime"].diff()
 
     if species == "Dauphin":  # Herzing et al., 2014
-        df["Buzz"] = (df["ICI"] < Timedelta(seconds=0.02)).astype(int)
+        df["Buzz"] = df["ICI"].between(Timedelta(0),
+                                       Timedelta(seconds=0.02)).astype(int)
     elif species == "Marsouin":  # Nuuttila et al., 2013
-        df["Buzz"] = (df["ICI"] < Timedelta(seconds=0.01)).astype(int)
+        df["Buzz"] = df["ICI"].between(Timedelta(0),
+                                       Timedelta(seconds=0.01)).astype(int)
     elif species == "Commerson":  # Reyes Reyes et al., 2015
-        df["Buzz"] = (df["ICI"] < Timedelta(seconds=0.005)).astype(int)
+        df["Buzz"] = df["ICI"].between(Timedelta(0),
+                                       Timedelta(seconds=0.005)).astype(int)
     else:
         msg = "This species is not supported"
         raise ValueError(msg)
@@ -432,6 +441,28 @@ def feeding_buzz(
     f["Foraging"] = to_numeric(f["Buzz"] != 0, downcast="integer").astype(int)
 
     return f
+
+
+def gmm_log(
+    array: Series,
+) -> None:
+    """Gaussian mixture model.
+
+    Parameters
+    ----------
+    array: Series
+        Data you want to test for clustering.
+
+    """
+    log_ici = np.log(array.values).reshape(-1, 1)
+    gmm_3 = GaussianMixture(
+        n_components=3,
+        covariance_type="full",
+        random_state=42,
+        max_iter=200,
+        n_init=10,
+    )
+    gmm_3.fit(log_ici)
 
 
 def assign_daytime(
@@ -803,7 +834,9 @@ def percent_calc(
 
     df["%click"] = df["DPM"] * 100 / (df["Day"] * 60)
     df["%DPh"] = df["DPh"] * 100 / df["Day"]
-    df["FBR"] = df["Foraging"] * 100 / df["DPM"]
+    df["FBR"] = df.apply(
+        lambda row: (row["Foraging"] * 100 / row["DPM"]) if row["DPM"] > 0 else 0,
+        axis=1)
     df["%buzzes"] = df["Foraging"] * 100 / (df["Day"] * 60)
     return df
 
@@ -912,7 +945,7 @@ def ym_percent(df: DataFrame, metric: str) -> None:
             for _, bar in enumerate(ax.patches):
                 bar.set_hatch("/")
     legend_elements = [
-        Patch(facecolor=col, edgecolor="black", label=season.capitalize())
+        patches.Patch(facecolor=col, edgecolor="black", label=season.capitalize())
         for season, col in season_color.items()
     ]
     fig.legend(
@@ -922,6 +955,121 @@ def ym_percent(df: DataFrame, metric: str) -> None:
         bbox_to_anchor=(0.95, 0.95),
     )
     fig.suptitle(f"{metric} per month", fontsize=16)
+    plt.show()
+
+
+def week_percent(df: DataFrame, metric: str) -> None:
+    """Plot a graph with the percentage of DPM per site/month-year.
+
+    Parameters
+    ----------
+    df: DataFrame
+        All percentages grouped by site and month per year
+    metric: str
+        Type of percentage you want to show on the graph
+
+    """
+    sites = df["site.name"].unique()
+    n_sites = len(sites)
+    fig, axs = plt.subplots(n_sites, 1, figsize=(15, 3 * n_sites), sharex=True)
+    if n_sites == 1:
+        axs = [axs]
+
+    for i, site in enumerate(sorted(sites)):
+        site_data = df[df["site.name"] == site].copy()
+        ax = axs[i]
+
+        # Masque pour identifier les NAs
+        na_mask = site_data["DPM"].isna()
+
+        # Définir la limite Y
+        ymax = max(df[metric].dropna()) + 0.2 if not df[metric].dropna().empty else 1
+        ax.set_ylim(0, ymax)
+
+        # Tracer les rectangles pour les périodes de NAs
+        na_dates = site_data.loc[na_mask, "start_datetime"]
+        if len(na_dates) > 0:
+            na_groups = []
+            current_group = [na_dates.iloc[0]]
+
+            for j in range(1, len(na_dates)):
+                # Vérifier si les semaines sont consécutives (~7 jours)
+                if (na_dates.iloc[j] - current_group[-1]).days < 10:
+                    current_group.append(na_dates.iloc[j])
+                else:
+                    na_groups.append(current_group)
+                    current_group = [na_dates.iloc[j]]
+            na_groups.append(current_group)
+
+            # Créer les rectangles
+            for group in na_groups:
+                start = group[0] - DateOffset(days=3.5)  # Centrer sur la semaine
+                width = len(group) * 7 + 2  # Largeur en jours
+                rect = patches.Rectangle(
+                    (mdates.date2num(start), 0),
+                    width,
+                    ymax,
+                    linewidth=1,
+                    edgecolor="gray",
+                    facecolor="lightgray",
+                    alpha=0.3,
+                    label="Pas de données"
+                    if (i == 0 and group == na_groups[0])
+                    else "",
+                )
+                ax.add_patch(rect)
+
+        # Tracer les barres avec données
+        bar_colors = site_data.loc[~na_mask, "Season"].map(season_color).fillna("gray")
+        bars = ax.bar(
+            site_data.loc[~na_mask, "start_datetime"],
+            site_data.loc[~na_mask, metric],
+            label=f"Site {site}",
+            color=bar_colors,
+            width=6,  # Largeur adaptée pour les semaines
+        )
+
+        # Ajouter des hachures si nécessaire
+        if metric in {"%buzzes", "FBR"}:
+            for bar in bars:
+                bar.set_hatch("/")
+
+        ax.set_title(f"{site}")
+        ax.set_ylabel(metric)
+        if i != n_sites - 1:
+            ax.set_xlabel("")
+        else:
+            ax.set_xlabel("Week")
+
+    # Légende des saisons
+    legend_elements = [
+        patches.Patch(facecolor=col, edgecolor="black", label=season.capitalize())
+        for season, col in season_color.items()
+    ]
+
+    # Ajouter "Pas de données" à la légende si des NAs existent
+    if df["DPM"].isna().any():
+        legend_elements.append(
+            patches.Patch(
+                facecolor="lightgray",
+                edgecolor="gray",
+                alpha=0.3,
+                label="Pas de données"))
+
+    fig.legend(
+        handles=legend_elements,
+        loc="upper right",
+        title="Seasons",
+        bbox_to_anchor=(0.95, 0.95),
+    )
+    fig.suptitle(f"{metric} per week", fontsize=16)
+
+    # Formatage de l'axe X
+    axs[-1].xaxis.set_major_locator(mdates.MonthLocator(interval=1))
+    axs[-1].xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m"))
+    fig.autofmt_xdate()
+
+    plt.tight_layout()
     plt.show()
 
 
@@ -1018,7 +1166,7 @@ def day_percent(df: DataFrame, metric: str) -> None:
             for _, bar in enumerate(ax.patches):
                 bar.set_hatch("/")
     legend_elements = [
-        Patch(facecolor=col, edgecolor="black", label=season.capitalize())
+        patches.Patch(facecolor=col, edgecolor="black", label=season.capitalize())
         for season, col in season_color.items()
     ]
     fig.legend(
@@ -1132,12 +1280,12 @@ def calendar(
     ax.set_yticklabels(sites, fontsize=12)
 
     legend_elements = [
-        Patch(facecolor="#F5F5F5", edgecolor="black", label="Deployment"),
+        patches.Patch(facecolor="#F5F5F5", edgecolor="black", label="Deployment"),
     ]
     for site, color in site_colors.items():
         if site in sites:
             legend_elements.append(
-                Patch(facecolor=color, edgecolor="black", label=f"{site}"),
+                patches.Patch(facecolor=color, edgecolor="black", label=f"{site}"),
             )
 
     ax.legend(handles=legend_elements, loc="upper left", fontsize=11, frameon=True)
@@ -1366,5 +1514,72 @@ def hist_mean_s(
     ax.set_ylabel(y_lab or metric_mean, fontsize=10)
     ax.set_xlabel("Site", fontsize=10)
 
+    plt.tight_layout()
+    plt.show()
+
+
+def hist_mean_season(
+    df: DataFrame,
+    metric_mean: str,
+    metric_std: str,
+    y_lab: str | None = None,
+    title_suffix: str | None = None,
+) -> None:
+    """Produce a histogram of the given data.
+
+    It shows mean and standard deviation of the metric.
+
+    Parameters
+    ----------
+    df: DataFrame
+        All data grouped by site and month
+    metric_mean: str
+        Column name for the mean values (e.g., "%click_mean")
+    metric_std: str
+        Column name for the standard deviation values (e.g., "%click_std")
+    y_lab: str, optional
+        Label for y-axis. If None, uses metric_mean
+    title_suffix: str, optional
+        Suffix for the main title. If None, uses metric_mean
+
+    """
+    sites = df["site.name"].unique()
+    n_sites = len(sites)
+    fig, axs = plt.subplots(n_sites, 1, figsize=(14, 5 * n_sites), sharex=True)
+    if n_sites == 1:
+        axs = [axs]
+
+    # Calculate max for y-axis scaling
+    max_value = max(df[metric_mean] + df[metric_std])
+
+    for i, site in enumerate(sorted(sites)):
+        site_data = df[df["site.name"] == site]
+        ax = axs[i]
+
+        ax.bar(
+            x=site_data["Season"],
+            height=site_data[metric_mean],
+            yerr=site_data[metric_std],
+            capsize=4,
+            color=site_colors.get(site, "gray"),
+            alpha=0.8,
+            edgecolor="black",
+            linewidth=0.5,
+            label=f"Site {site}",
+        )
+
+        ax.set_title(f"{site}", fontsize=12)
+        ax.set_ylim(0, max_value * 1.1)
+        ax.set_ylabel(y_lab or metric_mean, fontsize=10)
+
+        # Only set x-label on last subplot
+        if i == n_sites - 1:
+            ax.set_xlabel("Season", fontsize=10)
+        if metric_mean in {"%buzzes_mean", "FBR_mean"}:
+            for _, bar in enumerate(ax.patches):
+                bar.set_hatch("/")
+
+    fig.suptitle(f"{title_suffix or metric_mean} per season", fontsize=16)
+    plt.xticks(rotation=45)
     plt.tight_layout()
     plt.show()
