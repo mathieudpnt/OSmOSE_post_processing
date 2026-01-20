@@ -26,7 +26,6 @@ from pandas import (
     to_numeric,
     to_timedelta,
 )
-from sklearn.mixture import GaussianMixture
 
 from post_processing.utils.core_utils import get_coordinates, get_sun_times
 from user_case.config import season_color, site_colors
@@ -441,28 +440,6 @@ def feeding_buzz(
     f["Foraging"] = to_numeric(f["Buzz"] != 0, downcast="integer").astype(int)
 
     return f
-
-
-def gmm_log(
-    array: Series,
-) -> None:
-    """Gaussian mixture model.
-
-    Parameters
-    ----------
-    array: Series
-        Data you want to test for clustering.
-
-    """
-    log_ici = np.log(array.values).reshape(-1, 1)
-    gmm_3 = GaussianMixture(
-        n_components=3,
-        covariance_type="full",
-        random_state=42,
-        max_iter=200,
-        n_init=10,
-    )
-    gmm_3.fit(log_ici)
 
 
 def assign_daytime(
