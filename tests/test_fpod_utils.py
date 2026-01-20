@@ -5,22 +5,21 @@ from pathlib import Path
 
 import pytest
 from osekit.utils.timestamp_utils import strptime_from_text
-from pandas import DataFrame, Timestamp, read_csv
+from pandas import DataFrame, Timestamp, read_csv, concat
 from pandas.testing import assert_frame_equal
 
 from post_processing.utils.fpod_utils import (
+    txt_folder,
     csv_folder,
     deploy_period,
-    extract_site,
-    parse_timestamps,
-    txt_folder,
     pod2aplose,
-    meta_cut_aplose,
-    build_range,
-    feeding_buzz,
-    assign_daytime,
+    actual_data,
+    add_utc,
+    extract_site,
+    required_columns,
+    parse_timestamps,
+    create_mask,
     is_dpm_col,
-    build_aggregation_dict,
     resample_dpm)
 
 # SAMPLE_POD = """File,ChunkEnd,DPM,Nall,MinsOn
@@ -149,8 +148,21 @@ from post_processing.utils.fpod_utils import (
 #     df = read_csv(io.StringIO(SAMPLE_POD), parse_dates=["ChunkEnd"])
 #     return df.sort_values(["ChunkEnd"]).reset_index(drop=True)
 
-# pod2aplose
 
+# csv_folder
+def test_csv_folder_single_file(tmp_path) -> None:
+    """Test processing a single CSV file."""
+    # Create a CSV file
+    csv_file = tmp_path / "data.csv"
+    csv_file.write_text("col1;col2\nval1;val2\nval3;val4", encoding="latin-1")
+
+    result = csv_folder(tmp_path)
+
+    assert isinstance(result, DataFrame)
+    assert len(result) == 2
+    assert "deploy.name" in result.columns
+    assert all(result["deploy.name"] == "data")
+    assert list(result.columns) == ["col1", "col2", "deploy.name"]
 
 # pod2aplose
 
