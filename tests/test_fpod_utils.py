@@ -1,27 +1,12 @@
 """FPOD/ CPOD processing functions tests."""
-import io
-import pytz
-from datetime import datetime
-from pathlib import Path
-
 import pytest
-from osekit.utils.timestamp_utils import strptime_from_text
-from pandas import DataFrame, Timestamp, Timedelta, read_csv, concat
-from pandas.testing import assert_frame_equal
+import pytz
+from pandas import DataFrame
 
 from post_processing.utils.fpod_utils import (
-    txt_folder,
     csv_folder,
-    deploy_period,
     pod2aplose,
-    actual_data,
-    add_utc,
-    extract_site,
-    required_columns,
-    parse_timestamps,
-    create_mask,
-    is_dpm_col,
-    resample_dpm)
+)
 
 # SAMPLE_POD = """File,ChunkEnd,DPM,Nall,MinsOn
 # sample_dataset,2023/11/29 08:05,0,0,0
