@@ -660,18 +660,11 @@ def shade_no_effort(
         index=[i.left for i in observed.counts.index],
     )
 
-    effort_by_end = Series(
-        observed.counts.values,
-        index=[i.right for i in observed.counts.index],
-    )
-
-    combined_effort = 0.5 * effort_by_start.add(effort_by_end, fill_value=0)
-
-    bar_width = combined_effort.index[1] - combined_effort.index[0]
+    bar_width = effort_by_start.index[1] - effort_by_start.index[0]
     width_days = bar_width.total_seconds() / 86400
 
     max_effort = bar_width / observed.timebin_origin
-    effort_fraction = combined_effort / max_effort
+    effort_fraction = effort_by_start / max_effort
 
     first_elem = Series([0], index=[effort_fraction.index[0] - bar_width])
     last_elem = Series([0], index=[effort_fraction.index[-1] + bar_width])
