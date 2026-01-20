@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import matplotlib.dates as mdates
-import numpy as np
 import pytz
 import seaborn as sns
 from matplotlib import patches
@@ -16,7 +15,6 @@ from osekit.utils.timestamp_utils import strftime_osmose_format, strptime_from_t
 from pandas import (
     DataFrame,
     DateOffset,
-    Series,
     Timedelta,
     concat,
     date_range,
