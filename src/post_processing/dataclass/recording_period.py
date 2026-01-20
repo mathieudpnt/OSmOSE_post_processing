@@ -42,7 +42,7 @@ class RecordingPeriod:
         *,
         bin_size: Timedelta | BaseOffset,
     ) -> RecordingPeriod:
-        """Vectorized creation of recording coverage from CSV with start/end datetimes.
+        """Vectorised creation of recording coverage from CSV with start/end datetimes.
 
         This method reads a CSV with columns:
         - "start_recording"
@@ -61,7 +61,7 @@ class RecordingPeriod:
             - `timestamp_file`: path to CSV
             - `timebin_origin`: Timedelta resolution of detections
         bin_size : Timedelta or BaseOffset
-            Size of the aggregation bin (e.g., Timedelta("1H") or "1D").
+            Size of the aggregation bin (e.g. Timedelta("1H") or "1D").
 
         Returns
         -------
@@ -121,7 +121,9 @@ class RecordingPeriod:
         ].min(axis=1)
 
         # Remove rows with no actual recording interval
-        df = df.loc[df["effective_start_recording"] < df["effective_end_recording"]].copy()
+        df = df.loc[
+            df["effective_start_recording"] < df["effective_end_recording"]
+        ].copy()
 
         if df.empty:
             msg = "No valid recording intervals after deployment intersection."
@@ -136,7 +138,7 @@ class RecordingPeriod:
         )
 
         # Initialise effort vector (0 = no recording, 1 = recording)
-        # Compare each timestamp to all intervals in a vectorized manner
+        # Compare each timestamp to all intervals in a vectorised manner
         effort = Series(0, index=time_index)
 
         # Vectorised interval coverage
