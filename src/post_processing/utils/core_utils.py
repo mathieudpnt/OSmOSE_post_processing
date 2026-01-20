@@ -35,7 +35,7 @@ from post_processing.utils.filtering_utils import (
 )
 
 if TYPE_CHECKING:
-    from datetime import datetime, timedelta, tzinfo
+    from datetime import tzinfo
     from pathlib import Path
 
     import matplotlib.pyplot as plt
