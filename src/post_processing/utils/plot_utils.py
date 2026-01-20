@@ -660,11 +660,18 @@ def shade_no_effort(
         index=[i.left for i in observed.counts.index],
     )
 
-    bar_width = effort_by_start.index[1] - effort_by_start.index[0]
+    effort_by_end = Series(
+        observed.counts.values,
+        index=[i.right for i in observed.counts.index],
+    )
+
+    combined_effort = 0.5 * effort_by_start.add(effort_by_end, fill_value=0)
+
+    bar_width = combined_effort.index[1] - combined_effort.index[0]
     width_days = bar_width.total_seconds() / 86400
 
     max_effort = bar_width / observed.timebin_origin
-    effort_fraction = effort_by_start / max_effort
+    effort_fraction = combined_effort / max_effort
 
     first_elem = Series([0], index=[effort_fraction.index[0] - bar_width])
     last_elem = Series([0], index=[effort_fraction.index[-1] + bar_width])
@@ -679,7 +686,6 @@ def shade_no_effort(
     _draw_effort_spans(
         ax=ax,
         effort_index=partial_effort.index,
-        bar_width=bar_width,
         width_days=width_days,
         facecolor="0.65",
         alpha=0.1,
@@ -689,7 +695,6 @@ def shade_no_effort(
     _draw_effort_spans(
         ax=ax,
         effort_index=no_effort.index,
-        bar_width=bar_width,
         width_days=width_days,
         facecolor="0.45",
         alpha=0.15,
@@ -721,7 +726,6 @@ def shade_no_effort(
 def _draw_effort_spans(
         ax: plt.Axes,
         effort_index: DatetimeIndex,
-        bar_width: Timedelta,
         width_days: float,
         *,
         facecolor: str,
@@ -730,7 +734,7 @@ def _draw_effort_spans(
 ) -> None:
     """Draw vertical lines for effort plot."""
     for ts in effort_index:
-        start = mdates.date2num(ts - bar_width)
+        start = mdates.date2num(ts)
         ax.axvspan(
             start,
             start + width_days,
