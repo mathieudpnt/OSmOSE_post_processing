@@ -149,6 +149,7 @@ def histo(
         shade_no_effort(
             ax=ax,
             observed=effort,
+            legend=legend,
         )
 
     if season:
@@ -642,6 +643,7 @@ def set_plot_title(ax: plt.Axes, annotators: list[str], labels: list[str]) -> No
 def shade_no_effort(
     ax: plt.Axes,
     observed: RecordingPeriod,
+    legend: bool,
 ) -> None:
     """Shade areas of the plot where no observation effort was made.
 
@@ -652,6 +654,8 @@ def shade_no_effort(
     observed : RecordingPeriod
         A Series with observation counts or flags, indexed by datetime.
         Should be aligned or re-indexable to `bin_starts`.
+    legend : bool
+        Wether to add the legend entry for the shaded regions.
 
     """
     # Convert effort IntervalIndex → DatetimeIndex (bin starts)
@@ -704,7 +708,7 @@ def shade_no_effort(
         handles_effort.append(
             Patch(facecolor="0.45", alpha=0.15, label="no data"),
         )
-    if handles_effort:
+    if handles_effort and legend:
         labels_effort = [h.get_label() for h in handles_effort]
         handles = handles1 + handles_effort
         labels = labels1 + labels_effort
