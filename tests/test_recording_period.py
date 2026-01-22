@@ -1,5 +1,4 @@
-from pandas import Interval, Timestamp
-from pandas.tseries import frequencies
+from pandas import Timedelta, read_csv, to_datetime
 
 from post_processing.dataclass.detection_filter import DetectionFilter
 from post_processing.dataclass.recording_period import RecordingPeriod
@@ -14,53 +13,68 @@ def test_recording_period_with_gaps(recording_planning_config: DetectionFilter) 
     - weeks with partial effort,
     - weeks with zero effort.
     """
+    histo_x_bin_size = Timedelta("7D")
     recording_period = RecordingPeriod.from_path(
         config=recording_planning_config,
-        bin_size=frequencies.to_offset("1W"),
+        bin_size=histo_x_bin_size,
     )
 
     counts = recording_period.counts
+    origin = recording_planning_config.timebin_origin
+    nb_timebin_origin_per_histo_x_bin_size = int(histo_x_bin_size / origin)
 
+    # Computes effective recording intervals from recording planning csv
+    df_planning = read_csv(
+        recording_planning_config.timestamp_file,
+        parse_dates=[
+            "start_recording",
+            "end_recording",
+            "start_deployment",
+            "end_deployment",
+        ],
+    )
+    for col in [
+        "start_recording",
+        "end_recording",
+        "start_deployment",
+        "end_deployment",
+    ]:
+        df_planning[col] = (
+            to_datetime(df_planning[col], utc=True)
+            .dt.tz_convert(None)
+        )
+
+    df_planning["start"] = df_planning[
+        ["start_recording", "start_deployment"]
+    ].max(axis=1)
+    df_planning["end"] = df_planning[
+        ["end_recording", "end_deployment"]
+    ].min(axis=1)
+
+    planning = df_planning.loc[df_planning["start"] < df_planning["end"]]
     # ------------------------------------------------------------------
     # Structural checks
     # ------------------------------------------------------------------
     assert not counts.empty
     assert counts.index.is_interval()
     assert counts.min() >= 0
-
-    # One week = 7 * 24 hours (origin = 1 min)
-    full_week_minutes = 7 * 24 * 60
+    assert counts.max() <= nb_timebin_origin_per_histo_x_bin_size
 
     # ------------------------------------------------------------------
-    # Helper: find the bin covering a given timestamp
+    # Find overlap (number of timebin_origin) within each effective recording period
     # ------------------------------------------------------------------
-    def bin_covering(ts: Timestamp) -> Interval:
-        for interval in counts.index:
-            if interval.left <= ts < interval.right:
-                return interval
-        msg = f"No bin covers timestamp {ts}"
-        raise AssertionError(msg)
+    for interval in counts.index:
+        bin_start = interval.left
+        bin_end = interval.right
 
-    # ------------------------------------------------------------------
-    # Week fully inside the long gap → zero effort
-    # ------------------------------------------------------------------
-    gap_ts = Timestamp("2024-04-21")
+        # Compute overlap with all recording intervals
+        overlap_start = planning["start"].clip(lower=bin_start, upper=bin_end)
+        overlap_end = planning["end"].clip(lower=bin_start, upper=bin_end)
 
-    gap_bin = bin_covering(gap_ts)
-    assert counts.loc[gap_bin] == 0
+        overlap = (overlap_end - overlap_start).clip(lower=Timedelta(0))
+        expected_minutes = int(overlap.sum() / recording_planning_config.timebin_origin)
 
-    # ------------------------------------------------------------------
-    # Week fully inside recording → full effort
-    # ------------------------------------------------------------------
-    full_effort_ts = Timestamp("2024-02-04")
-
-    full_bin = bin_covering(full_effort_ts)
-    assert counts.loc[full_bin] == full_week_minutes
-
-    # ------------------------------------------------------------------
-    # Week overlapping recording stop → partial effort
-    # ------------------------------------------------------------------
-    partial_ts = Timestamp("2024-04-14")
-
-    partial_bin = bin_covering(partial_ts)
-    assert counts.loc[partial_bin] == 0
+        assert counts.loc[interval] == expected_minutes, (
+            f"Mismatch for bin {interval}: "
+            f"expected {expected_minutes}, got {counts.loc[interval]}"
+        )
