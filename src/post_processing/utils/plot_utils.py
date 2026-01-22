@@ -149,6 +149,7 @@ def histo(
         shade_no_effort(
             ax=ax,
             observed=effort,
+            legend=legend,
         )
 
     if season:
@@ -642,6 +643,7 @@ def set_plot_title(ax: plt.Axes, annotators: list[str], labels: list[str]) -> No
 def shade_no_effort(
     ax: plt.Axes,
     observed: RecordingPeriod,
+    legend: bool,
 ) -> None:
     """Shade areas of the plot where no observation effort was made.
 
@@ -652,6 +654,8 @@ def shade_no_effort(
     observed : RecordingPeriod
         A Series with observation counts or flags, indexed by datetime.
         Should be aligned or re-indexable to `bin_starts`.
+    legend : bool
+        Wether to add the legend entry for the shaded regions.
 
     """
     # Convert effort IntervalIndex → DatetimeIndex (bin starts)
@@ -679,7 +683,6 @@ def shade_no_effort(
     _draw_effort_spans(
         ax=ax,
         effort_index=partial_effort.index,
-        bar_width=bar_width,
         width_days=width_days,
         facecolor="0.65",
         alpha=0.1,
@@ -689,7 +692,6 @@ def shade_no_effort(
     _draw_effort_spans(
         ax=ax,
         effort_index=no_effort.index,
-        bar_width=bar_width,
         width_days=width_days,
         facecolor="0.45",
         alpha=0.15,
@@ -706,7 +708,7 @@ def shade_no_effort(
         handles_effort.append(
             Patch(facecolor="0.45", alpha=0.15, label="no data"),
         )
-    if handles_effort:
+    if handles_effort and legend:
         labels_effort = [h.get_label() for h in handles_effort]
         handles = handles1 + handles_effort
         labels = labels1 + labels_effort
@@ -721,7 +723,6 @@ def shade_no_effort(
 def _draw_effort_spans(
         ax: plt.Axes,
         effort_index: DatetimeIndex,
-        bar_width: Timedelta,
         width_days: float,
         *,
         facecolor: str,
@@ -730,7 +731,7 @@ def _draw_effort_spans(
 ) -> None:
     """Draw vertical lines for effort plot."""
     for ts in effort_index:
-        start = mdates.date2num(ts - bar_width)
+        start = mdates.date2num(ts)
         ax.axvspan(
             start,
             start + width_days,
