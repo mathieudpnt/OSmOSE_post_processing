@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import astral
 import easygui
@@ -44,10 +44,10 @@ if TYPE_CHECKING:
 def get_season(ts: Timestamp, *, northern: bool = True) -> tuple[str, int]:
     """Determine the meteorological season from a Timestamp.
 
-    In the Northern hemisphere
+    In the Northern Hemisphere
     Winter: Dec-Feb, Spring: Mar-May, Summer: Jun-Aug, Autumn: Sep-Nov
 
-    In the Southern hemisphere
+    In the Southern Hemisphere
     Winter: Jun-Aug, Spring: Sep-Nov, Summer: Dec-Feb, Autumn: Mar-May
 
     Parameters
@@ -133,8 +133,18 @@ def get_sun_times(
         dt_sunset = Timestamp(sunset(gps.observer, date=date)).tz_convert(tz)
 
         # Convert sunrise and sunset to decimal hours
-        h_sunrise.append(dt_sunrise.hour + dt_sunrise.minute / 60 + dt_sunrise.second / 3600 + dt_sunrise.microsecond / 3_600_000_000)
-        h_sunset.append(dt_sunset.hour + dt_sunset.minute / 60 + dt_sunset.second / 3600 + dt_sunset.microsecond / 3_600_000_000)
+        h_sunrise.append(
+            dt_sunrise.hour +
+            dt_sunrise.minute / 60 +
+            dt_sunrise.second / 3600 +
+            dt_sunrise.microsecond / 3_600_000_000,
+        )
+        h_sunset.append(
+            dt_sunset.hour +
+            dt_sunset.minute / 60 +
+            dt_sunset.second / 3600 +
+            dt_sunset.microsecond / 3_600_000_000,
+        )
 
     return h_sunrise, h_sunset
 
@@ -215,8 +225,12 @@ def add_weak_detection(
     if not max_time:
         max_time = Timedelta(get_max_time(df), "s")
 
-    df["start_datetime"] = [strftime_osmose_format(start) for start in df["start_datetime"]]
-    df["end_datetime"] = [strftime_osmose_format(stop) for stop in df["end_datetime"]]
+    df["start_datetime"] = [
+        strftime_osmose_format(start) for start in df["start_datetime"]
+    ]
+    df["end_datetime"] = [
+        strftime_osmose_format(stop) for stop in df["end_datetime"]
+    ]
 
     for ant in annotators:
         for lbl in labels:
@@ -259,12 +273,12 @@ def add_weak_detection(
 
 
 def json2df(json_path: Path) -> DataFrame:
-    """Convert a metadatax json file into a DataFrame.
+    """Convert a metadatax JSON file into a DataFrame.
 
     Parameters
     ----------
     json_path: Path
-        Json file path
+        JSON file path
 
     """
     with json_path.open(encoding="utf-8") as f:
@@ -300,15 +314,15 @@ def add_season_period(
         raise ValueError(msg)
 
     bins = date_range(
-        start=Timestamp(ax.get_xlim()[0], unit="D").floor("1D"),
-        end=Timestamp(ax.get_xlim()[1], unit="D").ceil("1D"),
+        start=Timestamp(ax.get_xlim()[0], unit="D"),
+        end=Timestamp(ax.get_xlim()[1], unit="D"),
     )
 
     season_colors = {
-        "winter": "#2ce5e3",
-        "spring": "#4fcf50",
-        "summer": "#ffcf50",
-        "autumn": "#fb9a67",
+        "winter": "#84eceb",
+        "spring": "#91de92",
+        "summer": "#fce097",
+        "autumn": "#f9c1a5",
     }
 
     bin_centers = [
@@ -329,8 +343,9 @@ def add_season_period(
             width=(bins[i + 1] - bins[i]),
             color=season_colors[season],
             align="center",
-            zorder=0,
-            alpha=0.6,
+            zorder=2,
+            alpha=1,
+            linewidth=0,
         )
 
     ax.set_ylim(ax.dataLim.ymin, ax.dataLim.ymax)
@@ -479,7 +494,7 @@ def get_labels_and_annotators(df: DataFrame) -> tuple[list, list]:
 
 
 def localize_timestamps(timestamps: list[Timestamp], tz: tzinfo) -> list[Timestamp]:
-    """Localize timestamps if necessary."""
+    """Localise timestamps if necessary."""
     localized = []
     for ts in timestamps:
         if ts.tzinfo is None or ts.tzinfo.utcoffset(ts) is None:
@@ -517,10 +532,11 @@ def get_time_range_and_bin_size(
 def round_begin_end_timestamps(
     timestamp_list: list[Timestamp],
     bin_size: Timedelta | BaseOffset,
-) -> tuple[Timestamp, Timestamp, Timedelta]:
+) -> tuple[Any, Any, Any]:
     """Return time vector given a bin size."""
-    if (not isinstance(timestamp_list, list) or
-            not all(isinstance(ts, Timestamp) for ts in timestamp_list)):
+    if not isinstance(timestamp_list, list) or not all(
+        isinstance(ts, Timestamp) for ts in timestamp_list
+    ):
         msg = "timestamp_list must be a list[Timestamp]"
         raise TypeError(msg)
 
@@ -544,14 +560,16 @@ def round_begin_end_timestamps(
 
         timestamp_range = date_range(start=start, end=end, freq=bin_size)
         bin_size = timestamp_range[1] - timestamp_range[0]
-        return start.floor(bin_size), end.ceil(bin_size), bin_size
+        if bin_size.resolution_string in {"s", "min", "h"}:
+            return start.floor(bin_size), end.ceil(bin_size), bin_size
+        return start, end, bin_size
 
     msg = "Could not get start/end timestamps."
     raise ValueError(msg)
 
 
 def timedelta_to_str(td: Timedelta) -> str:
-    """From a Timedelta to corresponding string."""
+    """From a Timedelta to the corresponding string."""
     seconds = int(td.total_seconds())
 
     if seconds % 86400 == 0:

@@ -9,14 +9,15 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from pandas import (
+    IntervalIndex,
     Series,
     Timedelta,
     date_range,
-    interval_range,
     read_csv,
     to_datetime,
 )
 
+from post_processing.utils.core_utils import round_begin_end_timestamps
 from post_processing.utils.filtering_utils import (
     find_delimiter,
 )
@@ -41,7 +42,7 @@ class RecordingPeriod:
         *,
         bin_size: Timedelta | BaseOffset,
     ) -> RecordingPeriod:
-        """Vectorized creation of recording coverage from CSV with start/end datetimes.
+        """Vectorised creation of recording coverage from CSV with start/end datetimes.
 
         This method reads a CSV with columns:
         - "start_recording"
@@ -60,7 +61,7 @@ class RecordingPeriod:
             - `timestamp_file`: path to CSV
             - `timebin_origin`: Timedelta resolution of detections
         bin_size : Timedelta or BaseOffset
-            Size of the aggregation bin (e.g., Timedelta("1H") or "1D").
+            Size of the aggregation bin (e.g. Timedelta("1H") or "1D").
 
         Returns
         -------
@@ -101,7 +102,7 @@ class RecordingPeriod:
             msg = f"CSV is missing required columns: {', '.join(sorted(missing))}"
             raise ValueError(msg)
 
-        # Normalize timezones: convert to UTC, then remove tz info (naive)
+        # Normalise timezones: convert to UTC, then remove tz info (naive)
         for col in [
             "start_recording",
             "end_recording",
@@ -120,7 +121,9 @@ class RecordingPeriod:
         ].min(axis=1)
 
         # Remove rows with no actual recording interval
-        df = df.loc[df["effective_start_recording"] < df["effective_end_recording"]].copy()
+        df = df.loc[
+            df["effective_start_recording"] < df["effective_end_recording"]
+        ].copy()
 
         if df.empty:
             msg = "No valid recording intervals after deployment intersection."
@@ -134,11 +137,11 @@ class RecordingPeriod:
             freq=origin,
         )
 
-        # Initialize effort vector (0 = no recording, 1 = recording)
-        # Compare each timestamp to all intervals in a vectorized manner
+        # Initialise effort vector (0 = no recording, 1 = recording)
+        # Compare each timestamp to all intervals in a vectorised manner
         effort = Series(0, index=time_index)
 
-        # Vectorized interval coverage
+        # Vectorised interval coverage
         t_vals = time_index.to_numpy()[:, None]
         start_vals = df["effective_start_recording"].to_numpy()
         end_vals = df["effective_end_recording"].to_numpy()
@@ -148,13 +151,12 @@ class RecordingPeriod:
         effort[:] = covered.any(axis=1).astype(int)
 
         # Aggregate effort into user-defined bin_size
-        counts = effort.resample(bin_size).sum()
+        counts = effort.resample(bin_size, closed="left", label="left").sum()
 
-        # Replace index with IntervalIndex for downstream compatibility
-        counts.index = interval_range(
-            start=counts.index[0],
-            periods=len(counts),
-            freq=bin_size,
+        counts.index = IntervalIndex.from_arrays(
+            counts.index,
+            counts.index +
+            round_begin_end_timestamps(list(counts.index), bin_size)[-1],
             closed="left",
         )
 
