@@ -8,6 +8,7 @@ import datetime
 from typing import TYPE_CHECKING
 
 import pytz
+from osekit.utils.timestamp_utils import strptime_from_text
 from pandas import (
     DataFrame,
     Timedelta,
@@ -509,8 +510,8 @@ def reshape_timebin(
     timebin_new: Timedelta
         The size of the new time bin.
     timestamp_audio: list[Timestamp]
-        A list of Timestamp objects corresponding to the shape
-        in which the data should be reshaped.
+        A list of Timestamp objects corresponding to the start of each wav
+         that corresponds to a detection
 
     Returns
     -------
@@ -570,16 +571,17 @@ def get_filename_timestamps(df: DataFrame, date_parser: str) -> list[Timestamp]:
 
     """
     tz = get_timezone(df)
-    try:
-        return [
-        to_datetime(
-            ts,
-            format=date_parser,
-        ).tz_localize(tz) for ts in df["filename"]
-        ]
-    except ValueError:
-        msg = """Could not parse timestamps from `df["filename"]`."""
-        raise ValueError(msg) from None
+    timestamps = [
+    strptime_from_text(
+        ts,
+        datetime_template=date_parser,
+    ) for ts in df["filename"]
+    ]
+
+    if all(t.tz is None for t in timestamps):
+        timestamps = [t.tz_localize(tz) for t in timestamps]
+
+    return timestamps
 
 
 def ensure_in_list(value: str, candidates: list[str], label: str) -> None:
