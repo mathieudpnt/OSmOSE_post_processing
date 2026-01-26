@@ -577,7 +577,7 @@ def timeline(
 
     ax.grid(color="k", linestyle="-", linewidth=0.2)
     ax.set_yticks(np.arange(0, len(labels), 1))
-    ax.set_yticklabels(labels[::-1])
+    ax.set_yticklabels(labels)
     ax.set_xlabel("Date")
     ax.set_xlim(
         df["start_datetime"].min().floor("1d"),

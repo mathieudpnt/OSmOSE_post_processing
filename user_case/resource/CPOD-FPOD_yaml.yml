@@ -6,7 +6,7 @@
 #  - Several csv files can be loaded at once, to perform this copy the template and paste it at the end of the present file.
 
 #########################################
-'U:\APLOSE_A1112.csv':
+'C:\Users\dupontma2\Downloads\data_aplose.csv':
   # timebin: detection time resolution in seconds
   'timebin_new': null
   # begin datetime: '2000-01-01T00:00:00+0000'
@@ -16,7 +16,7 @@
   # annotator: ['annotator1', 'annotator2']
   'annotator': null
   # annotation: ['annotation1', 'annotation2']
-  'annotation': "Commerson"
+  'annotation': "Marsouin"
   # box: boolean value, whether to keep strong annotations
   'box': False
   # timestamp file
@@ -29,3 +29,5 @@
   'f_max': null
   # score
   'score': null
+  # filename format
+  'filename_format': '%Y-%m-%dT%H:%M:%S.%f%z'
