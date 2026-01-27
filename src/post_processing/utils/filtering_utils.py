@@ -485,8 +485,8 @@ def _process_annotator_label_pair(
         time_vector[i] for i, detected in enumerate(detect_vec) if detected
     ]
     file_vector = [
-        # filename_vector[i] for i, detected in enumerate(detect_vec) if detected
-        filename_vector[i + 1] for i, detected in enumerate(detect_vec) if detected
+        filename_vector[i] for i, detected in enumerate(detect_vec) if detected
+        # filename_vector[i + 1] for i, detected in enumerate(detect_vec) if detected
     ]
 
     if not start_datetime:
