@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 import matplotlib.dates as mdates
@@ -30,6 +29,8 @@ from post_processing.utils.filtering_utils import find_delimiter
 from user_case.config import season_color, site_colors
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     import pytz
 
 logger = logging.getLogger(__name__)
@@ -66,26 +67,27 @@ def pod2aplose(
         An APLOSE formatted DataFrame.
 
     """
-    df["Datetime"] = [
+    fpod_start_dt = [
         tz.localize(entry)
         for entry in df["Datetime"]
     ]
 
-    fpod_start_dt = df["Datetime"]
-    fpod_end_dt = [entry + bin_size for entry in df["Datetime"]]
-
     data = {
         "dataset": [dataset_name] * len(df),
-        "filename": [strftime_osmose_format(entry) for entry in fpod_start_dt],
+        "filename": list(fpod_start_dt),
         "start_time": [0] * len(df),
         "end_time": [bin_size.total_seconds()] * len(df),
         "start_frequency": [0] * len(df),
         "end_frequency": [0] * len(df),
         "annotation": [annotation] * len(df),
         "annotator": [annotator] * len(df),
-        "start_datetime": [strftime_osmose_format(entry) for entry in fpod_start_dt],
-        "end_datetime": [strftime_osmose_format(entry) for entry in fpod_end_dt],
-        "is_box": [0] * len(df),
+        "start_datetime": [
+            strftime_osmose_format(entry.floor(bin_size)) for entry in fpod_start_dt
+        ],
+        "end_datetime": [
+            strftime_osmose_format(entry.ceil(bin_size)) for entry in fpod_start_dt
+        ],
+        "type": ["WEAK"] * len(df),
         "deploy": df["Deploy"].tolist(),
     }
 
@@ -140,58 +142,67 @@ def load_pod_folder(
     data = concat(all_data, ignore_index=True)
 
     if ext == "csv":
-        if "%TimeLost" in data.columns:
-            data_filtered = data[data["File"].notna()].copy()
-            data_filtered = data_filtered[data_filtered["Nall/m"].notna()]
-        else:
-            data_filtered = data[data["DPM"] > 0].copy()
-            data_filtered = data_filtered[data_filtered["Nall"].notna()]
-
-        data_filtered["Datetime"] = [
-            strptime_from_text(dt, "%d/%m/%Y %H:%M") for dt in data_filtered["ChunkEnd"]
-        ]
-        return data_filtered.sort_values(by=["Datetime"]).reset_index(drop=True)
-
+        return _process_csv_data(data)
     if ext == "txt":
-        pod_type = {Path(f).suffix.lower().strip(".p3") for f in data["File"]}
-
-        if len(pod_type) != 1:
-            msg = f"Multiple POD types found in {folder}: {pod_type}"
-            raise ValueError(msg)
-
-        pod_type = pod_type.pop()
-
-        data["Datetime"] = data.apply(
-            lambda row: get_feeding_buzz_datetime(row, pod=f"{pod_type}"),
-            axis=1,
-        )
-        return data.sort_values(by=["Datetime"]).reset_index(drop=True)
+        return _process_txt_data(data)
 
     msg = f"Could not load {ext} result folder"
     raise ValueError(msg)
 
 
-def get_feeding_buzz_datetime(row: Series, pod: str) -> Timestamp:
+def _process_csv_data(data: DataFrame) -> DataFrame:
+    """Process CSV data with filtering and datetime conversion."""
+    data_filtered = _filter_csv_data(data)
+    data_filtered["Datetime"] = [
+        strptime_from_text(dt, "%d/%m/%Y %H:%M")
+        for dt in data_filtered["ChunkEnd"]
+    ]
+    return data_filtered.sort_values(by=["Datetime"]).reset_index(drop=True)
+
+
+def _filter_csv_data(data: DataFrame) -> DataFrame:
+    """Filter CSV data based on available columns."""
+    if "%TimeLost" in data.columns:
+        data_filtered = data[data["File"].notna()].copy()
+        data_filtered = data_filtered[data_filtered["Nall/m"].notna()]
+    else:
+        data_filtered = data[data["DPM"] > 0].copy()
+        data_filtered = data_filtered[data_filtered["Nall"].notna()]
+
+    return data_filtered
+
+
+def _process_txt_data(data: DataFrame) -> DataFrame:
+    """Process TXT data with datetime conversion."""
+    data["Datetime"] = data.apply(get_feeding_buzz_datetime, axis=1)
+    return data.drop_duplicates().sort_values(by=["Datetime"]).reset_index(drop=True)
+
+
+def get_feeding_buzz_datetime(row: Series) -> Timestamp:
     """Convert feeding buzz timestamp into a standard Timestamp.
 
     The conversion method differs based on the POD type.
     """
-    if pod not in {"c", "f"}:
-        msg = f"Invalid POD type: {pod}"
-        raise ValueError(msg)
-
-    if pod == "f":
+    try:
         return (
-            to_datetime("1900-01-01") +
-            to_timedelta(row["Minute"], unit="min") +
-            to_timedelta(row["microsec"] / 1e6, unit="sec") -
-            to_timedelta(2, unit="D")
+            to_datetime("1900-01-01")
+            + to_timedelta(row["Minute"], unit="min")
+            + to_timedelta(row["microsec"] / 1e6, unit="sec")
+            - to_timedelta(2, unit="D")
         )
+    except (KeyError, TypeError, ValueError):
+        pass
 
-    return strptime_from_text(
-        f"{row["Minute"]}:{int(str(row["microsec"])[0]):02d}.{int(str(row["microsec"])[1:])}",
-        "%-d/%-m/%Y %H:%M:%S.%f",
-    )
+    try:
+        return strptime_from_text(
+            f"{row['Minute']}:{int(str(row['microsec'])[0]):02d}.{int(str(row['microsec'])[1:])}",
+            "%-d/%-m/%Y %H:%M:%S.%f",
+        )
+    except (KeyError, TypeError, ValueError):
+        pass
+
+    msg = "Could not convert feeding buzz timestamp."
+    raise ValueError(msg)
 
 
 def process_feeding_buzz(
@@ -200,7 +211,8 @@ def process_feeding_buzz(
 ) -> DataFrame:
     """Process a POD feeding buzz detection DataFrame.
 
-    Give the feeding buzz duration, depending on the studied species.
+    Give the feeding buzz duration, depending on the studied species
+    (`delphinid`, `porpoise` or `commerson`).
 
     Parameters
     ----------
@@ -215,8 +227,8 @@ def process_feeding_buzz(
         Containing all ICIs for every positive minute to click
 
     """
-    df["Datetime"] = df["Datetime"].dt.floor("min")
     df["ICI"] = df["Datetime"].diff()
+    df["Datetime"] = df["Datetime"].dt.floor("min")
 
     if species.lower() == "delphinid":  # Herzing et al., 2014
         df["Buzz"] = df["ICI"].between(
@@ -239,7 +251,7 @@ def process_feeding_buzz(
 
     df_buzz = df.groupby(["Datetime"])["Buzz"].sum().reset_index()
     df_buzz["Foraging"] = to_numeric(
-        df_buzz["Buzz"] != 0, downcast="integer"
+        df_buzz["Buzz"] != 0, downcast="integer",
     ).astype(int)
 
     return df_buzz
@@ -262,18 +274,18 @@ def process_timelost(df: DataFrame, threshold: int = 0) -> DataFrame:
     %TimeLost DataFrame.
 
     """
-    if threshold not in range(0, 100):
-        msg = "Threshold must be an integer between 0 and 100."
+    if threshold not in range(101):
+        msg = "Threshold must integer between 0 and 100."
         raise ValueError(msg)
 
     df["Datetime"] = df["Datetime"].dt.floor("h")
     cols_to_drop = [
         col for col in df.columns if col not in {
-            "File", "Datetime", "Temp", "Angle", "%TimeLost", "Deploy"
+            "File", "Datetime", "Temp", "Angle", "%TimeLost", "Deploy",
         }
     ]
-    return df[df["%TimeLost"] >= threshold].drop(
-        columns=cols_to_drop
+    return df[df["%TimeLost"] <= threshold].drop(
+        columns=cols_to_drop,
     ).sort_values(["Datetime"]).reset_index(drop=True)
 
 
@@ -313,7 +325,7 @@ def percent_calc(
     data: DataFrame,
     time_unit: str | None = None,
 ) -> DataFrame:
-    """Calculate percentage of clicks, feeding buzzes and positive hours to detection.
+    """Calculate the percentage of clicks, feeding buzzes and positive hours to detection.
 
     Computed on the entire effort and for every site.
 
@@ -358,7 +370,7 @@ def percent_calc(
 
 
 def site_percent(df: DataFrame, metric: str) -> None:
-    """Plot a graph with percentage of minutes positive to detection for every site.
+    """Plot a graph with the percentage of minutes positive to detection for every site.
 
     Parameters
     ----------

@@ -239,6 +239,7 @@ def scatter(
     season = kwargs.get("season", False)
     coordinates = kwargs.get("coordinates", False)
     effort = kwargs.get("effort", False)
+    legend = kwargs.get("legend", False)
 
     _prepare_timeline_plot(
         df=df,
@@ -282,6 +283,7 @@ def scatter(
         shade_no_effort(
             ax=ax,
             observed=effort,
+            legend=legend,
         )
 
 
