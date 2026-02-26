@@ -498,3 +498,13 @@ def timedelta_to_str(td: Timedelta) -> str:
     if seconds % 60 == 0:
         return f"{seconds // 60}min"
     return f"{seconds}s"
+
+
+def _average_datetime(ts: list[Timestamp]) -> Timestamp:
+    """Average a list of Timestamps."""
+    tz = ts[0].tzinfo
+    return (
+        to_datetime(sum([t.timestamp() for t in ts]) / len(ts), unit="s")
+        .tz_localize("utc")
+        .tz_convert(tz)
+    )

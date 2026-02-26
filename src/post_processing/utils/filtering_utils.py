@@ -21,7 +21,8 @@ from pandas import (
     to_datetime,
 )
 
-from post_processing.utils.core_utils import get_count
+from post_processing.dataclass.detection import Detection
+from post_processing.utils.core_utils import _average_datetime, get_count
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -797,3 +798,94 @@ def intersection_or_union(df: DataFrame, user_sel: str) -> DataFrame:
     result = result.assign(dataset=dataset_name)
 
     return result
+
+
+def get_average_box(det: Detection | list[Detection]) -> dict[str, Timestamp | float]:
+    """Calculate the average bounding box from a list of annotation boxes."""
+    if isinstance(det, Detection):
+        det = [det]
+    start_dt, end_dt, start, end, f_min, f_max = [], [], [], [], [], []
+    for d in det:
+        start_dt.append(d.start_datetime)
+        end_dt.append(d.end_datetime)
+        start.append(d.start_time)
+        end.append(d.end_time)
+        f_min.append(d.start_frequency)
+        f_max.append(d.end_frequency)
+
+    return {
+        "start_datetime": _average_datetime(start_dt),
+        "end_datetime": _average_datetime(end_dt),
+        "start_time": sum(start) / len(start),
+        "end_time": sum(end) / len(end),
+        "start_frequency": sum(f_min) / len(f_min),
+        "end_frequency": sum(f_max) / len(f_max),
+    }
+
+
+def get_mean_det(dets: list[Detection]) -> Detection:
+    """Calculate the average detection from a list of Detection objects."""
+    avg_box = get_average_box(dets)
+    annotations = sorted({det.annotation for det in dets})
+    annotators = sorted({det.annotator for det in dets})
+    return Detection(
+        dataset=dets[0].dataset,
+        filename=dets[0].filename,
+        start_datetime=avg_box["start_datetime"],
+        end_datetime=avg_box["end_datetime"],
+        start_time=avg_box["start_time"],
+        end_time=avg_box["end_time"],
+        start_frequency=avg_box["start_frequency"],
+        end_frequency=avg_box["end_frequency"],
+        annotation="avg " + " + ".join(annotations),
+        annotator="avg " + " + ".join(annotators),
+        type="BOX",
+        annotator_expertise=None,
+    )
+
+
+def get_overlap(var1: tuple[float, float], var2: tuple[float, float]) -> float:
+    left = max(var1[0], var2[0])
+    right = min(var1[1], var2[1])
+    return max(0.0, right - left)
+
+
+def get_time_overlap(det1: Detection, det2: Detection) -> float:
+    return get_overlap(
+        (det1.start_time, det1.end_time),
+        (det2.start_time, det2.end_time),
+    )
+
+
+def get_freq_overlap(det1: Detection, det2: Detection) -> float:
+    return get_overlap(
+        (det1.start_frequency, det1.end_frequency),
+        (det2.start_frequency, det2.end_frequency),
+    )
+
+
+def _box_area(det: Detection) -> float:
+    width = max(0.0, det.end_time - det.start_time)
+    height = max(0.0, det.end_frequency - det.start_frequency)
+    return width * height
+
+
+def iou_2d(det1: Detection, det2: Detection) -> float:
+    """Calculate IoU for 2D time-frequency boxes."""
+    time_overlap = get_time_overlap(det1, det2)
+    freq_overlap = get_freq_overlap(det1, det2)
+
+    if time_overlap == 0 or freq_overlap == 0:
+        return 0.0
+
+    intersection = time_overlap * freq_overlap
+
+    det1_area = _box_area(det1)
+    det2_area = _box_area(det2)
+
+    union = det1_area + det2_area - intersection
+
+    if union <= 0:
+        return 0.0
+
+    return intersection / union
