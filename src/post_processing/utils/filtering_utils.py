@@ -835,6 +835,7 @@ def get_mean_det(dets: list[Detection]) -> Detection:
         end_datetime=avg_box["end_datetime"],
         start_time=avg_box["start_time"],
         end_time=avg_box["end_time"],
+        duration=avg_box["end_datetime"] - avg_box["start_datetime"],
         start_frequency=avg_box["start_frequency"],
         end_frequency=avg_box["end_frequency"],
         annotation="avg " + " + ".join(annotations),
@@ -889,3 +890,30 @@ def iou_2d(det1: Detection, det2: Detection) -> float:
         return 0.0
 
     return intersection / union
+
+
+def group_by_cluster(
+    dets: list[Detection], iou_threshold: float = 0.0
+) -> list[list[Detection]]:
+    """Group a list of Detection objects into clusters based on IoU.
+
+    Two detections are in the same cluster if their time IoU > iou_threshold.
+    Uses union-find to transitively merge overlapping detections.
+
+    iou_threshold: minimum IoU to consider two detections overlapping
+
+    Returns:
+        List of clusters, each cluster being a list of Detection objects.
+
+    """
+    clusters = []
+    for det in dets:
+        overlapping = [
+            c for c in clusters if any(iou_2d(det, d) > iou_threshold for d in c)
+        ]
+        if not overlapping:
+            clusters.append([det])
+        else:
+            merged = [det] + [d for c in overlapping for d in c]
+            clusters = [c for c in clusters if c not in overlapping] + [merged]
+    return clusters
