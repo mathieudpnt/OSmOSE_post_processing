@@ -22,6 +22,7 @@ class Detection:
     annotator: str
     annotator_expertise: str | None = None
     type: str | None = None
+    score: float | None = None
 
     def __post_init__(self) -> None:
         """Sanity checks."""
@@ -60,6 +61,7 @@ class Detection:
             annotator=row["annotator"],
             annotator_expertise=row.get("annotator_expertise", None),
             type=row["type"],
+            score=row.get("score", None),
         )
 
     @classmethod
