@@ -5,7 +5,7 @@ from pathlib import Path
 
 from pandas import Timedelta, Timestamp
 
-from utils.filtering import read_dataframe, get_max_time
+from disclose.utils.filtering import read_dataframe, get_max_time
 
 
 @dataclass(slots=True)

@@ -2,7 +2,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-from osekit.core_api.audio_data import AudioData
+from osekit.core.audio_data import AudioData
 from pandas import DataFrame, Timestamp
 from pypamguard.chunks.generics import GenericModule
 

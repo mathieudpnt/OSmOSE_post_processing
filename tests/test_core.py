@@ -447,7 +447,7 @@ def test_add_recording_period_valid() -> None:
     start = Timestamp("2025-01-01T00:00:00+00:00")
     stop = Timestamp("2025-01-02T00:00:00+00:00")
 
-    ts = date_range(start=start, end=stop, freq="H", tz="UTC")
+    ts = date_range(start=start, end=stop, freq="h", tz="UTC")
     values = list(range(len(ts)))
     ax.plot(ts, values)
 
@@ -478,7 +478,7 @@ def test_set_bar_height_valid() -> None:
     start = Timestamp("2025-01-01T00:00:00+00:00")
     stop = Timestamp("2025-01-02T00:00:00+00:00")
 
-    ts = date_range(start=start, end=stop, freq="H", tz="UTC")
+    ts = date_range(start=start, end=stop, freq="h", tz="UTC")
     values = list(range(len(ts)))
     ax.plot(ts, values)
 
