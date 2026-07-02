@@ -663,7 +663,7 @@ def load_detections(config: DataAploseConfig) -> DataFrame:
         df = filter_strong_detection(df)
     df = filter_by_time(df, config.start_datetime, config.end_datetime)
     df = filter_by_annotator(df, annotator=config.annotator)
-    df = filter_by_label(df, label=config.annotation)
+    df = filter_by_label(df, label=config.label)
     df = filter_by_freq(df, config.min_frequency, config.max_frequency)
     df = filter_by_confidence(df, config.confidence)
     filename_ts = get_filename_timestamps(df, config.filename_format)
@@ -672,10 +672,6 @@ def load_detections(config: DataAploseConfig) -> DataFrame:
         timebin_new=config.timebin_new,
         timestamp_audio=filename_ts,
     )
-
-    annotators = get_annotators(df)
-    if len(annotators) > 1 and config.user_selection in {"union", "intersection"}:
-        df = intersection_or_union(df, user_sel=config.user_selection)
 
     return df.sort_values(by=["start_datetime", "end_datetime"]).reset_index(drop=True)
 

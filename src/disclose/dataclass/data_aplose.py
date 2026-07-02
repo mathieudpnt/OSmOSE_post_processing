@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 from typing import TYPE_CHECKING
+from dataclasses import dataclass, field
 
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
@@ -90,61 +91,52 @@ def _get_locator_from_offset(
     raise ValueError(msg)
 
 
+APLOSE_COLUMNS = [
+    "dataset",
+    "filename",
+    "start_datetime",
+    "end_datetime",
+    "start_time",
+    "end_time",
+    "annotation",
+    "annotator",
+]
+
+
+def empty_dataframe() -> DataFrame:
+    return DataFrame(columns=Series(APLOSE_COLUMNS))
+
+
+@dataclass
 class DataAplose:
     """A class to handle APLOSE formatted data."""
 
-    def __init__(
-        self,
-        df: DataFrame | None = None,
-        config: DataAploseConfig | None = None,
-    ) -> None:
-        """Initialize a DataAplose object from a DataFrame.
+    df: DataFrame = field(default_factory=empty_dataframe)
+    config: DataAploseConfig = field(default_factory=DataAploseConfig.empty)
 
-        Parameters
-        ----------
-        df: DataFrame
-            APLOSE-formatted DataFrame
+    lat: float | None = None
+    lon: float | None = None
 
-        """
-        self.config: DataAploseConfig = config
+    _start_datetime: Timestamp | None = field(default=None, init=False, repr=False)
+    _end_datetime: Timestamp | None = field(default=None, init=False, repr=False)
+    _annotator: list[str] | None = field(default=None, init=False, repr=False)
+    _label: list[str] | None = field(default=None, init=False, repr=False)
+    _dataset: list[str] | None = field(default=None, init=False, repr=False)
 
-        self.df = df.sort_values(
-            by=[
-                "start_datetime",
-                "end_datetime",
-                "annotator",
-                "annotation",
-            ],
-        ).reset_index(drop=True)
-        self.annotators: list | None = (
-            sorted(set(self.df["annotator"])) if df is not None else None
-        )
-        self.labels: list | None = (
-            sorted(set(self.df["annotation"])) if df is not None else None
-        )
-        self.start_datetime: Timestamp | None = (
-            config.start_datetime
-            if config
-            else min(self.df["start_datetime"], default=None)
-        )
-        self.end_datetime: Timestamp | None = (
-            config.end_datetime
-            if config
-            else max(self.df["end_datetime"], default=None)
-        )
-        self.dataset: list | None = (
-            sorted(set(self.df["dataset"])) if df is not None else None
-        )
-        self.lat: float | None = None
-        self.lon: float | None = None
+    def __post_init__(self) -> None:
+        self._start_datetime: Timestamp | None = None
+        self._end_datetime: Timestamp | None = None
+        self._annotator: str | list[str] | None = None
+        self._label: str | list[str] | None = None
+        self._dataset: str | list[str] | None = None
 
     def __str__(self) -> str:
         """Return string representation of DataAplose object."""
         return (
             f"start_datetime: {self.start_datetime}\n"
             f"end_datetime: {self.end_datetime}\n"
-            f"annotators: {self.annotators}\n"
-            f"labels: {self.labels}\n"
+            f"annotator: {self.annotator}\n"
+            f"label: {self.label}\n"
             f"dataset: {self.dataset}"
         )
 
@@ -153,27 +145,58 @@ class DataAplose:
         return self.__str__()
 
     @property
-    def shape(self) -> tuple[int, int]:
-        """Shape of DataFrame."""
-        return self.df.shape
+    def annotator(self) -> str | list[str]:
+        if self.df.empty:
+            return []
+        return get_annotators(self.df)
+
+    @annotator.setter
+    def annotator(self, value: list[str]) -> None:
+        self._annotator = value
 
     @property
-    def lat(self) -> float:
-        """Return latitude."""
-        return self._lat
+    def label(self) -> str | list[str]:
+        if self.df.empty:
+            return []
+        return get_labels(self.df)
 
-    @lat.setter
-    def lat(self, value: float) -> None:
-        self._lat = value
+    @label.setter
+    def label(self, value: str | list[str]) -> None:
+        self._label = value
 
     @property
-    def lon(self) -> float:
-        """Return longitude."""
-        return self._lon
+    def dataset(self) -> str | list[str]:
+        if self.df.empty:
+            return []
+        return get_dataset(self.df)
 
-    @lon.setter
-    def lon(self, value: float) -> None:
-        self._lon = value
+    @dataset.setter
+    def dataset(self, value: str | list[str]) -> None:
+        self._dataset = value
+
+    @property
+    def start_datetime(self):
+        if self._start_datetime is not None:
+            return self._start_datetime
+        if self.config.start_datetime:
+            return min(self.config.start_datetime, self.df["start_datetime"].min())
+        return self.df["start_datetime"].min()
+
+    @start_datetime.setter
+    def start_datetime(self, value: Timestamp | None = None) -> None:
+        self._start_datetime = value
+
+    @property
+    def end_datetime(self):
+        if self._end_datetime is not None:
+            return self._end_datetime
+        if self.config.end_datetime:
+            return max(self.config.end_datetime, self.df["end_datetime"].max())
+        return self.df["end_datetime"].max()
+
+    @end_datetime.setter
+    def end_datetime(self, value: Timestamp | None = None) -> None:
+        self._end_datetime = value
 
     @property
     def coordinates(self) -> tuple[float, float]:
@@ -187,118 +210,78 @@ class DataAplose:
             raise ValueError(msg)
         self.lat, self.lon = value
 
-    @property
-    def config(self) -> DataAploseConfig:
-        """Return the config file."""
-        return self._config
+    @classmethod
+    def from_config(cls, config: DataAploseConfig):
+        df = load_detections(config)
 
-    @config.setter
-    def config(self, value: DataAploseConfig) -> None:
-        self._config = value
+        obj = cls(df=df, config=config)
 
-    def __getitem__(self, item: int) -> Series:
-        """Return the row from the underlying DataFrame."""
-        return self.df.iloc[item]
+        obj.reshape(
+            config.start_datetime,
+            config.end_datetime,
+        )
+
+        return obj
 
     @classmethod
     def from_dict(
-        cls, config: dict | list[dict], *, concat: bool = True
+        cls,
+        config: dict | list[dict],
+        *,
+        merge: bool = True,
     ) -> DataAplose | list[DataAplose]:
-        """Create a DataAplose object from a configuration dictionary.
+        configs = DataAploseConfig.from_dict(config)
 
-        Parameters
-        ----------
-        config : dict | list[dict]
-            Configuration dictionary or list of configuration dictionaries.
+        if isinstance(configs, DataAploseConfig):
+            return cls.from_config(configs)
 
-            Required keys:
-                detection_file : Path
-                filename_format : str
+        datasets = [cls.from_config(conf) for conf in configs]
 
-            Optional keys:
-                timebin_new : Timedelta | None
-                start_datetime : Timestamp | None
-                end_datetime : Timestamp | None
-                annotator : str | list[str] | None
-                annotation : str | list[str] | None
-                type : str | None
-                recording_file : Path | None
-                user_selection : str = "all"
-                min_frequency : float | None
-                max_frequency : float | None
-                confidence : float | None
+        if merge:
+            return cls.merge(datasets)
 
-        concat : bool, default=True
-            If True, returns a single concatenated DataAplose object.
-            If False, returns a list of DataAplose objects.
-
-        Returns
-        -------
-        DataAplose or list[DataAplose]
-            The constructed object(s).
-
-        """
-        conf_list = DataAploseConfig.from_dict(config=config, concat=False)
-
-        cls_list = [cls(load_detections(conf)) for conf in conf_list]
-        cls.config = cls_list
-
-        for obj, conf in zip(cls_list, conf_list, strict=True):
-            cls.reshape(obj, conf.start_datetime, conf.end_datetime)
-            obj.config = conf
-
-        if len(cls_list) == 1:
-            return cls_list[0]
-
-        if concat:
-            return cls.concatenate(cls_list)
-        return cls_list
+        return datasets
 
     @classmethod
-    def concatenate(
+    def merge(
         cls,
-        data_list: list[DataAplose],
+        datasets: list[DataAplose],
     ) -> DataAplose:
-        """Concatenate a list of DataAplose objects into one."""
-        df_concat = (
+        if not datasets:
+            return cls()
+
+        df = (
             concat(
-                [data.df for data in data_list],
+                [d.df for d in datasets],
                 ignore_index=True,
             )
-            .sort_values(
-                by=[
-                    "start_datetime",
-                    "end_datetime",
-                    "annotator",
-                    "annotation",
-                ],
-            )
+            .sort_values([
+                "start_datetime",
+                "end_datetime",
+                "annotator",
+                "annotation",
+            ])
             .reset_index(drop=True)
         )
 
-        # messy, need improvement
-        for data in data_list:
-            if data.config:
-                if not data.config.start_datetime:
-                    data.config.start_datetime = min(df_concat["start_datetime"])
-                if not data.config.end_datetime:
-                    data.config.end_datetime = max(df_concat["end_datetime"])
+        config = DataAploseConfig.merge([d.config for d in datasets])
 
-        config = DataAploseConfig.concat([data.config for data in data_list])
+        obj = cls(df=df, config=config)
 
-        obj = cls(df=df_concat, config=config)
-
-        if isinstance(get_timezone(df_concat), list):
-            obj.change_tz("utc")
+        if isinstance(get_timezone(df), list):
+            obj.change_tz("UTC")
             msg = (
                 "Several timezones found in DataFrame,"
                 " all timestamps are converted to UTC."
             )
             logging.info(msg)
+
         return obj
 
     def reshape(
-        self, start_datetime: Timestamp = None, end_datetime: Timestamp = None
+        self,
+        start_datetime: Timestamp | None = None,
+        end_datetime: Timestamp | None = None,
     ) -> DataAplose:
         """Reshape the DataAplose with a new beginning and/or end."""
         if not any([start_datetime, end_datetime]):
@@ -306,11 +289,22 @@ class DataAplose:
             logging.debug(msg)
             return self
 
+        if start_datetime is None:
+            start_datetime = self.df["start_datetime"].min()
+
+        if end_datetime is None:
+            end_datetime = self.df["end_datetime"].max()
+
+        self.start_datetime = start_datetime
+        self.end_datetime = end_datetime
+
         tz = get_timezone(self.df)
+
         if start_datetime:
             self.start_datetime = start_datetime
             if not start_datetime.tz:
                 self.start_datetime = start_datetime.tz_localize(tz)
+
         if end_datetime:
             self.end_datetime = end_datetime
             if not end_datetime.tz:
@@ -329,8 +323,8 @@ class DataAplose:
             return self
 
         self.dataset = get_dataset(self.df)
-        self.labels = get_labels(self.df)
-        self.annotators = get_annotators(self.df)
+        self.label = get_labels(self.df)
+        self.annotator = get_annotators(self.df)
 
         return self
 
@@ -356,6 +350,7 @@ class DataAplose:
         self.df["end_datetime"] = [
             elem.tz_convert(tz) for elem in self.df["end_datetime"]
         ]
+
         self.start_datetime = self.start_datetime.tz_convert(tz)
         self.end_datetime = self.end_datetime.tz_convert(tz)
 
@@ -397,10 +392,10 @@ class DataAplose:
             raise ValueError(msg)
 
         for ant, lbl in zip(annotator, label, strict=False):
-            if ant not in self.annotators:
+            if ant not in self.annotator:
                 msg = f'Annotator "{ant}" not in APLOSE DataFrame'
                 raise ValueError(msg)
-            if lbl not in self.labels:
+            if lbl not in self.label:
                 msg = f'Label "{lbl}" not in APLOSE DataFrame'
                 raise ValueError(msg)
             if self.df[
@@ -453,7 +448,7 @@ class DataAplose:
 
         return ax
 
-    def overview(self, annotator: list[str] | None = None) -> None:
+    def overview(self, annotator: list[str]) -> None:
         """Overview of an APLOSE formatted DataFrame."""
         overview(self.df, annotator)
 

@@ -5,10 +5,10 @@ from pathlib import Path
 
 from pandas import Timedelta, Timestamp
 
-from disclose.utils.filtering import read_dataframe, get_max_time
+from utils.filtering import read_dataframe, get_max_time
 
 
-@dataclass(frozen=False)
+@dataclass(slots=True)
 class DataAploseConfig:
     """Configuration object for loading and filtering APLOSE-formatted detection data.
 
@@ -24,14 +24,12 @@ class DataAploseConfig:
         End datetime used to filter detections.
     annotator : str | list[str] | None
         Filter for one or multiple annotators.
-    annotation : str | list[str] | None
+    label : str | list[str] | None
         Filter for one or multiple annotation labels.
     type : str | None
         Optional detection type filter.
     recording_file : Path | None
         Optional external recording period file.
-    user_selection : str
-        Strategy for combining multiple filters. Default is "all".
     min_frequency : float | None
         Minimum frequency threshold for filtering detections.
     max_frequency : float | None
@@ -46,73 +44,74 @@ class DataAploseConfig:
 
     """
 
-    detection_file: Path
-    timebin_new: Timedelta | None = None
+    detection_file: Path | None = None
+    recording_file: Path | None = None
+    filename_format: str | None = None
     start_datetime: Timestamp | None = None
     end_datetime: Timestamp | None = None
     annotator: str | list[str] | None = None
-    annotation: str | list[str] | None = None
+    label: str | list[str] | None = None
     type: str | None = None
-    recording_file: Path | None = None
-    user_selection: str = "all"
     min_frequency: float | None = None
     max_frequency: float | None = None
     confidence: float | None = None
-    filename_format: str | None = None
+    timebin_new: Timedelta | None = None
     timebin_origin: Timedelta | None = None
 
     def __post_init__(self) -> None:
         """Compute derived configuration fields after initialization."""
-        if self.timebin_origin is None:
+        if self.detection_file is not None and self.timebin_origin is None:
             df = read_dataframe(self.detection_file)
             object.__setattr__(self, "timebin_origin", get_max_time(df))
 
     @classmethod
-    def from_dict(
-        cls, config: dict | list[dict], concat: bool = True
-    ) -> DataAploseConfig | list[DataAploseConfig]:
-        """Create a DataAploseConfig object from a dictionary."""
-        if isinstance(config, dict):
-            config = [config]
-
-        conf_list = [cls(**c) for c in config]
-
-        if concat:
-            return cls.concat(conf_list)
-        else:
-            return conf_list
+    def empty(cls) -> DataAploseConfig:
+        return cls()
 
     @classmethod
-    def concat(
-        cls, config_list: list[DataAploseConfig | None]
-    ) -> DataAploseConfig | None:
-        """Concatenate configuration instances."""
-        if not any(config_list):
-            return None
+    def from_dict(
+        cls,
+        config: dict | list[dict],
+    ) -> DataAploseConfig | list[DataAploseConfig]:
+        """Build one or more configuration objects from dictionaries."""
 
-        vars = list(DataAploseConfig.__dataclass_fields__.keys())
+        if isinstance(config, dict):
+            return cls(**config)
 
-        config_cont = {}
+        return [cls(**c) for c in config]
 
-        for var in vars:
+    @classmethod
+    def merge(cls, configs: list[DataAploseConfig]) -> DataAploseConfig:
+        """Merge several configurations."""
+
+        if not configs:
+            return cls.empty()
+
+        merged = {}
+
+        for field in cls.__dataclass_fields__:
             values = [
-                config.__getattribute__(var)
-                for config in config_list
-                if config.__getattribute__(var) is not None
+                getattr(conf, field)
+                for conf in configs
+                if getattr(conf, field) is not None
             ]
 
-            unique_values = sorted(set(values))
+            if not values:
+                merged[field] = None
+                continue
 
-            if len(unique_values) == 1:
-                config_cont[var] = unique_values[0]
-            elif len(unique_values) > 1:
-                if var == "start_datetime":
-                    config_cont[var] = min(unique_values)
-                elif var == "end_datetime":
-                    config_cont[var] = max(unique_values)
-                else:
-                    config_cont[var] = unique_values
+            unique = sorted(set(values))
+
+            if len(unique) == 1:
+                merged[field] = unique[0]
+
+            elif field == "start_datetime":
+                merged[field] = min(unique)
+
+            elif field == "end_datetime":
+                merged[field] = max(unique)
+
             else:
-                config_cont[var] = None
+                merged[field] = unique
 
-        return cls(**config_cont)
+        return cls(**merged)
