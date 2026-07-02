@@ -159,7 +159,7 @@ def filter_by_label(
     Parameters
     ----------
     df : DataFrame
-        APLOSE-formatted DataFrame containing an 'annotation' column.
+        APLOSE-formatted DataFrame containing an 'label' column.
     label : str or list of str
         Single label or list of labels to filter by.
 
@@ -176,12 +176,12 @@ def filter_by_label(
 
     if isinstance(label, str):
         ensure_in_list(label, list_labels, "label")
-        return df[df["annotation"] == label]
+        return df[df["label"] == label]
 
     invalid = [lbl for lbl in label if lbl not in list_labels]
     ensure_no_invalid(invalid, "labels")
 
-    return df.loc[df["annotation"].isin(label)]
+    return df.loc[df["label"].isin(label)]
 
 
 def filter_by_freq(
@@ -269,6 +269,7 @@ def read_dataframe(file: Path, rows: int | None = None) -> DataFrame:
         columns={
             "start_frequency": "max_frequency",
             "end_frequency": "min_frequency",
+            "annotation": "label",
             "is_box": "type",
             "score": "confidence",
         }
@@ -276,7 +277,7 @@ def read_dataframe(file: Path, rows: int | None = None) -> DataFrame:
 
     return (
         df.drop_duplicates()
-        .dropna(subset=["annotation"])
+        .dropna(subset=["label"])
         .sort_values(by=["start_datetime", "end_datetime"])
         .reset_index(drop=True)
     )
@@ -294,7 +295,7 @@ def get_labels(df: DataFrame) -> str | list[str]:
     """Return the label list of APLOSE DataFrame."""
     if df.empty:
         return None
-    labels = sorted(set(df["annotation"]))
+    labels = sorted(set(df["label"]))
     return labels if len(labels) > 1 else labels[0]
 
 
@@ -445,7 +446,7 @@ def _create_result_dataframe(
     label: str,
     annotator: str,
 ) -> DataFrame:
-    """Create result DataFrame for one annotator-label combination."""
+    """Create a result DataFrame for one annotator-label combination."""
     return DataFrame({
         "dataset": [dataset] * len(file_vector),
         "filename": file_vector,
@@ -453,7 +454,7 @@ def _create_result_dataframe(
         "end_time": [timebin_new.total_seconds()] * len(file_vector),
         "min_frequency": [0] * len(file_vector),
         "max_frequency": [max_freq] * len(file_vector),
-        "annotation": [label] * len(file_vector),
+        "label": [label] * len(file_vector),
         "annotator": [annotator] * len(file_vector),
         "start_datetime": start_datetime,
         "end_datetime": [t + timebin_new for t in start_datetime],
@@ -483,7 +484,7 @@ def _process_annotator_label_pair(
     dataset: str,
 ) -> DataFrame | None:
     """Process detections for one annotator-label combination."""
-    df_subset = df[(df["annotator"] == annotator) & (df["annotation"] == label)]
+    df_subset = df[(df["annotator"] == annotator) & (df["label"] == label)]
 
     if df_subset.empty:
         return None
@@ -590,7 +591,7 @@ def reshape_timebin(
 
     return (
         concat(results)
-        .sort_values(by=["start_datetime", "end_datetime", "annotator", "annotation"])
+        .sort_values(by=["start_datetime", "end_datetime", "annotator", "label"])
         .reset_index(drop=True)
     )
 
@@ -717,12 +718,12 @@ def add_weak_detection(
     for ant in annotators:
         for lbl in labels:
             filenames = (
-                df[(df["annotator"] == ant) & (df["annotation"] == lbl)]["filename"]
+                df[(df["annotator"] == ant) & (df["label"] == lbl)]["filename"]
                 .drop_duplicates()
                 .tolist()
             )
             for f in filenames:
-                test = df[(df["filename"] == f) & (df["annotation"] == lbl)]["type"]
+                test = df[(df["filename"] == f) & (df["label"] == lbl)]["type"]
                 if test.any():
                     start_datetime = strptime_from_text(
                         text=f,
@@ -741,7 +742,7 @@ def add_weak_detection(
                         "end_time": max_time.total_seconds(),
                         "min_frequency": 0,
                         "max_frequency": max_freq,
-                        "annotation": lbl,
+                        "label": lbl,
                         "annotator": ant,
                         "start_datetime": strftime_osmose_format(start_datetime),
                         "end_datetime": strftime_osmose_format(end_datetime),
@@ -803,7 +804,7 @@ def intersection_or_union(df: DataFrame, user_sel: str) -> DataFrame:
 
     result = result.assign(annotator=annotator_name)
     result = result.assign(end_frequency=end_frequency)
-    result = result.assign(annotation=label_name)
+    result = result.assign(label=label_name)
     result = result.assign(dataset=dataset_name)
 
     return result
