@@ -145,9 +145,9 @@ class DataAplose:
         return self.__str__()
 
     @property
-    def annotator(self) -> str | list[str]:
+    def annotator(self) -> str | list[str] | None:
         if self.df.empty:
-            return []
+            return None
         return get_annotators(self.df)
 
     @annotator.setter
@@ -155,9 +155,9 @@ class DataAplose:
         self._annotator = value
 
     @property
-    def label(self) -> str | list[str]:
+    def label(self) -> str | list[str] | None:
         if self.df.empty:
-            return []
+            return None
         return get_labels(self.df)
 
     @label.setter
@@ -165,9 +165,9 @@ class DataAplose:
         self._label = value
 
     @property
-    def dataset(self) -> str | list[str]:
+    def dataset(self) -> str | list[str] | None:
         if self.df.empty:
-            return []
+            return None
         return get_dataset(self.df)
 
     @dataset.setter
@@ -180,7 +180,9 @@ class DataAplose:
             return self._start_datetime
         if self.config.start_datetime:
             return min(self.config.start_datetime, self.df["start_datetime"].min())
-        return self.df["start_datetime"].min()
+        if not self.df.empty:
+            return self.df["start_datetime"].min()
+        return None
 
     @start_datetime.setter
     def start_datetime(self, value: Timestamp | None = None) -> None:
@@ -192,14 +194,16 @@ class DataAplose:
             return self._end_datetime
         if self.config.end_datetime:
             return max(self.config.end_datetime, self.df["end_datetime"].max())
-        return self.df["end_datetime"].max()
+        if not self.df.empty:
+            return self.df["end_datetime"].max()
+        return None
 
     @end_datetime.setter
     def end_datetime(self, value: Timestamp | None = None) -> None:
         self._end_datetime = value
 
     @property
-    def coordinates(self) -> tuple[float, float]:
+    def coordinates(self) -> tuple[float | None, float | None]:
         """Coordinates of the audio data."""
         return self.lat, self.lon
 
@@ -454,8 +458,8 @@ class DataAplose:
 
     def detection_perf(
         self,
-        annotators: tuple[str, str] | list[str],
-        labels: tuple[str, str] | list[str],
+        annotator: tuple[str, str] | list[str],
+        label: tuple[str, str] | list[str],
     ) -> tuple[float, float, float]:
         """Compute performance metrics for detection.
 
@@ -463,10 +467,10 @@ class DataAplose:
 
         Parameters
         ----------
-        annotators: [str, str]
+        annotator: [str, str]
             List of the two annotators to compare.
             The first annotator is chosen as a reference.
-        labels: [str, str]
+        label: [str, str]
             List of the two labels to compare.
             The first label is chosen as a reference.
 
@@ -478,14 +482,14 @@ class DataAplose:
 
         """
         df_filtered = self.filter_df(
-            annotators,
-            labels,
+            annotator,
+            label,
         )
-        if isinstance(annotators, str):
-            annotators = [annotators]
-        if isinstance(labels, str):
-            labels = [labels]
-        ref = (annotators[0], labels[0])
+        if isinstance(annotator, str):
+            annotator = [annotator]
+        if isinstance(label, str):
+            label = [label]
+        ref = (annotator[0], label[0])
 
         if len(set(df_filtered["end_time"])) > 1:
             msg = "Multiple time bins detected in DataFrame."
@@ -564,7 +568,7 @@ class DataAplose:
                 raise ValueError(msg)
             df_counts = get_count(df_filtered, bin_size)
             detection_size = Timedelta(max(df_filtered["end_time"]), "s")
-            return histo(
+            histo(
                 df=df_counts,
                 ax=ax,
                 bin_size=bin_size,
@@ -575,10 +579,11 @@ class DataAplose:
                 effort=effort,
                 coordinates=(self.lat, self.lon),
             )
+            return
 
         if mode == "heatmap":
             ax.set_xlim(self.start_datetime, self.end_datetime)
-            return heatmap(
+            heatmap(
                 df=df_filtered,
                 ax=ax,
                 bin_size=bin_size,
@@ -587,10 +592,11 @@ class DataAplose:
                 season=season,
                 coordinates=self.coordinates,
             )
+            return
 
         if mode == "scatter":
             ax.set_xlim(self.start_datetime, self.end_datetime)
-            return scatter(
+            scatter(
                 df=df_filtered,
                 ax=ax,
                 time_range=dates,
@@ -599,13 +605,15 @@ class DataAplose:
                 coordinates=self.coordinates,
                 effort=effort,
             )
+            return
 
         if mode == "agreement":
             if not bin_size:
                 msg = "'bin_size' missing for agreement plot."
                 raise ValueError(msg)
             df_counts = get_count(df_filtered, bin_size)
-            return plot_annotator_agreement(df=df_counts, bin_size=bin_size, ax=ax)
+            plot_annotator_agreement(df=df_counts, bin_size=bin_size, ax=ax)
+            return
 
         if mode == "timeline":
             ax.set_xlim(self.start_datetime, self.end_datetime)
@@ -614,7 +622,8 @@ class DataAplose:
                 annotator,
                 label,
             )
-            return timeline(df=df_filtered, ax=ax, color=color)
+            timeline(df=df_filtered, ax=ax, color=color)
+            return
 
         msg = f"Unsupported plot mode: {mode}"
         raise ValueError(msg)

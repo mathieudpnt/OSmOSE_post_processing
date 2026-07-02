@@ -16,6 +16,18 @@ from disclose.dataclass.data_aplose import DataAplose, _get_locator_from_offset
 from disclose.utils.filtering import get_timezone
 
 
+def test_empty_DataAplose() -> None:
+    data = DataAplose()
+    assert data.df.empty
+    assert data.annotator is None
+    assert data.label is None
+    assert data.dataset is None
+    assert data.start_datetime is None
+    assert data.end_datetime is None
+    assert data.lat is None
+    assert data.lon is None
+
+
 def test_data_aplose_str(sample_df: DataFrame) -> None:
     obj = DataAplose(sample_df)
 
@@ -529,8 +541,8 @@ def test_data_aplose_detection_perf_wrapper_parametrized(
     )
 
     result = obj.detection_perf(
-        annotators=annotators,
-        labels=labels,
+        annotator=annotators,
+        label=labels,
     )
 
     assert result == (0.1, 0.2, 0.3)
@@ -542,8 +554,8 @@ def test_detection_perf_multiple_timebins(sample_df: DataFrame) -> None:
 
     with pytest.raises(ValueError, match="Multiple time bins detected"):
         obj.detection_perf(
-            annotators=("ann1", "ann2"),
-            labels=("lbl1", "lbl2"),
+            annotator=("ann1", "ann2"),
+            label=("lbl1", "lbl2"),
         )
 
 
