@@ -192,11 +192,10 @@ def sample_dict(
         "min_frequency": None,
         "max_frequency": None,
         "annotator": "ann1",
-        "annotation": "lbl1",
+        "label": "lbl1",
         "type": "BOX",
         "recording_file": sample_csv_timestamp,
         "filename_format": "%Y_%m_%d_%H_%M_%S",
-        "user_selection": "all",
         "confidence": None,
     }
 

@@ -22,8 +22,8 @@ def test_data_aplose_str(sample_df: DataFrame) -> None:
     expected = (
         f"start_datetime: {obj.start_datetime}\n"
         f"end_datetime: {obj.end_datetime}\n"
-        f"annotators: {obj.annotators}\n"
-        f"labels: {obj.labels}\n"
+        f"annotator: {obj.annotator}\n"
+        f"label: {obj.label}\n"
         f"dataset: {obj.dataset}"
     )
     assert str(obj) == expected
@@ -33,10 +33,9 @@ def test_data_aplose_str(sample_df: DataFrame) -> None:
 def test_data_aplose_init(sample_df: DataFrame) -> None:
     data = DataAplose(sample_df)
     assert isinstance(data.df, DataFrame)
-    assert sorted(data.annotators) == ["ann1", "ann2", "ann3", "ann4", "ann5", "ann6"]
-    assert sorted(data.labels) == ["lbl1", "lbl2", "lbl3"]
-    assert data.dataset == ["sample_dataset"]
-    assert data.shape == sample_df.shape
+    assert sorted(data.annotator) == ["ann1", "ann2", "ann3", "ann4", "ann5", "ann6"]
+    assert sorted(data.label) == ["lbl1", "lbl2", "lbl3"]
+    assert data.dataset == "sample_dataset"
     assert data.start_datetime == sample_df["start_datetime"].min()
     assert data.end_datetime == sample_df["end_datetime"].max()
 
@@ -64,7 +63,7 @@ def test_data_aplose_init(sample_df: DataFrame) -> None:
     ],
 )
 def test_coordinates_setter(value: tuple, expected_msg: str | None) -> None:
-    obj = DataAplose.__new__(DataAplose)
+    obj = DataAplose()
 
     if expected_msg is None:
         obj.coordinates = value
@@ -156,11 +155,6 @@ def test_filter_df_invalid_lists_size(
         match=r"Length of annotator \(2\) and label \(1\) must match.",
     ):
         data.filter_df(annotator=["ann1", "ann2"], label=["lbl2"])
-
-
-def test_getitem(sample_df: DataFrame) -> None:
-    data = DataAplose(sample_df)
-    assert all(data[0] == sample_df.iloc[0])
 
 
 def test_set_ax_uses_2hour_locator(sample_df: DataFrame) -> None:
@@ -384,17 +378,17 @@ def test_from_dict_concat(
             "end_datetime": median_time,
             "filename_format": sample_dict["filename_format"],
             "annotator": sample_dict["annotator"],
-            "annotation": sample_dict["annotation"],
+            "label": sample_dict["label"],
         },
         {
             "detection_file": sample_dict["detection_file"],
             "start_datetime": median_time,
             "filename_format": sample_dict["filename_format"],
             "annotator": sample_dict["annotator"],
-            "annotation": sample_dict["annotation"],
+            "label": sample_dict["label"],
         },
     ]
-    data_concat = DataAplose.from_dict(config, concat=True)
+    data_concat = DataAplose.from_dict(config, merge=True)
 
     assert all(data_expected.df == data_concat.df)
     assert repr(data_expected) == repr(data_concat)
@@ -414,17 +408,17 @@ def test_from_dict_no_concat(
             "end_datetime": median_time,
             "filename_format": sample_dict["filename_format"],
             "annotator": sample_dict["annotator"],
-            "annotation": sample_dict["annotation"],
+            "label": sample_dict["label"],
         },
         {
             "detection_file": sample_dict["detection_file"],
             "start_datetime": median_time,
             "filename_format": sample_dict["filename_format"],
             "annotator": sample_dict["annotator"],
-            "annotation": sample_dict["annotation"],
+            "label": sample_dict["label"],
         },
     ]
-    data_concat = DataAplose.from_dict(config, concat=False)
+    data_concat = DataAplose.from_dict(config, merge=False)
 
     assert isinstance(data_concat, list)
     assert len(data_concat) == len(config)
@@ -435,7 +429,7 @@ def test_concatenate(sample_dict: Path, sample_df: DataFrame) -> None:
     data1 = DataAplose(sample_df.loc[: len(sample_df) / 2])
     data2 = DataAplose(sample_df.loc[len(sample_df) / 2 :])
 
-    data_concat = DataAplose.concatenate([data1, data2])
+    data_concat = DataAplose.merge([data1, data2])
     expected = DataAplose(sample_df)
 
     attrs = [
@@ -460,7 +454,7 @@ def test_concatenate_change_tz(sample_df: DataFrame, caplog) -> None:
     data2 = DataAplose(sample_df.loc[len(sample_df) / 2 :])
 
     with caplog.at_level(logging.INFO):
-        data_concat = DataAplose.concatenate([data1, data2])
+        data_concat = DataAplose.merge([data1, data2])
 
     assert get_timezone(data_concat.df) == pytz.utc
     assert (
@@ -694,7 +688,6 @@ def test_reshape_valid_cases(
 
     # Check filtering behavior
     if should_filter:
-        assert reshaped.shape <= sample_data_aplose.shape
         assert all(reshaped.df["start_datetime"] >= reshaped.start_datetime)
         assert all(reshaped.df["end_datetime"] <= reshaped.end_datetime)
 
