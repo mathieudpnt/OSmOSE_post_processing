@@ -10,7 +10,7 @@ from disclose.utils.metric import detection_perf
 
 
 @pytest.mark.parametrize(
-    ("filter_annotator", "filter_annotation", "ref", "expected"),
+    ("filter_annotator", "filter_label", "ref", "expected"),
     [
         pytest.param(
             ["ann1", "ann4"],
@@ -38,15 +38,15 @@ from disclose.utils.metric import detection_perf
 def test_detection_perf(
     sample_df: DataFrame,
     filter_annotator: list[str, str],
-    filter_annotation: list[str, str],
+    filter_label: list[str, str],
     ref: tuple[str, str],
     expected: ContextManager[Exception],
 ) -> None:
     filtered_df = sample_df[sample_df["type"] == "WEAK"]
     if filter_annotator:
         filtered_df = filtered_df[filtered_df["annotator"].isin(filter_annotator)]
-    if filter_annotation:
-        filtered_df = filtered_df[filtered_df["annotation"].isin(filter_annotation)]
+    if filter_label:
+        filtered_df = filtered_df[filtered_df["label"].isin(filter_label)]
 
     with expected:
         detection_perf(df=filtered_df, ref=ref)
@@ -65,7 +65,7 @@ def test_detection_perf_confusion_matrix_errors(
     monkeypatch.setattr("disclose.utils.metric.get_count", fake_get_count)
 
     filtered_df = sample_df[
-        (sample_df["annotation"] == "lbl2")
+        (sample_df["label"] == "lbl2")
         & (sample_df["annotator"].isin(["ann1", "ann2"]))
         & (sample_df["type"] == "WEAK")
     ]
@@ -90,7 +90,7 @@ def test_detection_perf_confusion_matrix_no_data(
     monkeypatch.setattr("disclose.utils.metric.get_count", fake_get_count)
 
     filtered_df = sample_df[
-        (sample_df["annotation"] == "lbl2")
+        (sample_df["label"] == "lbl2")
         & (sample_df["annotator"].isin(["ann1", "ann2"]))
         & (sample_df["type"] == "WEAK")
     ]

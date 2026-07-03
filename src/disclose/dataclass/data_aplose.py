@@ -1,7 +1,7 @@
 """`data_aplose` module provides the `DataAplose` class.
 
 DataAplose class is used for handling, analyzing, and visualizing
-APLOSE-formatted annotation data. It includes utilities to bin detections,
+APLOSE-formatted detection data. It includes utilities to bin detections,
 plot time-based distributions, and manage metadata such as annotators and labels.
 """
 
@@ -98,7 +98,7 @@ APLOSE_COLUMNS = [
     "end_datetime",
     "start_time",
     "end_time",
-    "annotation",
+    "label",
     "annotator",
 ]
 
@@ -263,7 +263,7 @@ class DataAplose:
                 "start_datetime",
                 "end_datetime",
                 "annotator",
-                "annotation",
+                "label",
             ])
             .reset_index(drop=True)
         )
@@ -402,9 +402,7 @@ class DataAplose:
             if lbl not in self.label:
                 msg = f'Label "{lbl}" not in APLOSE DataFrame'
                 raise ValueError(msg)
-            if self.df[
-                (self.df["annotator"] == ant) & (self.df["annotation"] == lbl)
-            ].empty:
+            if self.df[(self.df["annotator"] == ant) & (self.df["label"] == lbl)].empty:
                 msg = (
                     f"DataFrame with annotator '{ant}' / label '{lbl}'"
                     f" contains no detection."
@@ -412,7 +410,7 @@ class DataAplose:
                 raise ValueError(msg)
         config = list(zip(annotator, label, strict=False))
         return self.df[
-            self.df[["annotator", "annotation"]].apply(tuple, axis=1).isin(config)
+            self.df[["annotator", "label"]].apply(tuple, axis=1).isin(config)
         ].reset_index(drop=True)
 
     def set_ax(
@@ -511,13 +509,13 @@ class DataAplose:
         label: str | list[str],
         **kwargs: bool | Timedelta | BaseOffset | str | list[str] | RecordingPeriod,
     ) -> None:
-        """Plot filtered annotation data using the specified mode.
+        """Plot filtered data using the specified mode.
 
         Supports multiple plot types depending on the mode:
-          - "histogram": Plot a histogram of annotation data.
+          - "histogram": Plot a histogram of data.
           - "scatter" / "heatmap": Map hourly detections on a timeline.
           - "agreement": Plot inter-annotator agreement regression.
-          - "timeline": Plot a timeline of annotation data.
+          - "timeline": Plot a timeline of data.
 
         Parameters
         ----------

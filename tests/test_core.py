@@ -161,7 +161,7 @@ def test_get_count_basic(sample_df: DataFrame) -> None:
     df = DataAplose(sample_df).filter_df(annotator="ann1", label="lbl1")
     result = get_count(df, bin_size=Timedelta("1min"))
     expected = sample_df[
-        (sample_df["annotator"] == "ann1") & (sample_df["annotation"] == "lbl1")
+        (sample_df["annotator"] == "ann1") & (sample_df["label"] == "lbl1")
     ]
     assert (
         list(result.index)
@@ -179,8 +179,7 @@ def test_get_count_multiple_annotators(sample_df: DataFrame) -> None:
     df = DataAplose(sample_df).filter_df(annotator=["ann1", "ann2"], label="lbl1")
     result = get_count(df, bin_size=Timedelta("1d"))
     expected = sample_df[
-        (sample_df["annotator"].isin(["ann1", "ann2"]))
-        & (sample_df["annotation"] == "lbl1")
+        (sample_df["annotator"].isin(["ann1", "ann2"])) & (sample_df["label"] == "lbl1")
     ]
 
     assert set(result.columns) == {"lbl1-ann1", "lbl1-ann2"}
@@ -195,13 +194,13 @@ def test_get_count_multiple_labels(sample_df: DataFrame) -> None:
     result = get_count(df, bin_size=Timedelta("1day"))
     expected = sample_df[
         (sample_df["annotator"] == "ann5")
-        & (sample_df["annotation"].isin(["lbl1", "lbl2", "lbl3"]))
+        & (sample_df["label"].isin(["lbl1", "lbl2", "lbl3"]))
     ]
 
     assert set(result.columns) == {"lbl1-ann5", "lbl2-ann5", "lbl3-ann5"}
-    assert result["lbl1-ann5"].sum() == len(expected[expected["annotation"] == "lbl1"])
-    assert result["lbl2-ann5"].sum() == len(expected[expected["annotation"] == "lbl2"])
-    assert result["lbl3-ann5"].sum() == len(expected[expected["annotation"] == "lbl3"])
+    assert result["lbl1-ann5"].sum() == len(expected[expected["label"] == "lbl1"])
+    assert result["lbl2-ann5"].sum() == len(expected[expected["label"] == "lbl2"])
+    assert result["lbl3-ann5"].sum() == len(expected[expected["label"] == "lbl3"])
 
 
 def test_get_count_multiple_labels_annotators(sample_df: DataFrame) -> None:
@@ -212,14 +211,10 @@ def test_get_count_multiple_labels_annotators(sample_df: DataFrame) -> None:
     result = get_count(df, bin_size=Timedelta("1day"))
     assert set(result.columns) == {"lbl1-ann1", "lbl2-ann2"}
     assert result["lbl1-ann1"].sum() == len(
-        sample_df[
-            (sample_df["annotation"] == "lbl1") & (sample_df["annotator"] == "ann1")
-        ]
+        sample_df[(sample_df["label"] == "lbl1") & (sample_df["annotator"] == "ann1")]
     )
     assert result["lbl2-ann2"].sum() == len(
-        sample_df[
-            (sample_df["annotation"] == "lbl2") & (sample_df["annotator"] == "ann2")
-        ]
+        sample_df[(sample_df["label"] == "lbl2") & (sample_df["annotator"] == "ann2")]
     )
 
 

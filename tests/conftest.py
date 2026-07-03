@@ -10,7 +10,7 @@ from pandas import DataFrame, read_csv
 
 from disclose.dataclass.data_aplose import DataAplose
 
-SAMPLE = """dataset,filename,start_time,end_time,min_frequency,max_frequency,annotation,annotator,start_datetime,end_datetime,type,confidence
+SAMPLE = """dataset,filename,start_time,end_time,min_frequency,max_frequency,label,annotator,start_datetime,end_datetime,type,confidence
 sample_dataset,2025_01_25_06_20_00,0.0,10.0,0.0,72000.0,lbl2,ann2,2025-01-25T06:20:00.000+00:00,2025-01-25T06:20:10.000+00:00,WEAK,0.11
 sample_dataset,2025_01_25_06_20_00,3.46662989520132,4.02371759514617,7523.0,15257.0,lbl2,ann2,2025-01-25T06:20:03.466+00:00,2025-01-25T06:20:04.023+00:00,BOX,0.23
 sample_dataset,2025_01_25_06_20_00,0.0,10.0,0.0,72000.0,lbl1,ann2,2025-01-25T06:20:00.000+00:00,2025-01-25T06:20:10.000+00:00,WEAK,0.26
@@ -143,7 +143,7 @@ def sample_df() -> DataFrame:
         "start_datetime",
         "end_datetime",
         "annotator",
-        "annotation",
+        "label",
     ]).reset_index(drop=True)
 
 

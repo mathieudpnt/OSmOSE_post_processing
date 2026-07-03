@@ -257,7 +257,7 @@ def scatter(
     labels, annotators = get_labels_and_annotators(df)
     for ann in set(annotators):
         for lbl in set(labels):
-            group = df[(df["annotator"] == ann) & (df["annotation"] == lbl)]
+            group = df[(df["annotator"] == ann) & (df["label"] == lbl)]
 
             if group.empty:
                 continue
@@ -401,13 +401,13 @@ def overview(df: DataFrame, annotator: list[str] | None = None) -> None:
         df = filter_by_annotator(df, annotator)
 
     summary_label = (
-        df.groupby("annotation")["annotator"]  # noqa: PD010
+        df.groupby("label")["annotator"]  # noqa: PD010
         .apply(Counter)
         .unstack(fill_value=0)
     )
 
     summary_annotator = (
-        df.groupby("annotator")["annotation"]  # noqa: PD010
+        df.groupby("annotator")["label"]  # noqa: PD010
         .apply(Counter)
         .unstack(fill_value=0)
     )
@@ -445,8 +445,8 @@ def overview(df: DataFrame, annotator: list[str] | None = None) -> None:
     axs[1].set_xlabel("Annotator")
 
     # titles
-    axs[0].set_title("Number of annotations per label")
-    axs[1].set_title("Number of annotations per annotator")
+    axs[0].set_title("Number of detections per label")
+    axs[1].set_title("Number of detections per annotator")
     fig.suptitle(f"{dataset}")
 
     plt.tight_layout()
@@ -482,23 +482,23 @@ def plot_annotator_agreement(
 ) -> None:
     """Plot inter-annotator agreement with linear regression.
 
-    Creates a scatter plot comparing annotation counts between two annotators
+    Creates a scatter plot comparing detection counts between two annotators
     across time bins. Fits a linear regression line and displays the coefficient
     of determination (R²) in the legend.
 
     Parameters
     ----------
     df : DataFrame
-        APLOSE-formatted DataFrame containing annotations from exactly two annotators.
+        APLOSE-formatted DataFrame containing labels from exactly two annotators.
     bin_size : Timedelta | BaseOffset
-        Size of each time bin for aggregating annotation timestamps.
+        Size of each time bin for aggregating label timestamps.
     ax : plt.Axes
         Matplotlib axes object where the scatter plot and regression line will be drawn.
 
     Notes
     -----
     The function modifies the provided axes object in place and does not return a value.
-    Each point in the scatter plot represents the annotation counts from both annotators
+    Each point in the scatter plot represents the label counts from both annotators
     within a single time bin.
 
     Examples
@@ -578,7 +578,7 @@ def timeline(
     color = color or [c for _, c in zip(range(len(labels)), cycle(default_colors))]
 
     for i, label in enumerate(labels):
-        time_det = df[(df["annotation"] == label)]["start_datetime"].to_list()
+        time_det = df[(df["label"] == label)]["start_datetime"].to_list()
         l_data = len(time_det)
         x = np.ones((l_data, 1), int) * i
         ax.scatter(time_det, x, color=color[i])

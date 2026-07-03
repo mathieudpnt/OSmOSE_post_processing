@@ -88,10 +88,10 @@ def test_coordinates_setter(value: tuple, expected_msg: str | None) -> None:
 def test_filter_df_single_pair(sample_df: DataFrame) -> None:
     data = DataAplose(sample_df)
     filtered_data = data.filter_df(annotator="ann1", label="lbl1")
-    assert sorted(set(filtered_data["annotation"])) == ["lbl1"]
+    assert sorted(set(filtered_data["label"])) == ["lbl1"]
     assert sorted(set(filtered_data["annotator"])) == ["ann1"]
     expected = sample_df[
-        (sample_df["annotator"] == "ann1") & (sample_df["annotation"] == "lbl1")
+        (sample_df["annotator"] == "ann1") & (sample_df["label"] == "lbl1")
     ].reset_index(drop=True)
     assert filtered_data.equals(expected)
 
@@ -119,11 +119,11 @@ def test_change_tz(sample_df: DataFrame) -> None:
 def test_filter_df_multiple_pairs(sample_df: DataFrame) -> None:
     data = DataAplose(sample_df)
     filtered_data = data.filter_df(annotator=["ann1", "ann2"], label=["lbl1", "lbl2"])
-    assert sorted(set(filtered_data["annotation"])) == ["lbl1", "lbl2"]
+    assert sorted(set(filtered_data["label"])) == ["lbl1", "lbl2"]
     assert sorted(set(filtered_data["annotator"])) == ["ann1", "ann2"]
     pairs = [("ann1", "lbl1"), ("ann2", "lbl2")]
     expected = sample_df[
-        sample_df[["annotator", "annotation"]].apply(tuple, axis=1).isin(pairs)
+        sample_df[["annotator", "label"]].apply(tuple, axis=1).isin(pairs)
     ].reset_index(drop=True)
     assert filtered_data.equals(expected)
 

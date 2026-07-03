@@ -80,7 +80,7 @@ def filter_strong_detection(
     if "type" in df.columns:
         df = df[df["type"] == "WEAK"]
     else:
-        msg = "Could not determine annotation type."
+        msg = "Could not determine label type."
         raise ValueError(msg)
     return df
 
