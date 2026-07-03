@@ -34,7 +34,7 @@ def nav_df() -> DataFrame:
 @pytest.fixture
 def df_detections(nav_df: DataFrame) -> DataFrame:
     return DataFrame({
-        "annotation": ["whale", "whale", "dolphin"],
+        "label": ["whale", "whale", "dolphin"],
         "type": [0, 0, 0],
         "start_datetime": nav_df["Timestamp"][:3],
     })

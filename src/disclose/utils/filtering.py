@@ -61,9 +61,9 @@ def find_delimiter(file: Path) -> str:
 def filter_strong_detection(
     df: DataFrame,
 ) -> DataFrame:
-    """Filter to keep only weak detections (exclude box/strong annotations).
+    """Filter to keep only weak detections (exclude box/strong detections).
 
-    This function identifies and removes "strong" or "box" type annotations,
+    This function identifies and removes "strong" or "box" type detections,
     keeping only "weak" detections. It checks for either an 'is_box' or 'type' column.
 
     Parameters
@@ -269,7 +269,7 @@ def read_dataframe(file: Path, rows: int | None = None) -> DataFrame:
         columns={
             "start_frequency": "max_frequency",
             "end_frequency": "min_frequency",
-            "annotation": "label",
+            "label": "label",
             "is_box": "type",
             "score": "confidence",
         }
@@ -756,7 +756,7 @@ def add_weak_detection(
 
 
 def intersection_or_union(df: DataFrame, user_sel: str) -> DataFrame:
-    """Compute intersection or union of annotations from multiple annotators."""
+    """Compute intersection or union of detections from multiple annotators."""
     annotators = get_annotators(df)
     if len(annotators) <= 1:
         msg = "Not enough annotators detected"

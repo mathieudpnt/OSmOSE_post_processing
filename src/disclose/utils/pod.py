@@ -3,11 +3,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import pytz
 import seaborn as sns
 from matplotlib import pyplot as plt
 from osekit.config import TIMESTAMP_FORMAT_AUDIO_FILE
-from osekit.utils.timestamp_utils import strftime_osmose_format, strptime_from_text
+from osekit.utils.timestamp import strftime_osmose_format, strptime_from_text
 from pandas import (
     DataFrame,
     Series,
@@ -32,7 +31,7 @@ def fpod2aplose(
     df: DataFrame,
     tz: pytz.timezone,
     dataset_name: str,
-    annotation: str,
+    label: str,
     bin_size: int = 60,
 ) -> DataFrame:
     """Format FPOD DataFrame to match APLOSE format.
@@ -45,8 +44,8 @@ def fpod2aplose(
         Timezone object to get non-naïve datetimes
     dataset_name: str
         dataset name
-    annotation: str
-        annotation name
+    label: str
+        label name
     bin_size: int
         Duration of the detections in seconds
 
@@ -74,7 +73,7 @@ def fpod2aplose(
         "end_time": [bin_size] * len(df),
         "min_frequency": [0] * len(df),
         "max_frequency": [0] * len(df),
-        "annotation": [annotation] * len(df),
+        "label": [label] * len(df),
         "annotator": ["FPOD"] * len(df),
         "start_datetime": [strftime_osmose_format(entry) for entry in fpod_start_dt],
         "end_datetime": [strftime_osmose_format(entry) for entry in fpod_end_dt],
@@ -88,7 +87,7 @@ def cpod2aplose(
     df: DataFrame,
     tz: pytz.BaseTzInfo,
     dataset_name: str,
-    annotation: str,
+    label: str,
     bin_size: int = 60,
     extra_columns: list | None = None,
 ) -> DataFrame:
@@ -102,8 +101,8 @@ def cpod2aplose(
         Timezone object to get non-naïve datetimes
     dataset_name: str
         dataset name
-    annotation: str
-        annotation name
+    label: str
+        label name
     bin_size: int, optional
         Duration of the detections in seconds
     extra_columns: list, optional
@@ -121,7 +120,7 @@ def cpod2aplose(
     df_cpod = df_cpod.drop(
         df_cpod.loc[df_cpod["Date heure"] == " at minute "].index,
     )
-    data = fpod2aplose(df_cpod, tz, dataset_name, annotation, bin_size)
+    data = fpod2aplose(df_cpod, tz, dataset_name, label, bin_size)
     data["annotator"] = data.loc[data["annotator"] == "FPOD"] = "CPOD"
     if extra_columns:
         for col in extra_columns:
@@ -268,7 +267,7 @@ def dpm_to_dph(
     df: DataFrame,
     tz: pytz.BaseTzInfo,
     dataset_name: str,
-    annotation: str,
+    label: str,
     bin_size: int = 3600,
     extra_columns: list | None = None,
 ) -> DataFrame:
@@ -282,8 +281,8 @@ def dpm_to_dph(
         Timezone object to get timezone-aware datetimes
     dataset_name: str
         dataset name
-    annotation: str
-        annotation name
+    label: str
+        label name
     bin_size: int
         Duration of the detections in seconds
     extra_columns: list, optional
@@ -303,7 +302,7 @@ def dpm_to_dph(
         lambda x: Timestamp(x).strftime(format="%d/%m/%Y %H:%M:%S"),
     )
 
-    return cpod2aplose(dph, tz, dataset_name, annotation, bin_size, extra_columns)
+    return cpod2aplose(dph, tz, dataset_name, label, bin_size, extra_columns)
 
 
 def assign_phase(

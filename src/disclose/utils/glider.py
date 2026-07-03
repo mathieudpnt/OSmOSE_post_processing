@@ -83,17 +83,17 @@ def plot_detections_with_nav_data(
     ticks: Timedelta,
     datetime_format: str = "%d/%m/%y",
 ) -> None:
-    """Plot detections of all annotation types according to a navigation data criterion.
+    """Plot detections of all detection types according to a navigation data criterion.
 
     Parameters
     ----------
     df: DataFrame
         APLOSE formatted detection file
     nav: DataFrame
-        Navigation data comprised of criteria (latitude, longitude, depth...)
+        Navigation data comprising criteria (latitude, longitude, depth...)
         and associated datetimes
     criterion: str
-        User selected navigation parameter from nav (latitude, longitude, depth...)
+        User-selected navigation parameter from nav (latitude, longitude, depth...)
     ticks: Timedelta
         Resolution of the x-axis major ticks.
     datetime_format : str
@@ -101,10 +101,10 @@ def plot_detections_with_nav_data(
 
     """
     fig, ax = plt.subplots()
-    labels = df["annotation"].unique()
+    labels = df["label"].unique()
 
-    for annotation in labels:
-        df_1label = df[(df["annotation"] == annotation) & (df["type"] == "BOX")]
+    for lbl in labels:
+        df_1label = df[(df["label"] == lbl) & (df["type"] == "BOX")]
 
         glider_timestamps_numeric = [int(ts.timestamp()) for ts in nav["Timestamp"]]
         detections_timestamps_numeric = [
@@ -119,7 +119,7 @@ def plot_detections_with_nav_data(
         plt.scatter(
             df_1label["start_datetime"],
             matching_depths,
-            label=annotation,
+            label=lbl,
             zorder=2,
             s=8,
         )
@@ -286,16 +286,16 @@ def compute_acoustic_diversity(
     nav: DataFrame,
     time_vector: list[Timestamp],
 ) -> DataFrame:
-    """Compute the number of different annotations at given positions and timestamps.
+    """Compute the number of different labels at given positions and timestamps.
 
     Parameters
     ----------
     df: DataFrame
         APLOSE formatted result file
     nav: DataFrame
-        Navigation data comprised of positions and associated timestamps
+        Navigation data comprising positions and associated timestamps
     time_vector: list[Timestamp]
-        List of timestamps used to check for annotations from df.
+        List of timestamps used to check for labels from df.
         For APLOSE user, this can be constructed from task status files.
 
     Returns
@@ -320,7 +320,7 @@ def compute_acoustic_diversity(
     )
 
     # delete duplicate detection in case several users annotated the same segment
-    det = df.drop_duplicates(subset=["annotation", "start_datetime"])
+    det = df.drop_duplicates(subset=["label", "start_datetime"])
 
     # unix time of detections
     time_det_unix = [ts.timestamp() for ts in det["start_datetime"]]

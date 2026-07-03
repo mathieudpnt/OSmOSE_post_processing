@@ -15,7 +15,7 @@ def process_binary(
     audio: AudioData,
     binary: Path,
     dataset: str,
-    annotation: str,
+    label: str,
 ) -> DataFrame:
     r"""Process PAMGuard binary files into APLOSE DataFrame.
 
@@ -27,8 +27,8 @@ def process_binary(
         Path to the PAMGuard binary files
     dataset : str
         Dataset name
-    annotation : str
-        Annotation label
+    label : str
+        Name of the label
 
     Returns
     -------
@@ -38,14 +38,14 @@ def process_binary(
     Examples
     --------
     >>> from pathlib import Path
-    >>> from osekit.core_api.audio_file import AudioFile
-    >>> from osekit.core_api.audio_data import AudioData
+    >>> from osekit.core.audio_file import AudioFile
+    >>> from osekit.core.audio_data import AudioData
 
     >>> audio_path = Path(r"path/to/audio/folder")
     >>> binary_path = Path(r"path/to/binary/folder")
 
     >>> dataset = "dataset_name"
-    >>> annotation = "label_name"
+    >>> label = "label_name"
     >>> datetime_format = "%Y-%m-%dT%H:%M:%S"
 
     >>> begin = Timestamp("2025-05-29T00:00:00+0000")
@@ -60,7 +60,7 @@ def process_binary(
 
     >>> ad = AudioData.from_files(files=audio_files, begin=begin, end=end)
 
-    >>> df = process_binary(ad, binary_path, dataset, annotation)
+    >>> df = process_binary(ad, binary_path, dataset, label)
 
     """
     filter_obj = Filters(
@@ -118,7 +118,7 @@ def process_binary(
         "end_time": end_times,
         "min_frequency": freq_min,
         "max_frequency": freq_max,
-        "annotation": annotation,
+        "label": label,
         "annotator": annotator,
         "start_datetime": [strftime_osmose_format(beg) for beg in start_datetimes],
         "end_datetime": [strftime_osmose_format(end) for end in end_datetimes],

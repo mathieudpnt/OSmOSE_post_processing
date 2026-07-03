@@ -39,7 +39,7 @@ def test_process_binary_basic(
     with patch("disclose.utils.pamguard.load_pamguard_binary_folder") as mock_loader:
         mock_loader.return_value = ([fake_detection], None, None)
 
-        df = process_binary(fake_audio, Path("/fake/binary"), "Dataset", "Label")
+        df = process_binary(fake_audio, Path("/fake/binary"), "ds", "lbl")
 
         assert isinstance(df, DataFrame)
         expected_cols = {
@@ -49,7 +49,7 @@ def test_process_binary_basic(
             "end_time",
             "min_frequency",
             "max_frequency",
-            "annotation",
+            "label",
             "annotator",
             "start_datetime",
             "end_datetime",
@@ -58,11 +58,11 @@ def test_process_binary_basic(
         assert set(df.columns) == expected_cols
 
         row = df.iloc[0]
-        assert row["dataset"] == "Dataset"
+        assert row["dataset"] == "ds"
         assert row["filename"] == "fake.wav"
         assert row["min_frequency"] == 1000
         assert row["max_frequency"] == 5000
-        assert row["annotation"] == "Label"
+        assert row["label"] == "lbl"
         assert row["type"]
 
 

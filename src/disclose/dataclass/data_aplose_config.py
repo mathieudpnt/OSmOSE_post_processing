@@ -25,7 +25,7 @@ class DataAploseConfig:
     annotator : str | list[str] | None
         Filter for one or multiple annotators.
     label : str | list[str] | None
-        Filter for one or multiple annotation labels.
+        Filter for one or multiple detection labels.
     type : str | None
         Optional detection type filter.
     recording_file : Path | None
