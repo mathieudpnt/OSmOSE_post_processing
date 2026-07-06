@@ -269,7 +269,7 @@ def read_dataframe(file: Path, rows: int | None = None) -> DataFrame:
         columns={
             "start_frequency": "max_frequency",
             "end_frequency": "min_frequency",
-            "label": "label",
+            "annotation": "label",
             "is_box": "type",
             "score": "confidence",
         }
