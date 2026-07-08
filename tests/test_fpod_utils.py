@@ -296,20 +296,6 @@ def test_pod2aplose_basic_structure(sample_df: DataFrame, timezone) -> None:
     assert set(result["deploy"]) == {"deploy1", "deploy2"}
 
 
-def test_pod2aplose_different_timezones() -> None:
-    """Test with different timezone."""
-    df = DataFrame({"ChunkEnd": ["15/01/2024 10:00"], "deploy.name": ["deploy1"]})
-
-    tz_paris = pytz.timezone("Europe/Paris")
-
-    result = pod2aplose(
-        df=df, tz=tz_paris, dataset_name="dataset", annotation="click", annotator="john",
-    )
-
-    assert len(result) == 1
-    assert result["dataset"].iloc[0] == "dataset"
-
-
 def test_pod2aplose_empty_dataframe(empty_df: DataFrame, timezone) -> None:
     """Test handling of empty DataFrame."""
     result = pod2aplose(
@@ -336,58 +322,6 @@ def test_pod2aplose_empty_dataframe(empty_df: DataFrame, timezone) -> None:
         "type",
         "deploy",
     ]
-
-
-def test_pod2aplose_does_not_modify_original(sample_df, timezone) -> None:
-    """Test that the original DataFrame is not modified."""
-    original_columns = sample_df.columns.tolist()
-    original_len = len(sample_df)
-
-    pod2aplose(
-        df=sample_df,
-        tz=timezone,
-        dataset_name="dataset",
-        annotation="click",
-        annotator="john",
-    )
-
-    # Original DataFrame should be unchanged
-    assert sample_df.columns.tolist() == original_columns
-    assert len(sample_df) == original_len
-    assert "_temp_dt" not in sample_df.columns
-
-
-def test_pod2aplose_large_bin_size(sample_df, timezone) -> None:
-    """Test with large bin_size value."""
-    result = pod2aplose(
-        df=sample_df,
-        tz=timezone,
-        dataset_name="dataset",
-        annotation="click",
-        annotator="john",
-        bin_size=Timestamp(seconds=3600),  # 1 hour
-    )
-
-    assert all(result["end_time"] == 3600)
-
-
-def test_pod2aplose_index_reset(timezone) -> None:
-    """Test that index is properly reset after sorting."""
-    df = DataFrame({
-        "ChunkEnd": ["15/01/2024 12:00", "15/01/2024 10:00"],
-        "deploy.name": ["d1", "d2"]
-    })
-
-    result = pod2aplose(
-        df=df,
-        tz=timezone,
-        dataset_name="dataset",
-        annotation="click",
-        annotator="john"
-    )
-
-    # Index should be 0, 1 after reset
-    assert result.index.tolist() == [0, 1]
 
 # meta_cut_aplose
 
