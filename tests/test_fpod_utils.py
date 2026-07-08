@@ -1,7 +1,6 @@
 """FPOD/ CPOD processing functions tests."""
 from pathlib import Path
 
-#from sqlite3.dbapi2 import Timestamp
 import pytest
 import pytz
 from pandas import DataFrame, Timedelta, Timestamp
