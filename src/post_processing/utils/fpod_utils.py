@@ -88,8 +88,8 @@ def pod2aplose(
         "filename": list(fpod_start_dt),
         "start_time": [0] * len(df),
         "end_time": [bin_size.total_seconds()] * len(df),
-        "start_frequency": [0] * len(df),
-        "end_frequency": [0] * len(df),
+        "min_frequency": [0] * len(df),
+        "max_frequency": [0] * len(df),
         "annotation": [annotation] * len(df),
         "annotator": [annotator] * len(df),
         "start_datetime": [
@@ -272,7 +272,7 @@ def process_feeding_buzz(
         raise ValueError(msg)
 
     df_buzz = df.groupby(["Datetime"])["Buzz"].sum().reset_index()
-    df_buzz["Foraging"] = to_numeric(
+    df_buzz["fbm_count"] = to_numeric(
         df_buzz["Buzz"] != 0,
         downcast="integer",
     ).astype(int)
@@ -368,7 +368,7 @@ def gmm_feeding_buzz(df: DataFrame, comp: int) -> DataFrame:
     df["start_datetime"] = df["Datetime"].dt.floor("min")
 
     df_buzz = df.groupby("start_datetime")["Buzz"].sum().reset_index()
-    df_buzz["Foraging"] = to_numeric(df_buzz["Buzz"] != 0, downcast="integer").astype(int)
+    df_buzz["fbm_count"] = to_numeric(df_buzz["Buzz"] != 0, downcast="integer").astype(int)
     return df_buzz
 
 
@@ -508,29 +508,27 @@ def percent_calc(
         data
         .groupby(time_unit)
         .agg(
-            {
-                "DPh": "sum",
-                "dpm_count": "sum",
-                "Day": "size",
-                "Foraging": "sum",
-            },
+        DP_unit=("DPh", "sum"),
+        dpm_count=("dpm_count", "sum"),
+        tot_samp=("Day", "size"),
+        FB_unit=("fbm_count", "sum"),
         )
         .reset_index()
     )
 
-    df["%click"] = df["dpm_count"] * 100 / (df["Day"] * 60)
-    df["%DPh"] = df["DPh"] * 100 / df["Day"]
+    df["%click"] = df["dpm_count"] * 100 / (df["tot_samp"] * 60)
+    df["%DPh"] = df["DP_unit"] * 100 / df["tot_samp"]
     df["FBR"] = df.apply(
-        lambda row: (row["Foraging"] * 100 / row["dpm_count"])
+        lambda row: (row["FB_unit"] * 100 / row["dpm_count"])
         if row["dpm_count"] > 0
         else 0,
         axis=1,
     )
-    df["%buzzes"] = df["Foraging"] * 100 / (df["Day"] * 60)
+    df["%buzzes"] = df["FB_unit"] * 100 / (df["tot_samp"] * 60)
     return df
 
 
-def percent_barplot(df: DataFrame, unit: str, metric: str) -> None:
+def percent_barplot(df: DataFrame, unit: str, metric: str, path: Path | None = None) -> None:
     """Plot a graph with the percentage of minutes positive to detection for every site.
 
     Parameters
@@ -541,17 +539,34 @@ def percent_barplot(df: DataFrame, unit: str, metric: str) -> None:
         Time unit the data are grouped in
     metric: str
         Type of percentage shown on the graph
+    path: Path
+        Path to save the graph
 
     """
     fig, ax = plt.subplots()
-    ax.bar(df[unit].astype(str), df[metric], color="#0072b2")
+
+    colors = df["Site"].map(site_colors).fillna("#0072b2")
+
+    ax.bar(df[unit].astype(str), df[metric], color=colors)
     ax.set_title(f"{metric} per {unit}")
     ax.set_ylabel(f"{metric}")
     ax.set_xlabel(f"{unit}")
     if metric in {"%buzzes", "FBR"}:
         for _, bar in enumerate(ax.patches):
             bar.set_hatch("/")
+    missing_mask = df[metric].isna().to_numpy()
+    start = None
+    for i, is_missing in enumerate(missing_mask):
+        if is_missing and start is None:
+            start = i
+        elif not is_missing and start is not None:
+            ax.axvspan(start - 0.5, i - 1 + 0.5, color="grey", alpha=0.3, zorder=0)
+            start = None
+
+    if start is not None:
+        ax.axvspan(start - 0.5, len(missing_mask) - 1 + 0.5, color="grey", alpha=0.3, zorder=0)
     plt.setp(ax.get_xticklabels(), rotation=45)
+    plt.savefig(f"{path}/barplot_{df.Site.iloc[0]}.png")
     plt.show()
 
 
@@ -632,7 +647,7 @@ def calendar(
     plt.show()
 
 
-def matrice_hist(df: DataFrame, unit: str, metric: str) -> None:
+def matrice_hist(df: DataFrame, unit: str, metric: str, path: Path | None = None) -> None:
     """Plot a graph with the percentage of minutes positive to detection for every site.
 
     Parameters
@@ -643,10 +658,14 @@ def matrice_hist(df: DataFrame, unit: str, metric: str) -> None:
         Time unit you want to group your data in
     metric: str
         Type of percentage you want to show on the graph
+    path: Path
+        Path to save the graph
 
     """
+    colors = df["Site"].map(site_colors).fillna("#0072b2")
+
     fig, ax = plt.subplots()
-    ax.bar(df[unit], df[f"{metric}_mean"], color="#0072b2")
+    ax.bar(df[unit], df[f"{metric}_mean"], color=colors)
     ax.set_xlabel(f"{unit}")
     ax.set_ylabel(f"{metric}")
     plt.errorbar(df[unit], df[f"{metric}_mean"], df[f"{metric}_std"],
@@ -657,4 +676,5 @@ def matrice_hist(df: DataFrame, unit: str, metric: str) -> None:
         for _, bar in enumerate(ax.patches):
             bar.set_hatch("/")
     plt.setp(ax.get_xticklabels(), rotation=45, ha="right")
+    plt.savefig(f"{path}/barplotSTD_{df.Site.iloc[0]}.png")
     plt.show()
