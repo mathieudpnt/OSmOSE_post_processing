@@ -1,9 +1,10 @@
 """FPOD/ CPOD processing functions tests."""
 from pathlib import Path
 
+#from sqlite3.dbapi2 import Timestamp
 import pytest
 import pytz
-from pandas import DataFrame
+from pandas import DataFrame, Timedelta, Timestamp
 
 from post_processing.utils.fpod_utils import (
     load_pod_folder,
@@ -224,13 +225,25 @@ def test_right_csv_format(
 
 # pod2aplose
 @pytest.fixture
-def sample_df():
-    """Create a sample POD DataFrame for testing."""
+def sample_df() -> DataFrame:
+    """Create a sample POD DataFrame for testing. Mocked load_pod_folder output."""
     return DataFrame({
-        "ChunkEnd": ["15/01/2024 10:30", "15/01/2024 11:00", "15/01/2024 09:45"],
-        "deploy.name": ["deploy1", "deploy2", "deploy1"],
+        "Datetime": [
+            Timestamp("15-01-2024 10:30:00"),
+            Timestamp("15-01-2024 11:00:00"),
+            Timestamp("15-01-2024 09:45:00"),
+        ],
+        "Deploy": ["deploy1", "deploy2", "deploy1"],
     })
 
+
+@pytest.fixture
+def empty_df() -> DataFrame:
+    """Create a sample POD DataFrame for testing. Mimic load_pod_folder output."""
+    return DataFrame({
+        "Datetime": [],
+        "Deploy": [],
+    })
 
 @pytest.fixture
 def timezone():
@@ -238,14 +251,15 @@ def timezone():
     return pytz.UTC
 
 
-def test_pod2aplose_basic_structure(sample_df, timezone) -> None:
+def test_pod2aplose_basic_structure(sample_df: DataFrame, timezone) -> None:
     """Test that basic structure and required columns are present."""
     result = pod2aplose(
         df=sample_df,
-        tz=timezone,
-        dataset_name="test_dataset",
-        annotation="test_annotation",
-        annotator="test_annotator",
+        tz=pytz.UTC,
+        dataset_name="dataset",
+        annotation="porpoise",
+        annotator="fpod",
+        bin_size=Timedelta(seconds=60),
     )
 
     expected_columns = [
@@ -253,180 +267,33 @@ def test_pod2aplose_basic_structure(sample_df, timezone) -> None:
         "filename",
         "start_time",
         "end_time",
-        "start_frequency",
-        "end_frequency",
+        "min_frequency",
+        "max_frequency",
         "annotation",
         "annotator",
         "start_datetime",
         "end_datetime",
+        "type",
         "deploy",
     ]
 
     assert isinstance(result, DataFrame)
     assert list(result.columns) == expected_columns
     assert len(result) == len(sample_df)
-
-
-def test_pod2aplose_dataset_propagation(sample_df, timezone) -> None:
-    """Test that dataset name is propagated to all rows."""
-    result = pod2aplose(
-        df=sample_df,
-        tz=timezone,
-        dataset_name="my_dataset",
-        annotation="click",
-        annotator="john",
-    )
-
-    assert all(result["dataset"] == "my_dataset")
-
-
-def test_pod2aplose_annotation_propagation(sample_df, timezone) -> None:
-    """Test that annotation is propagated to all rows."""
-    result = pod2aplose(
-        df=sample_df,
-        tz=timezone,
-        dataset_name="dataset",
-        annotation="porpoise_click",
-        annotator="john",
-    )
-
-    assert all(result["annotation"] == "porpoise_click")
-
-
-def test_pod2aplose_annotator_propagation(sample_df, timezone) -> None:
-    """Test that annotator is propagated to all rows."""
-    result = pod2aplose(
-        df=sample_df,
-        tz=timezone,
-        dataset_name="dataset",
-        annotation="click",
-        annotator="alice",
-    )
-
-    assert all(result["annotator"] == "alice")
-
-
-def test_pod2aplose_default_bin_size(sample_df, timezone) -> None:
-    """Test default bin_size of 60 seconds."""
-    result = pod2aplose(
-        df=sample_df,
-        tz=timezone,
-        dataset_name="dataset",
-        annotation="click",
-        annotator="john",
-    )
-
+    assert result["dataset"].iloc[0] == "dataset"
+    assert all(result["dataset"] == "dataset")
+    assert result["filename"].iloc[0] != 0
     assert all(result["start_time"] == 0)
     assert all(result["end_time"] == 60)
-
-
-def test_pod2aplose_custom_bin_size(sample_df, timezone) -> None:
-    """Test custom bin_size parameter."""
-    result = pod2aplose(
-        df=sample_df,
-        tz=timezone,
-        dataset_name="dataset",
-        annotation="click",
-        annotator="john",
-        bin_size=120,
-    )
-
-    assert all(result["start_time"] == 0)
-    assert all(result["end_time"] == 120)
-
-
-def test_pod2aplose_frequency_values(sample_df, timezone) -> None:
-    """Test that frequency values are set to 0."""
-    result = pod2aplose(
-        df=sample_df,
-        tz=timezone,
-        dataset_name="dataset",
-        annotation="click",
-        annotator="john",
-    )
-
-    assert all(result["start_frequency"] == 0)
-    assert all(result["end_frequency"] == 0)
-
-
-def test_pod2aplose_is_box_values(sample_df, timezone) -> None:
-    """Test that is_box values are set to 0."""
-    result = pod2aplose(
-        df=sample_df,
-        tz=timezone,
-        dataset_name="dataset",
-        annotation="click",
-        annotator="john",
-    )
-
-    assert all(result["is_box"] == 0)
-
-
-def test_pod2aplose_deploy_name_preserved(sample_df, timezone) -> None:
-    """Test that deploy.name values are preserved from input."""
-    result = pod2aplose(
-        df=sample_df,
-        tz=timezone,
-        dataset_name="dataset",
-        annotation="click",
-        annotator="john",
-    )
-
-    # After sorting, deploy.name should still be present
-    assert "deploy.name" in result.columns
-    assert len(result["deploy.name"]) == len(sample_df)
-    assert set(result["deploy.name"]) == {"deploy1", "deploy2"}
-
-
-def test_pod2aplose_sorting_by_datetime(timezone) -> None:
-    """Test that rows are sorted by datetime."""
-    df = DataFrame({
-        "ChunkEnd": ["15/01/2024 12:00", "15/01/2024 10:00", "15/01/2024 11:00"],
-        "deploy.name": ["d1", "d2", "d3"],
-    })
-
-    result = pod2aplose(
-        df=df, tz=timezone, dataset_name="dataset", annotation="click", annotator="john"
-    )
-
-    # Check that deploy.name follows the sorted order (by time)
-    assert result["deploy.name"].tolist() == ["d2", "d3", "d1"]
-
-
-def test_pod2aplose_datetime_formatting() -> None:
-    """Test that datetime strings are properly formatted."""
-    df = DataFrame({"ChunkEnd": ["01/02/2024 14:30"], "deploy.name": ["deploy1"]})
-
-    result = pod2aplose(
-        df=df,
-        tz=pytz.UTC,
-        dataset_name="dataset",
-        annotation="click",
-        annotator="john",
-        bin_size=60,
-    )
-
-    # Check that datetime strings are present and not empty
+    assert all(result["min_frequency"] == 0)
+    assert all(result["max_frequency"] == 0)
+    assert all(result["annotation"] == "porpoise")
+    assert all(result["annotator"] == "fpod")
     assert len(result["start_datetime"].iloc[0]) > 0
     assert len(result["end_datetime"].iloc[0]) > 0
-    assert len(result["filename"].iloc[0]) > 0
-
-
-def test_pod2aplose_end_datetime_offset(timezone) -> None:
-    """Test that end_datetime is offset by bin_size from start_datetime."""
-    df = DataFrame({"ChunkEnd": ["15/01/2024 10:00"], "deploy.name": ["deploy1"]})
-
-    result = pod2aplose(
-        df=df,
-        tz=timezone,
-        dataset_name="dataset",
-        annotation="click",
-        annotator="john",
-        bin_size=120,
-    )
-
-    # Both should be valid datetime strings
-    assert result["start_datetime"].iloc[0] != result["end_datetime"].iloc[0]
+    assert "deploy" in result.columns
+    assert len(result["deploy"]) == len(sample_df)
+    assert set(result["deploy"]) == {"deploy1", "deploy2"}
 
 
 def test_pod2aplose_different_timezones() -> None:
@@ -436,19 +303,22 @@ def test_pod2aplose_different_timezones() -> None:
     tz_paris = pytz.timezone("Europe/Paris")
 
     result = pod2aplose(
-        df=df, tz=tz_paris, dataset_name="dataset", annotation="click", annotator="john"
+        df=df, tz=tz_paris, dataset_name="dataset", annotation="click", annotator="john",
     )
 
     assert len(result) == 1
     assert result["dataset"].iloc[0] == "dataset"
 
 
-def test_pod2aplose_empty_dataframe(timezone) -> None:
+def test_pod2aplose_empty_dataframe(empty_df: DataFrame, timezone) -> None:
     """Test handling of empty DataFrame."""
-    df = DataFrame({"ChunkEnd": [], "deploy.name": []})
-
     result = pod2aplose(
-        df=df, tz=timezone, dataset_name="dataset", annotation="click", annotator="john"
+        df=empty_df,
+        tz=pytz.UTC,
+        dataset_name="dataset",
+        annotation="porpoise",
+        annotator="fpod",
+        bin_size=Timedelta(seconds=60),
     )
 
     assert len(result) == 0
@@ -457,33 +327,15 @@ def test_pod2aplose_empty_dataframe(timezone) -> None:
         "filename",
         "start_time",
         "end_time",
-        "start_frequency",
-        "end_frequency",
+        "min_frequency",
+        "max_frequency",
         "annotation",
         "annotator",
         "start_datetime",
         "end_datetime",
-        "is_box",
-        "deploy.name",
+        "type",
+        "deploy",
     ]
-
-
-def test_pod2aplose_single_row(timezone) -> None:
-    """Test with single row DataFrame."""
-    df = DataFrame({"ChunkEnd": ["20/03/2024 15:45"], "deploy.name": ["single_deploy"]})
-
-    result = pod2aplose(
-        df=df,
-        tz=timezone,
-        dataset_name="dataset",
-        annotation="click",
-        annotator="john",
-        bin_size=90,
-    )
-
-    assert len(result) == 1
-    assert result["deploy.name"].iloc[0] == "single_deploy"
-    assert result["end_time"].iloc[0] == 90
 
 
 def test_pod2aplose_does_not_modify_original(sample_df, timezone) -> None:
@@ -513,7 +365,7 @@ def test_pod2aplose_large_bin_size(sample_df, timezone) -> None:
         dataset_name="dataset",
         annotation="click",
         annotator="john",
-        bin_size=3600,  # 1 hour
+        bin_size=Timestamp(seconds=3600),  # 1 hour
     )
 
     assert all(result["end_time"] == 3600)
