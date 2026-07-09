@@ -5,15 +5,10 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
-import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
-import seaborn as sns
-from matplotlib import patches
 from numpy import (
     argsort,
-    dtype,
     exp,
-    float64,
     linspace,
     log,
     nan,
@@ -25,7 +20,6 @@ from numpy import (
 from osekit.utils.timestamp import strftime_osmose_format, strptime_from_text
 from pandas import (
     DataFrame,
-    DateOffset,
     Series,
     Timedelta,
     Timestamp,
@@ -39,7 +33,7 @@ from scipy import stats
 from sklearn import mixture
 
 from post_processing.utils.filtering_utils import find_delimiter
-from user_case.config import season_color, site_colors
+from user_case.config import site_colors
 
 if TYPE_CHECKING:
     from pathlib import Path
