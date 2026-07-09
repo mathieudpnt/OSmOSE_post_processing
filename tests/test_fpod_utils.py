@@ -1,4 +1,5 @@
 """FPOD/ CPOD processing functions tests."""
+import secrets
 from pathlib import Path
 
 import pytest
@@ -6,6 +7,7 @@ import pytz
 from pandas import DataFrame, Timedelta, Timestamp
 
 from post_processing.utils.fpod_utils import (
+    fit_gmm,
     load_pod_folder,
     pod2aplose,
 )
@@ -77,7 +79,6 @@ def click_dataframe() -> DataFrame:
 
 @pytest.fixture
 def pod_aplose(sample_df: DataFrame) -> DataFrame:
-    """Create a POD Dataframe for testing."""
     sample_df["type"] = "WEAK"
     return sample_df
 
@@ -121,9 +122,9 @@ def test_folder_single_txt(
     ]
 
 
-def test_folder_multiple(pod_dataframe: DataFrame, tmp_path: Path) -> None:
-    """Test processing multiple CSV files."""
-    csv_file = tmp_path / "pod_folder" / "pod_dataframe1.csv", "pod_dataframe2.csv"
+# def test_folder_multiple(pod_dataframe: DataFrame, tmp_path: Path) -> None:
+#     """Test processing multiple CSV files."""
+#     csv_files = tmp_path / "pod_folder" / "pod_dataframe1.csv", "pod_dataframe2.csv"
 
 
 @pytest.mark.parametrize(
@@ -210,9 +211,12 @@ def test_right_csv_format(
     """Mocked read_csv to test load_pod_folder column validation."""
     fake_path = Path("fake/deploy_01.csv")
 
-    monkeypatch.setattr(Path, "rglob", lambda self, pattern: [fake_path])
-    monkeypatch.setattr("post_processing.utils.fpod_utils.find_delimiter", lambda f: ";")
-    monkeypatch.setattr("post_processing.utils.fpod_utils.read_csv", lambda *args, **kwargs: mocked_df)
+    monkeypatch.setattr(Path, "rglob",
+                        lambda self, pattern: [fake_path])
+    monkeypatch.setattr("post_processing.utils.fpod_utils.find_delimiter",
+                        lambda f: ";")
+    monkeypatch.setattr("post_processing.utils.fpod_utils.read_csv",
+                        lambda *args, **kwargs: mocked_df)
 
     if should_raise:
         with pytest.raises((ValueError, KeyError)):
@@ -225,7 +229,6 @@ def test_right_csv_format(
 # pod2aplose
 @pytest.fixture
 def sample_df() -> DataFrame:
-    """Create a sample POD DataFrame for testing. Mocked load_pod_folder output."""
     return DataFrame({
         "Datetime": [
             Timestamp("15-01-2024 10:30:00"),
@@ -238,15 +241,14 @@ def sample_df() -> DataFrame:
 
 @pytest.fixture
 def empty_df() -> DataFrame:
-    """Create a sample POD DataFrame for testing. Mimic load_pod_folder output."""
     return DataFrame({
         "Datetime": [],
         "Deploy": [],
     })
 
+
 @pytest.fixture
 def timezone():
-    """Return UTC timezone for testing."""
     return pytz.UTC
 
 
@@ -322,133 +324,56 @@ def test_pod2aplose_empty_dataframe(empty_df: DataFrame, timezone) -> None:
         "deploy",
     ]
 
-# meta_cut_aplose
+
+# process_feeding_buzz
+@pytest.fixture
+def sample_fb() -> DataFrame:
+    return DataFrame({
+        "Datetime": [
+            Timestamp("2018-10-26 08:47:21.524095"),
+            Timestamp("2018-10-26 08:47:21.561215"),
+            Timestamp("2018-10-26 08:47:21.597925"),
+            Timestamp("2018-10-26 08:47:21.706350"),
+            Timestamp("2018-10-26 08:47:21.934405"),
+            Timestamp("2019-05-03 19:55:05.985310"),
+            Timestamp("2019-05-03 19:55:05.983675"),
+            Timestamp("2019-05-03 19:55:05.982035"),
+            Timestamp("2019-05-15 01:38:25.499480"),
+        ],
+        "Deploy": [
+            "deploy1",
+            "deploy1",
+            "deploy1",
+            "deploy2",
+            "deploy2",
+            "deploy2",
+            "deploy3",
+            "deploy3",
+            "deploy3",
+        ],
+    })
 
 
-# build_range
+comp = secrets.randbelow(5)
 
 
-# feeding_buzz
+def test_fit_gmm_output(sample_fb: DataFrame) -> None:
+    """Test that basic structure and required columns are present."""
+    clustering, ici_log, _ = fit_gmm(
+        df=sample_fb,
+        comp=comp,
+    )
 
+    expected_columns = [
+        "Datetime",
+        "Deploy",
+        "ICI_minutes",
+        "cluster",
+    ]
 
-# assign_daytime
-
-
-# fb_folder
-# def test_fb_folder_non_existent() -> None:
-#     with pytest.raises(FileNotFoundError):
-#         txt_folder(Path("/non/existent/folder"))
-#
-# def test_fb_folder_no_files(tmp_path: pytest.fixture) -> None:
-#     with pytest.raises(ValueError, match="No .txt files found"):
-#         txt_folder(tmp_path)
-
-# extract_site
-# def test_extract_site(self) -> None:
-#     input_data = [
-#         {"deploy.name":"Walde_Phase46"},
-#         {"deploy.name":"Site A Ile Haute_Phase8"},
-#         {"deploy.name":"Site B Ile Heugh_Phase9"},
-#         {"deploy.name":"Point E_Phase 4"},
-#     ]
-#     expected_site = [
-#         "Walde",
-#         "Site A Ile Haute",
-#         "Site B Ile Heugh",
-#         "Point E",
-#     ]
-#     expected_campaign = [
-#         "Phase46",
-#         "Phase8",
-#         "Phase9",
-#         "Phase 4",
-#     ]
-#
-#     for variant, (input_row, site, campaign) in enumerate(
-#         zip(input_data, expected_site, expected_campaign, strict=False), start=1):
-#         with self.subTest(
-#             f"variation #{variant}",
-#             deploy_name=input_row["deploy.name"],
-#             expected_site=site,
-#             expected_campaign=campaign,
-#         ):
-#             df = DataFrame([input_row])
-#             result = extract_site(df)
-#             actual_site = result["site.name"].iloc[0]
-#             actual_campaign = result["campaign.name"].iloc[0]
-#
-#             error_message_site = (
-#                 f'Called extract_site() with deploy.name="{input_row["deploy.name"]}". '
-#                 f'The function returned site.name="{actual_site}", but the test '
-#                 f'expected "{expected_site}".'
-#             )
-#
-#             error_message_campaign = (
-#                 f'Called extract_site() with deploy.name="{input_row["deploy.name"]}". '
-#                 f'The function returned campaign.name="{actual_campaign}", but the test'
-#                 f'expected "{expected_campaign}".'
-#             )
-#
-#             assert actual_site == expected_site, error_message_site
-#             assert actual_campaign == expected_campaign, error_message_campaign
-#
-#             assert "deploy.name" in result.columns
-#             assert "value" in result.columns
-
-# csv_folder
-# def test_csv_folder_non_existent() -> None:
-#     with pytest.raises(FileNotFoundError):
-#         csv_folder(Path("/non/existent/folder"))
-#
-# def test_csv_folder_no_files(tmp_path: pytest.fixture) -> None:
-#     with pytest.raises(ValueError, match="No .csv files found"):
-#         csv_folder(tmp_path)
-
-# is_dpm_col
-
-
-# pf_datetime
-
-
-# build_aggregation_dict
-
-
-# resample_dpm
-
-
-# parse_timestamps
-# def test_parse_timestamps() -> None:
-#     df = DataFrame({"date": ["2024-01-01T10:00:00", "06/01/2025 08:35"]})
-#     result = parse_timestamps(df, "date")
-#     expected = DataFrame({"date": ["2024-01-01 10:00:00",
-#                                    "2025-01-06 08:35:00"]}).astype("datetime64[ns]")
-#     assert_frame_equal(result, expected)
-
-# deploy_period
-# def test_deploy_period() -> None:
-#     df = DataFrame(
-#         {
-#             "deploy.name": ["A", "A", "B"],
-#             "start_datetime": [
-#                 datetime(2024, 1, 1, 10, 0, tzinfo=datetime.timezone.utc),
-#                 datetime(2024, 1, 2, 15, 30, tzinfo=datetime.timezone.utc),
-#                 datetime(2024, 1, 3, 8, 0, tzinfo=datetime.timezone.utc),
-#             ],
-#         })
-#
-#     expected = DataFrame(
-#         {
-#             "deploy.name": ["A", "B"],
-#             "Début": [
-#                 datetime(2024, 1, 1, 10, 0, tzinfo=datetime.timezone.utc),
-#                 datetime(2024, 1, 3, 8, 0, tzinfo=datetime.timezone.utc),
-#             ],
-#             "Fin": [
-#                 datetime(2024, 1, 2, 15, 30, tzinfo=datetime.timezone.utc),
-#                 datetime(2024, 1, 3, 8, 0, tzinfo=datetime.timezone.utc),
-#             ],
-#         })
-#     result = deploy_period(df)
-#     assert_frame_equal(result, expected)
-
-# actual_data
+    assert isinstance(clustering, DataFrame)
+    assert list(clustering.columns) == expected_columns
+    assert clustering["Datetime"].iloc[0] != sample_fb["Datetime"].iloc[0]
+    assert set(clustering["Deploy"]) == {"deploy1", "deploy2", "deploy3"}
+    assert len(clustering["cluster"].unique()) == comp
+    assert len(clustering) == len(ici_log)
