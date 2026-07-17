@@ -352,7 +352,8 @@ def gmm_feeding_buzz(df: DataFrame, comp: int) -> DataFrame:
     Returns
     -------
     DataFrame
-        A DataFrame of two columns : minute positive to feeding buzz or not and number of buzzes.
+        A DataFrame of two columns : minute positive to feeding buzz or not and number
+        of buzzes.
 
     """
     df, _, _ = fit_gmm(df, comp)
@@ -396,7 +397,7 @@ def plot_gmm_ici(df: DataFrame, comp: int) -> tuple[plt.Figure, plt.Axes]:
 
     ax.set(xlabel="Log ICI (log minutes)", ylabel="Density", title="GMM clustering of Inter-Click Intervals")
     ax.legend(handles=lines)
-    ax.grid(True, alpha=0.3, linestyle="--")
+    ax.grid(alpha=0.3, linestyle="--")
     plt.tight_layout()
     plt.show()
     return fig, ax
@@ -481,7 +482,7 @@ def percent_calc(
     data: DataFrame,
     time_unit: str | None = None,
 ) -> DataFrame:
-    """Calculate the percentage of clicks, feeding buzzes and positive hours to detection.
+    """Calculate % of clicks, feeding buzzes and positive hours to detection.
 
     Computed on the entire effort and for every site.
 
@@ -503,22 +504,24 @@ def percent_calc(
         .groupby(time_unit)
         .agg(
         DP_unit=("DPh", "sum"),
+        FB_unit=("FBh", "sum"),
         dpm_count=("dpm_count", "sum"),
         tot_samp=("Day", "size"),
-        FB_unit=("fbm_count", "sum"),
+        fbm_count=("fbm_count", "sum"),
         )
         .reset_index()
     )
 
     df["%click"] = df["dpm_count"] * 100 / (df["tot_samp"] * 60)
+    df["%buzzes"] = df["fbm_count"] * 100 / (df["tot_samp"] * 60)
     df["%DPh"] = df["DP_unit"] * 100 / df["tot_samp"]
+    df["%FBh"] = df["FB_unit"] * 100 / df["tot_samp"]
     df["FBR"] = df.apply(
-        lambda row: (row["FB_unit"] * 100 / row["dpm_count"])
+        lambda row: (row["fbm_count"] * 100 / row["dpm_count"])
         if row["dpm_count"] > 0
         else 0,
         axis=1,
     )
-    df["%buzzes"] = df["FB_unit"] * 100 / (df["tot_samp"] * 60)
     return df
 
 
