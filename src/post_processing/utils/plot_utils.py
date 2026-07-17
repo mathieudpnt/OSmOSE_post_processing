@@ -397,7 +397,7 @@ def heatmap(df: DataFrame,
 
     if coordinates and season:
         lat, _ = coordinates
-        add_season_period(ax, northern=lat >= 0)
+        add_season_period(ax, bin_size=bin_size, northern=lat >= 0)
 
     bin_size_str = get_bin_size_str(bin_size)
     freq_str = get_bin_size_str(freq)
