@@ -1,5 +1,6 @@
 """FPOD/ CPOD processing functions tests."""
 import secrets
+from datetime import tzinfo
 from pathlib import Path
 
 import pytest
@@ -10,6 +11,8 @@ from post_processing.utils.fpod_utils import (
     fit_gmm,
     load_pod_folder,
     pod2aplose,
+    process_feeding_buzz,
+    process_timelost,
 )
 
 CLICKS_CPOD = """Minute,microsec,cycles,SPL_Pa,kHz,Bandwidth,end kHz,Qn,TrN
@@ -84,18 +87,23 @@ def pod_aplose(sample_df: DataFrame) -> DataFrame:
 
 
 # csv_folder
-def test_folder_single_csv(pod_dataframe: DataFrame, tmp_path: Path) -> None:
-    """Test processing a single CSV file."""
-    csv_file = tmp_path / "pod_folder" / "pod_dataframe.csv"
-    csv_file.parent.mkdir(parents=True, exist_ok=True)
-    pod_dataframe.to_csv(csv_file, index=False)
-    result = load_pod_folder(csv_file.parent, ext="csv")
+def test_folder_multiple(pod_dataframe: DataFrame, tmp_path: Path) -> None:
+    """Test processing multiple CSV files."""
+    folder = tmp_path / "pod_folder"
+    folder.mkdir(parents=True, exist_ok=True)
+
+    pod_dataframe.to_csv(folder / "pod_dataframe1.csv", index=False)
+    pod_dataframe.to_csv(folder / "pod_dataframe2.csv", index=False)
+
+    result = load_pod_folder(folder, ext="csv")
 
     assert isinstance(result, DataFrame)
     assert "Deploy" in result.columns
-    assert all(result["Deploy"] == "pod_dataframe")
-    assert list(result.columns) == ["File", "podN", "ChunkEnd", "Minute", "DPM",
-                                    "Nall", "MinsOn", "Deploy", "Datetime"]
+    assert set(result["Deploy"]) == {"pod_dataframe1", "pod_dataframe2"}
+    assert list(result.columns) == [
+        "File", "podN", "ChunkEnd", "Minute", "DPM",
+        "Nall", "MinsOn", "Deploy", "Datetime",
+    ]
 
 
 def test_folder_single_txt(
@@ -122,9 +130,28 @@ def test_folder_single_txt(
     ]
 
 
-# def test_folder_multiple(pod_dataframe: DataFrame, tmp_path: Path) -> None:
-#     """Test processing multiple CSV files."""
-#     csv_files = tmp_path / "pod_folder" / "pod_dataframe1.csv", "pod_dataframe2.csv"
+def test_folder_multiple_txt(
+        click_dataframe: DataFrame,
+        tmp_path: Path) -> None:
+    """Test processing multiple txt files."""
+    folder = tmp_path / "click_folder"
+    folder.mkdir(parents=True, exist_ok=True)
+
+    click_dataframe.to_csv(folder / "click_dataframe1.txt", index=False)
+    click_dataframe.to_csv(folder / "click_dataframe2.txt", index=False)
+
+    result = load_pod_folder(folder, ext="txt")
+
+    assert isinstance(result, DataFrame)
+    assert "Deploy" in result.columns
+    assert set(result["Deploy"]) == {"click_dataframe1", "click_dataframe2"}
+    assert list(result.columns) == [
+        "File",
+        "microsec",
+        "Minute",
+        "Deploy",
+        "Datetime",
+    ]
 
 
 @pytest.mark.parametrize(
@@ -248,11 +275,11 @@ def empty_df() -> DataFrame:
 
 
 @pytest.fixture
-def timezone():
+def timezone() -> tzinfo:
     return pytz.UTC
 
 
-def test_pod2aplose_basic_structure(sample_df: DataFrame, timezone) -> None:
+def test_pod2aplose_basic_structure(sample_df: DataFrame, timezone: tzinfo) -> None:
     """Test that basic structure and required columns are present."""
     result = pod2aplose(
         df=sample_df,
@@ -297,7 +324,7 @@ def test_pod2aplose_basic_structure(sample_df: DataFrame, timezone) -> None:
     assert set(result["deploy"]) == {"deploy1", "deploy2"}
 
 
-def test_pod2aplose_empty_dataframe(empty_df: DataFrame, timezone) -> None:
+def test_pod2aplose_empty_dataframe(empty_df: DataFrame, timezone: tzinfo) -> None:
     """Test handling of empty DataFrame."""
     result = pod2aplose(
         df=empty_df,
@@ -354,7 +381,8 @@ def sample_fb() -> DataFrame:
     })
 
 
-comp = secrets.randbelow(5)
+rng = secrets.SystemRandom()
+comp = rng.randrange(1, 5)
 
 
 def test_fit_gmm_output(sample_fb: DataFrame) -> None:
@@ -377,3 +405,114 @@ def test_fit_gmm_output(sample_fb: DataFrame) -> None:
     assert set(clustering["Deploy"]) == {"deploy1", "deploy2", "deploy3"}
     assert len(clustering["cluster"].unique()) == comp
     assert len(clustering) == len(ici_log)
+
+
+@pytest.mark.parametrize(
+    ("mocked_species", "mocked_df", "should_raise"),
+    [
+        pytest.param(
+            "commerson",
+            DataFrame({
+                "Datetime": [
+                    Timestamp("2019-04-16 16:06:19.948345"),
+                    Timestamp("2019-04-16 16:06:19.950840"),
+                    Timestamp("2019-04-16 16:06:19.953345"),
+                ],
+            }),
+            False,
+            id="valid-species-commerson",
+        ),
+        pytest.param(
+            "porpoise",
+            DataFrame({
+                "Datetime": [
+                    Timestamp("2020-04-09 13:51:24.133750"),
+                    Timestamp("2020-04-09 13:51:24.124155"),
+                    Timestamp("2020-04-09 13:51:24.114335"),
+                    Timestamp("2020-04-09 13:51:24.104345"),
+                ],
+            }),
+            False,
+            id="valid-species-porpoise",
+        ),
+        pytest.param(
+            "delphinid",
+            DataFrame({
+                "Datetime": [
+                    Timestamp("2019-05-14 00:16:41.327605"),
+                    Timestamp("2019-05-14 00:16:41.345310"),
+                    Timestamp("2019-05-14 00:16:41.363285"),
+                    Timestamp("2019-05-14 00:16:41.382405"),
+                ],
+            }),
+            False,
+            id="valid-species-delphinid",
+        ),
+        pytest.param(
+            "elephant",
+            DataFrame({
+                "Datetime": [
+                    Timestamp("2020-04-16 00:06:32.327605"),
+                    Timestamp("2020-04-16 00:06:32.345310"),
+                    Timestamp("2020-04-16 00:06:32.363285"),
+                    Timestamp("2020-04-16 00:06:32.382405"),
+                ],
+            }),
+            True,
+            id="invalid-species",
+        ),
+    ],
+)
+def test_species_clustering(
+    mocked_species: str,
+    mocked_df: DataFrame,
+    should_raise: bool,
+) -> None:
+    """Mocked read_csv to test load_pod_folder column validation."""
+    if should_raise:
+        with pytest.raises((ValueError, KeyError)):
+            process_feeding_buzz(df=mocked_df, species=mocked_species)
+        return
+
+    result = process_feeding_buzz(df=mocked_df, species=mocked_species)
+
+    assert isinstance(result, DataFrame)
+    assert list(result.columns) == ["Datetime", "Buzz", "fbm_count"]
+    assert len(result) == 1
+
+
+# process_timelost
+@pytest.fixture
+def sample_tl_df() -> DataFrame:
+    return DataFrame({
+        "File": ["filename1", "filename2", "filename1"],
+        "Temp": [20.9, 20.1, 0],
+        "Angle": [0, 0, 100],
+        "%TimeLost": [0, 0, 100],
+        "Deploy": ["deploy1", "deploy2", "deploy1"],
+        "Datetime": [
+            Timestamp("2022-11-30 10:59:00"),
+            Timestamp("2022-11-30 11:59:00"),
+            Timestamp("2022-11-30 12:59:00"),
+        ],
+        "Nall/m": [57, 106, 0],
+    })
+
+
+threshold = rng.randrange(1, 100)
+
+
+def test_timelost_process(sample_tl_df: DataFrame, timezone: tzinfo) -> None:
+    """Test that basic structure and required columns are present."""
+    result = process_timelost(
+        df=sample_tl_df,
+        threshold=threshold,
+    )
+
+    expected_columns = [
+        "File", "Temp", "Angle", "%TimeLost", "Deploy", "Datetime",
+    ]
+
+    assert isinstance(result, DataFrame)
+    assert list(result.columns) == expected_columns
+    assert set(result["Deploy"]) == {"deploy1", "deploy2"}
