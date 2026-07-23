@@ -563,7 +563,8 @@ def percent_barplot(df: DataFrame, unit: str, metric: str, path: Path | None = N
     if start is not None:
         ax.axvspan(start - 0.5, len(missing_mask) - 1 + 0.5, color="grey", alpha=0.3, zorder=0)
     plt.setp(ax.get_xticklabels(), rotation=45)
-    plt.savefig(f"{path}/barplot_{df.Site.iloc[0]}.png")
+    if path is not None:
+        plt.savefig(f"{path}/barplot_{df.Site.iloc[0]}.png")
     plt.show()
 
 
