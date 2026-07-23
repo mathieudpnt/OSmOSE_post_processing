@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from collections import Counter
-from itertools import cycle, pairwise
+from itertools import cycle
 from typing import TYPE_CHECKING
 
 import matplotlib.pyplot as plt
@@ -31,8 +31,7 @@ from post_processing.utils.core_utils import (
     get_labels_and_annotators,
     get_sun_times,
     get_time_range_and_bin_size,
-    round_begin_end_timestamps,
-    timedelta_to_str,
+    timedelta_to_str, round_begin_end_timestamps,
 )
 from post_processing.utils.filtering_utils import (
     filter_by_annotator,
@@ -238,7 +237,6 @@ def scatter(
     season = kwargs.get("season", False)
     coordinates = kwargs.get("coordinates", False)
     effort = kwargs.get("effort", False)
-    legend = kwargs.get("legend", False)
 
     _prepare_timeline_plot(
         df=df,
@@ -282,7 +280,6 @@ def scatter(
         shade_no_effort(
             ax=ax,
             observed=effort,
-            legend=legend,
         )
 
 
@@ -324,7 +321,6 @@ def heatmap(df: DataFrame,
     show_rise_set = kwargs.get("show_rise_set", False)
     season = kwargs.get("season", False)
     coordinates = kwargs.get("coordinates", False)
-    effort = kwargs.get("effort", False)
 
     begin = time_range[0]
     end = time_range[-1]
@@ -359,45 +355,18 @@ def heatmap(df: DataFrame,
             if 0 <= c_idx < len(cell_bins) - 1:
                 mat[dt.hour, c_idx] += 1
 
-    if effort is not None:
-        sampled_dates = {
-            interval.left.date()
-            for interval in effort.counts.index
-            if effort.counts[interval] > 0
-        }
-
-        sampled = np.zeros((24, len(cell_bins) - 1), dtype=bool)
-        for col, (cell_start, _cell_end) in enumerate(pairwise(cell_bins)):
-            if cell_start.date() in sampled_dates:
-                sampled[:, col] = True
-
-        unsampled_mask = ~sampled
-    else:
-        unsampled_mask = np.zeros((24, len(cell_bins) - 1), dtype=bool)
-    masked_mat = np.ma.array(mat, mask=unsampled_mask)
-
-    base_cmap = (
-        ax.get_figure().get_axes()[0].images[0].cmap
-        if ax.get_figure().get_axes()[0].images
-        else plt.cm.viridis
-    )
-
-    cmap = base_cmap.copy()
-    cmap.set_bad(color="white")
-
     im = ax.imshow(
-        masked_mat,
+        mat,
         extent=(begin, end, 0, 24),
         vmin=0,
         vmax=mat.max(),
         aspect="auto",
         origin="lower",
-        cmap=cmap,
     )
 
     if coordinates and season:
         lat, _ = coordinates
-        add_season_period(ax, bin_size=bin_size, northern=lat >= 0)
+        add_season_period(ax, northern=lat >= 0)
 
     bin_size_str = get_bin_size_str(bin_size)
     freq_str = get_bin_size_str(freq)
@@ -610,7 +579,7 @@ def timeline(
 
     ax.grid(color="k", linestyle="-", linewidth=0.2)
     ax.set_yticks(np.arange(0, len(labels), 1))
-    ax.set_yticklabels(labels)
+    ax.set_yticklabels(labels[::-1])
     ax.set_xlabel("Date")
     ax.set_xlim(
         df["start_datetime"].min().floor("1d"),

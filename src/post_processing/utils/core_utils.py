@@ -207,7 +207,6 @@ def add_season_period(
     bar_height: int = 10,
     *,
     northern: bool = True,
-    bin_size: Timedelta | BaseOffset | None = None,
 ) -> None:
     """Add a bar at the top of the plot to seasons.
 
@@ -225,10 +224,12 @@ def add_season_period(
         msg = "Axes have no data"
         raise ValueError(msg)
 
+    patches = ax.patches
+
     bins = date_range(
         start=Timestamp(ax.get_xlim()[0], unit="D").round("1ms"),
         end=Timestamp(ax.get_xlim()[1], unit="D").round("1ms"),
-        freq=bin_size,
+        freq=Timedelta(patches[0].get_width(), "D").round("1ms"),
     )
 
     season_colors = {
