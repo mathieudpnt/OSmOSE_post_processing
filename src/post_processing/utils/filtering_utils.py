@@ -414,6 +414,12 @@ def _build_detection_vector(
         idx = bisect.bisect_left(time_vector, start)
         idx = idx if start in time_vector else max(0, idx - 1)
 
+        if idx >= len(time_vector):
+            continue
+
+        detect_vec[idx] = 1
+        idx += 1
+
         while idx < len(time_vector) and time_vector[idx] < end:
             detect_vec[idx] = 1
             idx += 1
