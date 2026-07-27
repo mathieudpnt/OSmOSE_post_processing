@@ -90,7 +90,7 @@ def pod2aplose(
             strftime_osmose_format(entry.floor(bin_size)) for entry in fpod_start_dt
         ],
         "end_datetime": [
-            strftime_osmose_format(entry.ceil(bin_size)) for entry in fpod_start_dt
+            strftime_osmose_format(entry.floor(bin_size) + bin_size) for entry in fpod_start_dt
         ],
         "type": ["WEAK"] * len(df),
         "deploy": df["Deploy"].tolist(),
