@@ -90,10 +90,10 @@ def pod2aplose(
             strftime_osmose_format(entry.floor(bin_size)) for entry in fpod_start_dt
         ],
         "end_datetime": [
-            strftime_osmose_format(entry.floor(bin_size) + bin_size) for entry in fpod_start_dt
+            strftime_osmose_format(entry.floor(bin_size) + bin_size)
+            for entry in fpod_start_dt
         ],
         "type": ["WEAK"] * len(df),
-        "deploy": df["Deploy"].tolist(),
     }
 
     return DataFrame(data)
@@ -143,7 +143,7 @@ def load_pod_folder(
             usecols=lambda col: col not in {"SmoothedICI", "ICIslope"},
         ).dropna()
 
-        df["Deploy"] = file.stem.strip().lower().replace(" ", "_")
+        df["dataset"] = file.stem.strip().lower().replace(" ", "_")
         all_data.append(df)
 
     data = concat(all_data, ignore_index=True)
@@ -200,8 +200,9 @@ def get_feeding_buzz_datetime(row: Series) -> Timestamp:
         exceptions.append(e)
 
     try:
-        return (strptime_from_text(row["Minute"], "%-d/%-m/%Y %H:%M") +
-                Timedelta(microseconds=row["microsec"]))
+        return strptime_from_text(row["Minute"], "%-d/%-m/%Y %H:%M") + Timedelta(
+            microseconds=row["microsec"]
+        )
     except (KeyError, TypeError, ValueError) as e:
         exceptions.append(e)
 
@@ -301,7 +302,10 @@ def fit_gmm(df: DataFrame, comp: int) -> tuple[DataFrame, ndarray, GaussianMixtu
     ici_log = log(df["ICI_minutes"].to_numpy()).reshape(-1, 1)
 
     gmm = mixture.GaussianMixture(
-        n_components=comp, covariance_type="full", random_state=42, n_init=20,
+        n_components=comp,
+        covariance_type="full",
+        random_state=42,
+        n_init=20,
     )
     labels = gmm.fit_predict(ici_log)
 
@@ -363,7 +367,9 @@ def gmm_feeding_buzz(df: DataFrame, comp: int) -> DataFrame:
     df["start_datetime"] = df["Datetime"].dt.floor("min")
 
     df_buzz = df.groupby("start_datetime")["Buzz"].sum().reset_index()
-    df_buzz["fbm_count"] = to_numeric(df_buzz["Buzz"] != 0, downcast="integer").astype(int)
+    df_buzz["fbm_count"] = to_numeric(df_buzz["Buzz"] != 0, downcast="integer").astype(
+        int
+    )
     return df_buzz
 
 
@@ -376,26 +382,46 @@ def plot_gmm_ici(df: DataFrame, comp: int) -> tuple[plt.Figure, plt.Axes]:
 
     fig, ax = plt.subplots(figsize=(12, 7))
     ax.hist(
-        ici_log, bins=200, histtype="bar", density=True,
-        alpha=0.6, color="lightgray", edgecolor="black", linewidth=0.5,
+        ici_log,
+        bins=200,
+        histtype="bar",
+        density=True,
+        alpha=0.6,
+        color="lightgray",
+        edgecolor="black",
+        linewidth=0.5,
     )
 
     lines = []
     for idx in range(comp):
-        mean, std, weight = gmm.means_[idx, 0], sqrt(gmm.covariances_[idx, 0, 0]), gmm.weights_[idx]
+        mean, std, weight = (
+            gmm.means_[idx, 0],
+            sqrt(gmm.covariances_[idx, 0, 0]),
+            gmm.weights_[idx],
+        )
         (line,) = ax.plot(
-            x_flat, weight * stats.norm.pdf(x_flat, mean, std),
+            x_flat,
+            weight * stats.norm.pdf(x_flat, mean, std),
             label=f"(μ={mean:.2f}, σ={std:.2f})",
         )
         lines.append(line)
 
     (mix_line,) = ax.plot(
-        x_range, _mixture_density(gmm, x_range),
-        linewidth=2, color="black", linestyle="--", label="Total mixture", alpha=0.7,
+        x_range,
+        _mixture_density(gmm, x_range),
+        linewidth=2,
+        color="black",
+        linestyle="--",
+        label="Total mixture",
+        alpha=0.7,
     )
     lines.append(mix_line)
 
-    ax.set(xlabel="Log ICI (log minutes)", ylabel="Density", title="GMM clustering of Inter-Click Intervals")
+    ax.set(
+        xlabel="Log ICI (log minutes)",
+        ylabel="Density",
+        title="GMM clustering of Inter-Click Intervals",
+    )
     ax.legend(handles=lines)
     ax.grid(alpha=0.3, linestyle="--")
     plt.tight_layout()
@@ -500,14 +526,13 @@ def percent_calc(
 
     """
     df = (
-        data
-        .groupby(time_unit)
+        data.groupby(time_unit)
         .agg(
-        DP_unit=("DPh", "sum"),
-        FB_unit=("FBh", "sum"),
-        dpm_count=("dpm_count", "sum"),
-        tot_samp=("Day", "size"),
-        fbm_count=("fbm_count", "sum"),
+            DP_unit=("DPh", "sum"),
+            FB_unit=("FBh", "sum"),
+            dpm_count=("dpm_count", "sum"),
+            tot_samp=("Day", "size"),
+            fbm_count=("fbm_count", "sum"),
         )
         .reset_index()
     )
@@ -525,7 +550,9 @@ def percent_calc(
     return df
 
 
-def percent_barplot(df: DataFrame, unit: str, metric: str, path: Path | None = None) -> None:
+def percent_barplot(
+    df: DataFrame, unit: str, metric: str, path: Path | None = None
+) -> None:
     """Plot a graph with the percentage of minutes positive to detection for every site.
 
     Parameters
@@ -561,7 +588,9 @@ def percent_barplot(df: DataFrame, unit: str, metric: str, path: Path | None = N
             start = None
 
     if start is not None:
-        ax.axvspan(start - 0.5, len(missing_mask) - 1 + 0.5, color="grey", alpha=0.3, zorder=0)
+        ax.axvspan(
+            start - 0.5, len(missing_mask) - 1 + 0.5, color="grey", alpha=0.3, zorder=0
+        )
     plt.setp(ax.get_xticklabels(), rotation=45)
     if path is not None:
         plt.savefig(f"{path}/barplot_{df.Site.iloc[0]}.png")
@@ -595,12 +624,15 @@ def calendar(
         ]
 
         data.loc[
-            mask & (data["end_recording"] > data["end_deployment"]),
-            "end_recording"] = data.loc[
-            mask & (data["end_recording"] > data["end_deployment"]), "end_deployment"]
+            mask & (data["end_recording"] > data["end_deployment"]), "end_recording"
+        ] = data.loc[
+            mask & (data["end_recording"] > data["end_deployment"]), "end_deployment"
+        ]
 
-        data.loc[mask & (data["start_recording"] > data["end_recording"]),
-        ["start_recording", "end_recording"]] = None
+        data.loc[
+            mask & (data["start_recording"] > data["end_recording"]),
+            ["start_recording", "end_recording"],
+        ] = None
         data = data.sort_values(["Phase", "start_deployment"]).reset_index(drop=True)
 
     data["color"] = data["Site"].map(site_colors)
@@ -626,11 +658,18 @@ def calendar(
             linewidth=0.8,
         )
 
-        if (notna(row["start_recording"]) and notna(row["end_recording"]) and
-                row["end_recording"] > row["start_recording"]):
+        if (
+            notna(row["start_recording"])
+            and notna(row["end_recording"])
+            and row["end_recording"] > row["start_recording"]
+        ):
             ax.broken_barh(
-                [(row["start_recording"],
-                  row["end_recording"] - row["start_recording"])],
+                [
+                    (
+                        row["start_recording"],
+                        row["end_recording"] - row["start_recording"],
+                    )
+                ],
                 (y_pos - 0.15, 0.3),
                 facecolors=row["color"],
                 edgecolors="black",
@@ -645,7 +684,9 @@ def calendar(
     plt.show()
 
 
-def matrice_hist(df: DataFrame, unit: str, metric: str, path: Path | None = None) -> None:
+def matrice_hist(
+    df: DataFrame, unit: str, metric: str, path: Path | None = None
+) -> None:
     """Plot a graph with the percentage of minutes positive to detection for every site.
 
     Parameters
@@ -666,9 +707,19 @@ def matrice_hist(df: DataFrame, unit: str, metric: str, path: Path | None = None
     ax.bar(df[unit], df[f"{metric}_mean"], color=colors)
     ax.set_xlabel(f"{unit}")
     ax.set_ylabel(f"{metric}")
-    plt.errorbar(df[unit], df[f"{metric}_mean"], df[f"{metric}_std"],
-                 fmt=".", color="Black", elinewidth=2, capthick=10,
-                 errorevery=1, alpha=0.5, ms=4, capsize=2)
+    plt.errorbar(
+        df[unit],
+        df[f"{metric}_mean"],
+        df[f"{metric}_std"],
+        fmt=".",
+        color="Black",
+        elinewidth=2,
+        capthick=10,
+        errorevery=1,
+        alpha=0.5,
+        ms=4,
+        capsize=2,
+    )
     ax.set_ylim(0, max(df[f"{metric}_mean"] + df[f"{metric}_std"]) * 1.1)
     if metric in {"%buzzes", "FBR"}:
         for _, bar in enumerate(ax.patches):

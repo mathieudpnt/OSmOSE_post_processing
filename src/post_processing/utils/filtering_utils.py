@@ -16,13 +16,11 @@ from pandas import (
     Timedelta,
     Timestamp,
     concat,
-    cut,
-    date_range,
     read_csv,
     to_datetime,
 )
 
-from post_processing.utils.core_utils import get_count
+from post_processing.utils.core_utils import get_count, build_time_vector
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -429,10 +427,9 @@ def _create_result_dataframe(
     dataset: str,
     label: str,
     annotator: str,
-    dpm_count: list[int] | None = None,
 ) -> DataFrame:
     """Create result DataFrame for one annotator-label combination."""
-    df = DataFrame({
+    return DataFrame({
         "dataset": [dataset] * len(file_vector),
         "filename": file_vector,
         "start_time": [0] * len(file_vector),
@@ -445,9 +442,6 @@ def _create_result_dataframe(
         "end_datetime": [t + timebin_new for t in start_datetime],
         "type": ["WEAK"] * len(file_vector),
     })
-    if dpm_count is not None:
-        df["dpm_count"] = dpm_count
-    return df
 
 
 def _normalize_timezones(df: DataFrame) -> DataFrame:
@@ -462,7 +456,7 @@ def _normalize_timezones(df: DataFrame) -> DataFrame:
     return df
 
 
-def _process_annotator_label_pair(
+def _process_detection_combination(
     df: DataFrame,
     annotator: str,
     label: str,
@@ -471,16 +465,18 @@ def _process_annotator_label_pair(
     max_freq: float,
     dataset: str,
 ) -> DataFrame | None:
-    """Process detections for one annotator-label combination."""
-    df_subset = df[(df["annotator"] == annotator) & (df["annotation"] == label)]
+    """Process detections for one annotator-label-dataset combination."""
+    df_subset = df[
+        (df["annotator"] == annotator)
+        & (df["annotation"] == label)
+        & (df["dataset"] == dataset)
+    ]
 
     if df_subset.empty:
         return None
 
     # Create a time vector
-    t1 = min(df_subset["start_datetime"]).floor(timebin_new)
-    t2 = max(df_subset["end_datetime"]).ceil(timebin_new)
-    time_vector = date_range(start=t1, end=t2, freq=timebin_new)
+    time_vector = build_time_vector(df_subset, timebin_new)
 
     # Extract detection data
     ts_detect_beg = df_subset["start_datetime"].to_list()
@@ -507,15 +503,6 @@ def _process_annotator_label_pair(
     if not start_datetime:
         return None
 
-    if annotator.lower() in {"fpod", "cpod"}:
-        bins = list(time_vector) + [time_vector[-1] + timebin_new]
-        counts = cut(ts_detect_beg, bins=bins, right=False).value_counts().sort_index()
-        dpm_count = [
-            counts.iloc[i] for i, detected in enumerate(detect_vec) if detected
-        ]
-    else:
-        dpm_count = None
-
     return _create_result_dataframe(
         file_vector,
         start_datetime,
@@ -524,7 +511,6 @@ def _process_annotator_label_pair(
         dataset,
         label,
         annotator,
-        dpm_count=dpm_count,
     )
 
 
@@ -568,24 +554,26 @@ def reshape_timebin(
     # Normalize timezones if needed
     df = _normalize_timezones(df)
 
-    # Process each annotator-label combination
+    # Process each annotator-label-dataset combination
     annotators = [annotators] if isinstance(annotators, str) else annotators
     labels = [labels] if isinstance(labels, str) else labels
+    dataset = [dataset] if isinstance(dataset, str) else dataset
 
     results = []
-    for ant in annotators:
-        for lbl in labels:
-            result = _process_annotator_label_pair(
-                df,
-                ant,
-                lbl,
-                timebin_new,
-                timestamp_audio,
-                max_freq,
-                dataset,
-            )
-            if result is not None:
-                results.append(result)
+    for ds in dataset:
+        for ant in annotators:
+            for lbl in labels:
+                result = _process_detection_combination(
+                    df,
+                    ant,
+                    lbl,
+                    timebin_new,
+                    timestamp_audio,
+                    max_freq,
+                    ds,
+                )
+                if result is not None:
+                    results.append(result)
 
     return (
         concat(results)
