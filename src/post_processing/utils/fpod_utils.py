@@ -48,7 +48,7 @@ def pod2aplose(
     df: DataFrame,
     tz: pytz.timezone,
     dataset_name: str,
-    annotation: str,
+    label: str,
     annotator: str,
     bin_size: Timedelta,
 ) -> DataFrame:
@@ -62,8 +62,8 @@ def pod2aplose(
         Timezone object to get non-naïve datetime.
     dataset_name: str
         dataset name.
-    annotation: str
-        annotation name.
+    label: str
+        label name.
     annotator: str
         annotator name.
     bin_size: Timedelta
@@ -84,7 +84,7 @@ def pod2aplose(
         "end_time": [bin_size.total_seconds()] * len(df),
         "min_frequency": [0] * len(df),
         "max_frequency": [0] * len(df),
-        "annotation": [annotation] * len(df),
+        "label": [label] * len(df),
         "annotator": [annotator] * len(df),
         "start_datetime": [
             strftime_osmose_format(entry.floor(bin_size)) for entry in fpod_start_dt

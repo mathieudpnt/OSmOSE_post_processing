@@ -1,4 +1,5 @@
 """FPOD/ CPOD processing functions tests."""
+
 import secrets
 from datetime import tzinfo
 from pathlib import Path
@@ -98,41 +99,45 @@ def test_folder_multiple(pod_dataframe: DataFrame, tmp_path: Path) -> None:
     result = load_pod_folder(folder, ext="csv")
 
     assert isinstance(result, DataFrame)
-    assert "Deploy" in result.columns
-    assert set(result["Deploy"]) == {"pod_dataframe1", "pod_dataframe2"}
+    assert set(result["dataset"]) == {"pod_dataframe1", "pod_dataframe2"}
     assert list(result.columns) == [
-        "File", "podN", "ChunkEnd", "Minute", "DPM",
-        "Nall", "MinsOn", "Deploy", "Datetime",
+        "File",
+        "podN",
+        "ChunkEnd",
+        "Minute",
+        "DPM",
+        "Nall",
+        "MinsOn",
+        "dataset",
+        "Datetime",
     ]
 
 
 def test_folder_single_txt(
-        monkeypatch: pytest.MonkeyPatch,
-        click_dataframe: DataFrame,
-        tmp_path: Path) -> None:
+    monkeypatch: pytest.MonkeyPatch, click_dataframe: DataFrame, tmp_path: Path
+) -> None:
     """Test processing a single CSV file."""
-    monkeypatch.setattr("post_processing.utils.fpod_utils.process_feeding_buzz",
-                        lambda df, species: df)
+    monkeypatch.setattr(
+        "post_processing.utils.fpod_utils.process_feeding_buzz", lambda df, species: df
+    )
     txt_file = tmp_path / "click_folder" / "click_dataframe.txt"
     txt_file.parent.mkdir(parents=True, exist_ok=True)
     click_dataframe.to_csv(txt_file, index=False)
     result = load_pod_folder(txt_file.parent, ext="txt")
 
     assert isinstance(result, DataFrame)
-    assert "Deploy" in result.columns
-    assert all(result["Deploy"] == "click_dataframe")
+    assert "dataset" in result.columns
+    assert all(result["dataset"] == "click_dataframe")
     assert list(result.columns) == [
         "File",
         "microsec",
         "Minute",
-        "Deploy",
+        "dataset",
         "Datetime",
     ]
 
 
-def test_folder_multiple_txt(
-        click_dataframe: DataFrame,
-        tmp_path: Path) -> None:
+def test_folder_multiple_txt(click_dataframe: DataFrame, tmp_path: Path) -> None:
     """Test processing multiple txt files."""
     folder = tmp_path / "click_folder"
     folder.mkdir(parents=True, exist_ok=True)
@@ -143,13 +148,13 @@ def test_folder_multiple_txt(
     result = load_pod_folder(folder, ext="txt")
 
     assert isinstance(result, DataFrame)
-    assert "Deploy" in result.columns
-    assert set(result["Deploy"]) == {"click_dataframe1", "click_dataframe2"}
+    assert "dataset" in result.columns
+    assert set(result["dataset"]) == {"click_dataframe1", "click_dataframe2"}
     assert list(result.columns) == [
         "File",
         "microsec",
         "Minute",
-        "Deploy",
+        "dataset",
         "Datetime",
     ]
 
@@ -230,20 +235,21 @@ def test_folder_multiple_txt(
     ],
 )
 def test_right_csv_format(
-        monkeypatch: pytest.MonkeyPatch,
-        tmp_path: Path,
-        mocked_df: DataFrame,
-        should_raise: bool,
-    ) -> None:
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    mocked_df: DataFrame,
+    should_raise: bool,
+) -> None:
     """Mocked read_csv to test load_pod_folder column validation."""
     fake_path = Path("fake/deploy_01.csv")
 
-    monkeypatch.setattr(Path, "rglob",
-                        lambda self, pattern: [fake_path])
-    monkeypatch.setattr("post_processing.utils.fpod_utils.find_delimiter",
-                        lambda f: ";")
-    monkeypatch.setattr("post_processing.utils.fpod_utils.read_csv",
-                        lambda *args, **kwargs: mocked_df)
+    monkeypatch.setattr(Path, "rglob", lambda self, pattern: [fake_path])
+    monkeypatch.setattr(
+        "post_processing.utils.fpod_utils.find_delimiter", lambda f: ";"
+    )
+    monkeypatch.setattr(
+        "post_processing.utils.fpod_utils.read_csv", lambda *args, **kwargs: mocked_df
+    )
 
     if should_raise:
         with pytest.raises((ValueError, KeyError)):
@@ -285,7 +291,7 @@ def test_pod2aplose_basic_structure(sample_df: DataFrame, timezone: tzinfo) -> N
         df=sample_df,
         tz=pytz.UTC,
         dataset_name="dataset",
-        annotation="porpoise",
+        label="porpoise",
         annotator="fpod",
         bin_size=Timedelta(seconds=60),
     )
@@ -297,12 +303,11 @@ def test_pod2aplose_basic_structure(sample_df: DataFrame, timezone: tzinfo) -> N
         "end_time",
         "min_frequency",
         "max_frequency",
-        "annotation",
+        "label",
         "annotator",
         "start_datetime",
         "end_datetime",
         "type",
-        "deploy",
     ]
 
     assert isinstance(result, DataFrame)
@@ -315,13 +320,11 @@ def test_pod2aplose_basic_structure(sample_df: DataFrame, timezone: tzinfo) -> N
     assert all(result["end_time"] == 60)
     assert all(result["min_frequency"] == 0)
     assert all(result["max_frequency"] == 0)
-    assert all(result["annotation"] == "porpoise")
+    assert all(result["label"] == "porpoise")
     assert all(result["annotator"] == "fpod")
     assert len(result["start_datetime"].iloc[0]) > 0
     assert len(result["end_datetime"].iloc[0]) > 0
-    assert "deploy" in result.columns
-    assert len(result["deploy"]) == len(sample_df)
-    assert set(result["deploy"]) == {"deploy1", "deploy2"}
+    assert len(result["dataset"]) == len(sample_df)
 
 
 def test_pod2aplose_empty_dataframe(empty_df: DataFrame, timezone: tzinfo) -> None:
@@ -330,7 +333,7 @@ def test_pod2aplose_empty_dataframe(empty_df: DataFrame, timezone: tzinfo) -> No
         df=empty_df,
         tz=pytz.UTC,
         dataset_name="dataset",
-        annotation="porpoise",
+        label="porpoise",
         annotator="fpod",
         bin_size=Timedelta(seconds=60),
     )
@@ -343,12 +346,11 @@ def test_pod2aplose_empty_dataframe(empty_df: DataFrame, timezone: tzinfo) -> No
         "end_time",
         "min_frequency",
         "max_frequency",
-        "annotation",
+        "label",
         "annotator",
         "start_datetime",
         "end_datetime",
         "type",
-        "deploy",
     ]
 
 
@@ -367,7 +369,7 @@ def sample_fb() -> DataFrame:
             Timestamp("2019-05-03 19:55:05.982035"),
             Timestamp("2019-05-15 01:38:25.499480"),
         ],
-        "Deploy": [
+        "dataset": [
             "deploy1",
             "deploy1",
             "deploy1",
@@ -394,7 +396,7 @@ def test_fit_gmm_output(sample_fb: DataFrame) -> None:
 
     expected_columns = [
         "Datetime",
-        "Deploy",
+        "dataset",
         "ICI_minutes",
         "cluster",
     ]
@@ -402,7 +404,7 @@ def test_fit_gmm_output(sample_fb: DataFrame) -> None:
     assert isinstance(clustering, DataFrame)
     assert list(clustering.columns) == expected_columns
     assert clustering["Datetime"].iloc[0] != sample_fb["Datetime"].iloc[0]
-    assert set(clustering["Deploy"]) == {"deploy1", "deploy2", "deploy3"}
+    assert set(clustering["dataset"]) == {"deploy1", "deploy2", "deploy3"}
     assert len(clustering["cluster"].unique()) == comp
     assert len(clustering) == len(ici_log)
 
@@ -510,7 +512,12 @@ def test_timelost_process(sample_tl_df: DataFrame, timezone: tzinfo) -> None:
     )
 
     expected_columns = [
-        "File", "Temp", "Angle", "%TimeLost", "Deploy", "Datetime",
+        "File",
+        "Temp",
+        "Angle",
+        "%TimeLost",
+        "Deploy",
+        "Datetime",
     ]
 
     assert isinstance(result, DataFrame)
