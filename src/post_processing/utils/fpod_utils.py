@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from itertools import cycle
 from typing import TYPE_CHECKING, Any
 
 import matplotlib.pyplot as plt
@@ -33,7 +34,6 @@ from scipy import stats
 from sklearn import mixture
 
 from post_processing.utils.filtering_utils import find_delimiter
-from user_case.config import site_colors
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -569,7 +569,9 @@ def percent_barplot(
     """
     fig, ax = plt.subplots()
 
-    colors = df["Site"].map(site_colors).fillna("#0072b2")
+    color_cycle = cycle(plt.rcParams["axes.prop_cycle"].by_key()["color"])
+    site_colors = {site: next(color_cycle) for site in df["Site"].unique()}
+    colors = df["Site"].map(site_colors)
 
     ax.bar(df[unit].astype(str), df[metric], color=colors)
     ax.set_title(f"{metric} per {unit}")
@@ -635,6 +637,8 @@ def calendar(
         ] = None
         data = data.sort_values(["Phase", "start_deployment"]).reset_index(drop=True)
 
+    color_cycle = cycle(plt.rcParams["axes.prop_cycle"].by_key()["color"])
+    site_colors = {site: next(color_cycle) for site in data["Site"].unique()}
     data["color"] = data["Site"].map(site_colors)
 
     # Create the figure
@@ -701,7 +705,9 @@ def matrice_hist(
         Path to save the graph
 
     """
-    colors = df["Site"].map(site_colors).fillna("#0072b2")
+    color_cycle = cycle(plt.rcParams["axes.prop_cycle"].by_key()["color"])
+    site_colors = {site: next(color_cycle) for site in df["Site"].unique()}
+    colors = df["Site"].map(site_colors)
 
     fig, ax = plt.subplots()
     ax.bar(df[unit], df[f"{metric}_mean"], color=colors)
