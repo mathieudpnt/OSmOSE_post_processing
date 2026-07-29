@@ -7,7 +7,9 @@ from itertools import cycle
 from typing import TYPE_CHECKING, Any
 
 import matplotlib.pyplot as plt
+from matplotlib.patches import Patch
 from numpy import (
+    arange,
     argsort,
     exp,
     linspace,
@@ -34,6 +36,7 @@ from scipy import stats
 from sklearn import mixture
 
 from post_processing.utils.filtering_utils import find_delimiter
+from post_processing.utils.plot_utils import set_dynamic_ylim
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -550,55 +553,6 @@ def percent_calc(
     return df
 
 
-def percent_barplot(
-    df: DataFrame, unit: str, metric: str, path: Path | None = None
-) -> None:
-    """Plot a graph with the percentage of minutes positive to detection for every site.
-
-    Parameters
-    ----------
-    df: DataFrame
-        All percentages grouped by site
-    unit: str
-        Time unit the data are grouped in
-    metric: str
-        Type of percentage shown on the graph
-    path: Path
-        Path to save the graph
-
-    """
-    fig, ax = plt.subplots()
-
-    color_cycle = cycle(plt.rcParams["axes.prop_cycle"].by_key()["color"])
-    site_colors = {site: next(color_cycle) for site in df["Site"].unique()}
-    colors = df["Site"].map(site_colors)
-
-    ax.bar(df[unit].astype(str), df[metric], color=colors)
-    ax.set_title(f"{metric} per {unit}")
-    ax.set_ylabel(f"{metric}")
-    ax.set_xlabel(f"{unit}")
-    if metric in {"%buzzes", "FBR"}:
-        for _, bar in enumerate(ax.patches):
-            bar.set_hatch("/")
-    missing_mask = df[metric].isna().to_numpy()
-    start = None
-    for i, is_missing in enumerate(missing_mask):
-        if is_missing and start is None:
-            start = i
-        elif not is_missing and start is not None:
-            ax.axvspan(start - 0.5, i - 1 + 0.5, color="grey", alpha=0.3, zorder=0)
-            start = None
-
-    if start is not None:
-        ax.axvspan(
-            start - 0.5, len(missing_mask) - 1 + 0.5, color="grey", alpha=0.3, zorder=0
-        )
-    plt.setp(ax.get_xticklabels(), rotation=45)
-    if path is not None:
-        plt.savefig(f"{path}/barplot_{df.Site.iloc[0]}.png")
-    plt.show()
-
-
 def calendar(
     data: DataFrame,
 ) -> None:
@@ -639,6 +593,7 @@ def calendar(
 
     color_cycle = cycle(plt.rcParams["axes.prop_cycle"].by_key()["color"])
     site_colors = {site: next(color_cycle) for site in data["Site"].unique()}
+
     data["color"] = data["Site"].map(site_colors)
 
     # Create the figure
@@ -672,7 +627,7 @@ def calendar(
                     (
                         row["start_recording"],
                         row["end_recording"] - row["start_recording"],
-                    )
+                    ),
                 ],
                 (y_pos - 0.15, 0.3),
                 facecolors=row["color"],
@@ -688,48 +643,155 @@ def calendar(
     plt.show()
 
 
-def matrice_hist(
-    df: DataFrame, unit: str, metric: str, path: Path | None = None
+default_colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
+
+
+def get_group_colors(df: DataFrame, group_col: str) -> dict[str, str]:
+    """Map each unique value of `group_col` to a stable color.
+
+    Mirrors `get_colors`, but keys colors by group label instead of
+    by column position (needed since bars share colors within a group).
+    """
+    groups = df[group_col].unique()
+    color_cycle = cycle(default_colors)
+    return {group: next(color_cycle) for group in groups}
+
+
+def _shade_missing_bars(
+    ax: plt.Axes,
+    missing_mask: ndarray,
+    positions: ndarray | None = None,
+    *,
+    color: str = "grey",
+    alpha: float = 0.3,
 ) -> None:
-    """Plot a graph with the percentage of minutes positive to detection for every site.
+    """Shade contiguous runs of missing/NaN bars."""
+    pos = positions if positions is not None else arange(len(missing_mask))
+    start = None
+    for i, is_missing in enumerate(missing_mask):
+        if is_missing and start is None:
+            start = i
+        elif not is_missing and start is not None:
+            ax.axvspan(pos[start] - 0.5, pos[i - 1] + 0.5, color=color, alpha=alpha, zorder=0)
+            start = None
+    if start is not None:
+        ax.axvspan(pos[start] - 0.5, pos[-1] + 0.5, color=color, alpha=alpha, zorder=0)
+
+
+def percent_barplot(
+    df: DataFrame,
+    x: str,
+    metric: str,
+    ax: plt.Axes | None = None,
+    **kwargs: bool | str | list[str] | None,
+) -> plt.Axes:
+    """Plot a bar chart of a percentage/rate metric, grouped by category and colored by site.
 
     Parameters
     ----------
     df: DataFrame
-        All percentages grouped by site
-    unit: str
-        Time unit you want to group your data in
+        Data containing at least `x` and the grouping column, plus either:
+        - a plain `metric` column, or
+        - two `f"{metric}_mean"` and `f"{metric}_std"` columns used if `show_std` is selected.
+    x: str
+        Column used for the x-axis categories (e.g. a time unit).
     metric: str
-        Type of percentage you want to show on the graph
-    path: Path
-        Path to save the graph
+        Name of the value plotted on the y-axis (e.g. "%buzzes", "FBR", "%FBh").
+        Resolved to `mean_col` (see below) to find the actual data column.
+    ax: matplotlib.axes.Axes, optional
+        Axes to draw on. A new figure/axes is created if not provided,
+        matching the `ax`-as-parameter pattern used by `histo`/`timeline`.
+    **kwargs: Additional keyword arguments.
+        - group_col: str
+            Column used to color bars by group (default "Site").
+        - colors: dict[str, str]
+            Explicit {group: color} mapping. Overrides auto-assigned colors.
+        - hatch_metrics: set[str]
+            Metric names that should be drawn with a hatch pattern
+            (default {"%buzzes", "FBR", "%FBh"}).
+        - legend: bool
+            Whether to show a legend mapping groups to colors (default True).
+        - shade_missing: bool
+            Whether to shade contiguous runs of NaN values (default True).
+        - dynamic_ylim: bool
+            Whether to auto-scale y-limits via `set_dynamic_ylim` (default True).
+            Automatically accounts for std whiskers when `show_std` is True.
+        - mean_col: str
+            Column holding the plotted values. Defaults to `f"{metric}_mean"`
+            if that column exists in `df`, otherwise falls back to `metric`
+            itself (so both naming conventions work unchanged).
+        - show_std: bool
+            Whether to overlay std error bars via `ax.errorbar`, drawn as
+            dots with whiskers on top of the bars (default False).
+        - std_col: str
+            Column holding std values. Defaults to `f"{metric}_std"`.
+            Ignored if `show_std` is False.
 
     """
-    color_cycle = cycle(plt.rcParams["axes.prop_cycle"].by_key()["color"])
-    site_colors = {site: next(color_cycle) for site in df["Site"].unique()}
-    colors = df["Site"].map(site_colors)
-
-    fig, ax = plt.subplots()
-    ax.bar(df[unit], df[f"{metric}_mean"], color=colors)
-    ax.set_xlabel(f"{unit}")
-    ax.set_ylabel(f"{metric}")
-    plt.errorbar(
-        df[unit],
-        df[f"{metric}_mean"],
-        df[f"{metric}_std"],
-        fmt=".",
-        color="Black",
-        elinewidth=2,
-        capthick=10,
-        errorevery=1,
-        alpha=0.5,
-        ms=4,
-        capsize=2,
+    mean_col = kwargs.get("mean_col") or (
+        f"{metric}_mean" if f"{metric}_mean" in df.columns else metric
     )
-    ax.set_ylim(0, max(df[f"{metric}_mean"] + df[f"{metric}_std"]) * 1.1)
-    if metric in {"%buzzes", "FBR"}:
-        for _, bar in enumerate(ax.patches):
+
+    if df.empty or df[mean_col].isna().all():
+        msg = f"DataFrame for metric '{metric}' has no plottable data."
+        logging.warning(msg)
+        return ax
+
+    group_col = kwargs.get("group_col", "Site")
+    colors_map = kwargs.get("colors") or get_group_colors(df, group_col)
+    hatch_metrics = kwargs.get("hatch_metrics", {"%buzzes", "FBR", "%FBh"})
+    legend = kwargs.get("legend", True)
+    shade_missing = kwargs.get("shade_missing", True)
+    dynamic_ylim = kwargs.get("dynamic_ylim", True)
+
+    show_std = kwargs.get("show_std", False)
+    std_col = kwargs.get("std_col", f"{metric}_std")
+
+    if ax is None:
+        _, ax = plt.subplots()
+
+    bar_colors = df[group_col].map(colors_map)
+
+    ax.bar(df[x].astype(str), df[mean_col], color=bar_colors, zorder=2, edgecolor="black", linewidth=0.5)
+
+    if metric in hatch_metrics:
+        for bar in ax.patches:
             bar.set_hatch("/")
-    plt.setp(ax.get_xticklabels(), rotation=45, ha="right")
-    plt.savefig(f"{path}/barplotSTD_{df.Site.iloc[0]}.png")
-    plt.show()
+
+    std_values = None
+    if show_std:
+        if std_col not in df.columns:
+            msg = f"show_std=True but column '{std_col}' not found in df."
+            logging.warning(msg)
+        else:
+            std_values = df[std_col]
+            ax.errorbar(
+                df[x].astype(str), df[mean_col], std_values,
+                fmt=".", color="black", elinewidth=2, capthick=10,
+                errorevery=1, alpha=0.5, ms=4, capsize=2,
+            )
+
+    if shade_missing:
+        _shade_missing_bars(ax, df[mean_col].isna().to_numpy())
+
+    if dynamic_ylim and df[mean_col].notna().any():
+        if std_values is not None:
+            padded = (df[mean_col].fillna(0) + std_values.fillna(0)).to_frame(mean_col)
+            set_dynamic_ylim(ax, padded)
+        else:
+            set_dynamic_ylim(ax, df[[mean_col]].fillna(0))
+
+    if legend and len(colors_map) > 1:
+        handles = [Patch(facecolor=c, label=g) for g, c in colors_map.items()]
+        ax.legend(
+            handles=handles,
+            bbox_to_anchor=(1.01, 1),
+            loc="upper left",
+            title=group_col,
+        )
+
+    ax.set_title(f"{metric} per {x}")
+    ax.set_ylabel(metric)
+    ax.set_xlabel(x)
+
+    return ax
