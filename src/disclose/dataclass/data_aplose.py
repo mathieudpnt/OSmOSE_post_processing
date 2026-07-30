@@ -20,17 +20,21 @@ from pandas import (
     Timestamp,
     concat,
     date_range,
+    read_csv,
+    NA,
+    cut,
 )
 from pandas.tseries import offsets
 
 from disclose.dataclass.data_aplose_config import DataAploseConfig
-from disclose.utils.core import get_count
+from disclose.utils.core import get_count, build_time_vector
 from disclose.utils.filtering import (
     get_annotators,
     get_dataset,
     get_labels,
     get_timezone,
     load_detections,
+    _build_detection_vector,
 )
 from disclose.dataclass.recording_period import RecordingPeriod
 from disclose.utils.metric import detection_perf
@@ -626,3 +630,37 @@ class DataAplose:
 
         msg = f"Unsupported plot mode: {mode}"
         raise ValueError(msg)
+
+    def add_dpm(self) -> None:
+        """Add the detection per minute `DPM` column to DataFrame."""
+        df_dpm = read_csv(
+            self.config.detection_file, parse_dates=["start_datetime", "end_datetime"]
+        )
+        self.df["dpm_count"] = NA
+        ts_detect_beg = df_dpm["start_datetime"].to_list()
+        ts_detect_end = df_dpm["end_datetime"].to_list()
+
+        annotators = (
+            [self.annotator] if isinstance(self.annotator, str) else self.annotator
+        )
+
+        for ann in annotators:
+            if ann.lower() in {"fpod", "cpod"}:
+                df_sel = self.df[(self.df["annotator"] == ann)]
+                time_vector = build_time_vector(df_sel, self.config.timebin_new)
+                bins = list(time_vector) + [time_vector[-1] + self.config.timebin_new]
+
+                detect_vec = _build_detection_vector(
+                    time_vector, ts_detect_beg, ts_detect_end
+                )
+                counts = (
+                    cut(ts_detect_beg, bins=bins, right=False)
+                    .value_counts()
+                    .sort_index()
+                )
+
+                dpm_values = [
+                    counts.iloc[i] for i, detected in enumerate(detect_vec) if detected
+                ]
+
+                self.df.loc[df_sel.index, "dpm_count"] = dpm_values
