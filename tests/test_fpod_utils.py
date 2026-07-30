@@ -8,7 +8,7 @@ import pytest
 import pytz
 from pandas import DataFrame, Timedelta, Timestamp
 
-from post_processing.utils.fpod_utils import (
+from disclose.utils.pod import (
     fit_gmm,
     load_pod_folder,
     pod2aplose,
@@ -118,7 +118,7 @@ def test_folder_single_txt(
 ) -> None:
     """Test processing a single CSV file."""
     monkeypatch.setattr(
-        "post_processing.utils.fpod_utils.process_feeding_buzz", lambda df, species: df
+        "disclose.utils.pod.process_feeding_buzz", lambda df, species: df
     )
     txt_file = tmp_path / "click_folder" / "click_dataframe.txt"
     txt_file.parent.mkdir(parents=True, exist_ok=True)
@@ -244,11 +244,9 @@ def test_right_csv_format(
     fake_path = Path("fake/deploy_01.csv")
 
     monkeypatch.setattr(Path, "rglob", lambda self, pattern: [fake_path])
+    monkeypatch.setattr("disclose.utils.pod.find_delimiter", lambda f: ";")
     monkeypatch.setattr(
-        "post_processing.utils.fpod_utils.find_delimiter", lambda f: ";"
-    )
-    monkeypatch.setattr(
-        "post_processing.utils.fpod_utils.read_csv", lambda *args, **kwargs: mocked_df
+        "disclose.utils.pod.read_csv", lambda *args, **kwargs: mocked_df
     )
 
     if should_raise:

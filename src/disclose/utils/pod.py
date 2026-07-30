@@ -35,8 +35,8 @@ from pandas import (
 from scipy import stats
 from sklearn import mixture
 
-from post_processing.utils.filtering_utils import find_delimiter
-from post_processing.utils.plot_utils import set_dynamic_ylim
+from disclose.utils.filtering import find_delimiter
+from disclose.utils.visualisation import set_dynamic_ylim
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -64,7 +64,7 @@ def pod2aplose(
     tz: pytz.timezone
         Timezone object to get non-naïve datetime.
     dataset_name: str
-        dataset name.
+        dataset name
     label: str
         label name.
     annotator: str
@@ -672,7 +672,9 @@ def _shade_missing_bars(
         if is_missing and start is None:
             start = i
         elif not is_missing and start is not None:
-            ax.axvspan(pos[start] - 0.5, pos[i - 1] + 0.5, color=color, alpha=alpha, zorder=0)
+            ax.axvspan(
+                pos[start] - 0.5, pos[i - 1] + 0.5, color=color, alpha=alpha, zorder=0
+            )
             start = None
     if start is not None:
         ax.axvspan(pos[start] - 0.5, pos[-1] + 0.5, color=color, alpha=alpha, zorder=0)
@@ -752,7 +754,14 @@ def percent_barplot(
 
     bar_colors = df[group_col].map(colors_map)
 
-    ax.bar(df[x].astype(str), df[mean_col], color=bar_colors, zorder=2, edgecolor="black", linewidth=0.5)
+    ax.bar(
+        df[x].astype(str),
+        df[mean_col],
+        color=bar_colors,
+        zorder=2,
+        edgecolor="black",
+        linewidth=0.5,
+    )
 
     if metric in hatch_metrics:
         for bar in ax.patches:
@@ -766,9 +775,17 @@ def percent_barplot(
         else:
             std_values = df[std_col]
             ax.errorbar(
-                df[x].astype(str), df[mean_col], std_values,
-                fmt=".", color="black", elinewidth=2, capthick=10,
-                errorevery=1, alpha=0.5, ms=4, capsize=2,
+                df[x].astype(str),
+                df[mean_col],
+                std_values,
+                fmt=".",
+                color="black",
+                elinewidth=2,
+                capthick=10,
+                errorevery=1,
+                alpha=0.5,
+                ms=4,
+                capsize=2,
             )
 
     if shade_missing:

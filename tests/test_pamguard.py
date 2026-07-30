@@ -2,11 +2,11 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-from osekit.core_api.audio_data import AudioData
+from osekit.core.audio_data import AudioData
 from pandas import DataFrame, Timestamp
 from pypamguard.chunks.generics import GenericModule
 
-from post_processing.utils.pamguard_utils import process_binary
+from disclose.utils.pamguard import process_binary
 
 
 @pytest.fixture
@@ -36,12 +36,10 @@ def fake_detection() -> GenericModule:
 def test_process_binary_basic(
     fake_audio: AudioData, fake_detection: GenericModule
 ) -> None:
-    with patch(
-        "post_processing.utils.pamguard_utils.load_pamguard_binary_folder"
-    ) as mock_loader:
+    with patch("disclose.utils.pamguard.load_pamguard_binary_folder") as mock_loader:
         mock_loader.return_value = ([fake_detection], None, None)
 
-        df = process_binary(fake_audio, Path("/fake/binary"), "Dataset", "Label")
+        df = process_binary(fake_audio, Path("/fake/binary"), "ds", "lbl")
 
         assert isinstance(df, DataFrame)
         expected_cols = {
@@ -51,7 +49,7 @@ def test_process_binary_basic(
             "end_time",
             "min_frequency",
             "max_frequency",
-            "annotation",
+            "label",
             "annotator",
             "start_datetime",
             "end_datetime",
@@ -60,18 +58,16 @@ def test_process_binary_basic(
         assert set(df.columns) == expected_cols
 
         row = df.iloc[0]
-        assert row["dataset"] == "Dataset"
+        assert row["dataset"] == "ds"
         assert row["filename"] == "fake.wav"
         assert row["min_frequency"] == 1000
         assert row["max_frequency"] == 5000
-        assert row["annotation"] == "Label"
+        assert row["label"] == "lbl"
         assert row["type"]
 
 
 def test_process_binary_no_detections(fake_audio: AudioData) -> None:
-    with patch(
-        "post_processing.utils.pamguard_utils.load_pamguard_binary_folder"
-    ) as mock_loader:
+    with patch("disclose.utils.pamguard.load_pamguard_binary_folder") as mock_loader:
         mock_loader.return_value = ([], None, None)
         df = process_binary(fake_audio, Path("/fake/binary"), "Dataset", "Label")
         assert df.empty
@@ -82,9 +78,7 @@ def test_process_binary_detection_outside_audio(
 ) -> None:
     fake_detection.date = "2025-05-28T23:59:00+0000"
 
-    with patch(
-        "post_processing.utils.pamguard_utils.load_pamguard_binary_folder"
-    ) as mock_loader:
+    with patch("disclose.utils.pamguard.load_pamguard_binary_folder") as mock_loader:
         mock_loader.return_value = ([fake_detection], None, None)
         with pytest.raises(AttributeError):
             process_binary(fake_audio, Path("/fake/binary"), "Dataset", "Label")

@@ -8,7 +8,7 @@ import pytest
 import pytz
 from pandas import DataFrame, Timedelta, Timestamp, concat, to_datetime
 
-from post_processing.utils.filtering_utils import (
+from disclose.utils.filtering import (
     ensure_no_invalid,
     filter_by_annotator,
     filter_by_freq,
@@ -166,12 +166,12 @@ def test_filter_by_annotator_invalid(sample_df: DataFrame) -> None:
 # filter_by_label
 def test_filter_by_label_string(sample_df: DataFrame) -> None:
     df = filter_by_label(sample_df, "lbl1")
-    assert set(df["annotation"]) == {"lbl1"}
+    assert set(df["label"]) == {"lbl1"}
 
 
 def test_filter_by_label_list(sample_df: DataFrame) -> None:
     df = filter_by_label(sample_df, ["lbl2"])
-    assert set(df["annotation"]) == {"lbl2"}
+    assert set(df["label"]) == {"lbl2"}
 
 
 def test_filter_by_label_invalid(sample_df: DataFrame) -> None:
@@ -262,13 +262,12 @@ def test_filter_weak_only_type_column(sample_df: DataFrame) -> None:
 
 def test_filter_weak_only_invalid() -> None:
     invalid_df = DataFrame({"A": [1, 2, 3], "B": [4, 5, 6]})
-    with pytest.raises(ValueError, match="Could not determine annotation type"):
+    with pytest.raises(ValueError, match="Could not determine label type"):
         filter_strong_detection(invalid_df)
 
 
 def test_filter_weak_empty(sample_df: DataFrame) -> None:
-    with pytest.raises(ValueError, match="No weak detection found"):
-        filter_strong_detection(sample_df[sample_df["type"] == "BOX"])
+    assert filter_strong_detection(sample_df[sample_df["type"] == "BOX"]).empty
 
 
 def test_get_annotators(sample_df: DataFrame) -> None:
@@ -279,7 +278,7 @@ def test_get_annotators(sample_df: DataFrame) -> None:
 
 def test_get_labels(sample_df: DataFrame) -> None:
     labels = get_labels(sample_df)
-    expected = sorted(set(sample_df["annotation"]))
+    expected = sorted(set(sample_df["label"]))
     assert labels == expected
 
 
@@ -288,7 +287,7 @@ def test_get_max_freq(sample_df: DataFrame) -> None:
 
 
 def test_get_max_time(sample_df: DataFrame) -> None:
-    assert get_max_time(sample_df) == sample_df["end_time"].max()
+    assert get_max_time(sample_df) == Timedelta(sample_df["end_time"].max(), "s")
 
 
 def test_get_dataset(sample_df: DataFrame) -> None:
@@ -331,7 +330,7 @@ def test_get_timezone_several(sample_df: DataFrame) -> None:
         "end_time": 2,
         "min_frequency": 100,
         "max_frequency": 200,
-        "annotation": "annotation",
+        "label": "label",
         "annotator": "annotator",
         "start_datetime": Timestamp("2025-01-27 06:00:00.000000+07:00"),
         "end_datetime": Timestamp("2025-01-27 06:00:00.000000+07:00"),
@@ -354,25 +353,25 @@ def test_get_timezone_several(sample_df: DataFrame) -> None:
 def test_read_dataframe_comma_delimiter(tmp_path: Path) -> None:
     csv_file = tmp_path / "test.csv"
     csv_file.write_text(
-        "start_datetime,end_datetime,annotation\n"
+        "start_datetime,end_datetime,label\n"
         "2025-01-01 12:00:00,2025-01-01 12:05:00,whale\n"
         "2025-01-01 13:00:00,2025-01-01 13:05:00,dolphin\n",
     )
 
     df = read_dataframe(csv_file)
 
-    assert list(df.columns) == ["start_datetime", "end_datetime", "annotation"]
+    assert list(df.columns) == ["start_datetime", "end_datetime", "label"]
     assert len(df) == 2
-    assert df.iloc[0]["annotation"] == "whale"
+    assert df.iloc[0]["label"] == "whale"
 
 
 def test_read_dataframe_drop_duplicates_and_na(tmp_path: Path) -> None:
     csv_file = tmp_path / "test_duplicates.csv"
     csv_file.write_text(
-        "start_datetime,end_datetime,annotation\n"
+        "start_datetime,end_datetime,label\n"
         "2025-01-01 12:00:00,2025-01-01 12:05:00,whale\n"
         "2025-01-01 12:00:00,2025-01-01 12:05:00,whale\n"  # duplicate
-        "2025-01-01 13:00:00,2025-01-01 13:05:00,\n",  # NaN annotation
+        "2025-01-01 13:00:00,2025-01-01 13:05:00,\n",  # NaN label
     )
 
     df = read_dataframe(csv_file)
@@ -382,26 +381,26 @@ def test_read_dataframe_drop_duplicates_and_na(tmp_path: Path) -> None:
 def test_read_dataframe_sorted_by_datetime(tmp_path: Path) -> None:
     csv_file = tmp_path / "test_unsorted.csv"
     csv_file.write_text(
-        "start_datetime,end_datetime,annotation\n"
+        "start_datetime,end_datetime,label\n"
         "2025-01-01 14:00:00,2025-01-01 14:05:00,dolphin\n"
         "2025-01-01 12:00:00,2025-01-01 12:05:00,whale\n",
     )
 
     df = read_dataframe(csv_file)
-    assert list(df["annotation"]) == ["whale", "dolphin"]
+    assert list(df["label"]) == ["whale", "dolphin"]
 
 
 def test_read_dataframe_nrows(tmp_path: Path) -> None:
     csv_file = tmp_path / "test_nrows.csv"
     csv_file.write_text(
-        "start_datetime,end_datetime,annotation\n"
+        "start_datetime,end_datetime,label\n"
         "2025-01-01 12:00:00,2025-01-01 12:05:00,whale\n"
         "2025-01-01 13:00:00,2025-01-01 13:05:00,dolphin\n",
     )
 
     df = read_dataframe(csv_file, rows=1)
     assert len(df) == 1
-    assert df.iloc[0]["annotation"] in {"whale", "dolphin"}
+    assert df.iloc[0]["label"] in {"whale", "dolphin"}
 
 
 # %% reshape_timebin
@@ -420,7 +419,7 @@ def test_no_timebin_several_tz(sample_df: DataFrame) -> None:
         "end_time": 2,
         "min_frequency": 100,
         "max_frequency": 200,
-        "annotation": "annotation",
+        "label": "label",
         "annotator": "annotator",
         "start_datetime": Timestamp("2025-01-27 06:00:00.000000+07:00"),
         "end_datetime": Timestamp("2025-01-27 06:00:00.000000+07:00"),
@@ -476,7 +475,7 @@ def test_no_timebin_original_timebin(sample_df: DataFrame) -> None:
             "end_time": [60.0] * 18,
             "min_frequency": [0] * 18,
             "max_frequency": [72_000.0] * 18,
-            "annotation": [
+            "label": [
                 "lbl1",
                 "lbl2",
                 "lbl1",
@@ -541,7 +540,7 @@ def test_simple_reshape_hourly(sample_df: DataFrame) -> None:
     assert not df_out.empty
     assert all(df_out["end_time"] == 3600.0)
     assert df_out["max_frequency"].max() == sample_df["max_frequency"].max()
-    assert set(df_out["annotation"]) <= set(sample_df["annotation"])
+    assert set(df_out["label"]) <= set(sample_df["label"])
     assert set(df_out["annotator"]) <= set(sample_df["annotator"])
 
 
@@ -628,7 +627,7 @@ def test_intersection(sample_df: DataFrame) -> None:
         user_sel="intersection",
     )
 
-    assert set(df_result["annotation"]) == {"lbl1 ∩ lbl2"}
+    assert set(df_result["label"]) == {"lbl1 ∩ lbl2"}
     assert set(df_result["annotator"]) == {"ann1 ∩ ann2"}
 
 
@@ -637,7 +636,7 @@ def test_union(sample_df: DataFrame) -> None:
         sample_df[sample_df["annotator"].isin(["ann1", "ann2"])], user_sel="union"
     )
 
-    assert set(df_result["annotation"]) == {"lbl1 ∪ lbl2"}
+    assert set(df_result["label"]) == {"lbl1 ∪ lbl2"}
     assert set(df_result["annotator"]) == {"ann1 ∪ ann2"}
 
 
@@ -656,7 +655,7 @@ def test_invalid_user_sel_raises(sample_df: DataFrame) -> None:
 
 def test_not_enough_annotators_raises() -> None:
     df_single_annotator = DataFrame({
-        "annotation": ["cat"],
+        "label": ["cat"],
         "start_datetime": to_datetime(["2025-01-01 10:00"]),
         "end_datetime": to_datetime(["2025-01-01 10:01"]),
         "annotator": ["A"],

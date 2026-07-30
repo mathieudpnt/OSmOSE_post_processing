@@ -369,9 +369,7 @@ def get_count(
     labels, annotators = get_labels_and_annotators(df)
 
     series_list = [
-        df[(df["annotation"] == label) & (df["annotator"] == annotator)][
-            "start_datetime"
-        ]
+        df[(df["label"] == label) & (df["annotator"] == annotator)]["start_datetime"]
         for label, annotator in zip(labels, annotators, strict=False)
     ]
 
@@ -383,7 +381,7 @@ def get_count(
 
 
 def get_labels_and_annotators(df: DataFrame) -> tuple[list, list]:
-    """Extract and align annotation labels and annotators from an APLOSE DataFrame.
+    """Extract and align labels and annotators from an APLOSE DataFrame.
 
     Parameters
     ----------
@@ -400,8 +398,8 @@ def get_labels_and_annotators(df: DataFrame) -> tuple[list, list]:
         msg = "`df` contains no data"
         raise ValueError(msg)
 
-    unique_pairs = df[["annotator", "annotation"]].drop_duplicates()
-    return unique_pairs["annotation"].to_list(), unique_pairs["annotator"].to_list()
+    unique_pairs = df[["annotator", "label"]].drop_duplicates()
+    return unique_pairs["label"].to_list(), unique_pairs["annotator"].to_list()
 
 
 def localize_timestamps(timestamps: list[Timestamp], tz: tzinfo) -> list[Timestamp]:

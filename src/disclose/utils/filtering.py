@@ -20,12 +20,12 @@ from pandas import (
     to_datetime,
 )
 
-from post_processing.utils.core_utils import get_count, build_time_vector
+from disclose.utils.core import get_count, build_time_vector
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from post_processing.dataclass.detection_filter import DetectionFilter
+    from disclose.dataclass.data_aplose_config import DataAploseConfig
 
 
 def find_delimiter(file: Path) -> str:
@@ -60,9 +60,9 @@ def find_delimiter(file: Path) -> str:
 def filter_strong_detection(
     df: DataFrame,
 ) -> DataFrame:
-    """Filter to keep only weak detections (exclude box/strong annotations).
+    """Filter to keep only weak detections (exclude box/strong detections).
 
-    This function identifies and removes "strong" or "box" type annotations,
+    This function identifies and removes "strong" or "box" type detections,
     keeping only "weak" detections. It checks for either an 'is_box' or 'type' column.
 
     Parameters
@@ -79,10 +79,7 @@ def filter_strong_detection(
     if "type" in df.columns:
         df = df[df["type"] == "WEAK"]
     else:
-        msg = "Could not determine annotation type."
-        raise ValueError(msg)
-    if df.empty:
-        msg = "No weak detection found."
+        msg = "Could not determine label type."
         raise ValueError(msg)
     return df
 
@@ -161,7 +158,7 @@ def filter_by_label(
     Parameters
     ----------
     df : DataFrame
-        APLOSE-formatted DataFrame containing an 'annotation' column.
+        APLOSE-formatted DataFrame containing an 'label' column.
     label : str or list of str
         Single label or list of labels to filter by.
 
@@ -178,12 +175,12 @@ def filter_by_label(
 
     if isinstance(label, str):
         ensure_in_list(label, list_labels, "label")
-        return df[df["annotation"] == label]
+        return df[df["label"] == label]
 
     invalid = [lbl for lbl in label if lbl not in list_labels]
     ensure_no_invalid(invalid, "labels")
 
-    return df.loc[df["annotation"].isin(label)]
+    return df.loc[df["label"].isin(label)]
 
 
 def filter_by_freq(
@@ -222,7 +219,7 @@ def filter_by_freq(
     return df
 
 
-def filter_by_confidence(df: DataFrame, confidence: float) -> DataFrame:
+def filter_by_confidence(df: DataFrame, confidence: float | None) -> DataFrame:
     """Filter detections by confidence.
 
     Parameters
@@ -241,6 +238,10 @@ def filter_by_confidence(df: DataFrame, confidence: float) -> DataFrame:
     if not confidence:
         return df
 
+    if not 0 <= confidence <= 1:
+        msg = f"confidence must be between 0 and 1, got {confidence}."
+        raise ValueError(msg)
+
     if "confidence" not in df.columns:
         msg = "'confidence' column not present if DataFrame."
         raise ValueError(msg)
@@ -251,15 +252,31 @@ def filter_by_confidence(df: DataFrame, confidence: float) -> DataFrame:
 def read_dataframe(file: Path, rows: int | None = None) -> DataFrame:
     """Read an APLOSE-formatted CSV file into a DataFrame."""
     delimiter = find_delimiter(file)
+
+    df = read_csv(
+        file,
+        sep=delimiter,
+        parse_dates=["start_datetime", "end_datetime"],
+        nrows=rows,
+    )
+
+    # legacy update
+    if "is_box" in df.columns:
+        df["is_box"] = df["is_box"].map({0: "WEAK", 1: "BOX"})
+
+    df = df.rename(
+        columns={
+            "start_frequency": "max_frequency",
+            "end_frequency": "min_frequency",
+            "annotation": "label",
+            "is_box": "type",
+            "score": "confidence",
+        }
+    )
+
     return (
-        read_csv(
-            file,
-            sep=delimiter,
-            parse_dates=["start_datetime", "end_datetime"],
-            nrows=rows,
-        )
-        .drop_duplicates()
-        .dropna(subset=["annotation"])
+        df.drop_duplicates()
+        .dropna(subset=["label"])
         .sort_values(by=["start_datetime", "end_datetime"])
         .reset_index(drop=True)
     )
@@ -268,7 +285,7 @@ def read_dataframe(file: Path, rows: int | None = None) -> DataFrame:
 def get_annotators(df: DataFrame) -> str | list[str]:
     """Return the annotator list of APLOSE DataFrame."""
     if df.empty:
-        return []
+        return None
     annotators = sorted(set(df["annotator"]))
     return annotators if len(annotators) > 1 else annotators[0]
 
@@ -276,29 +293,29 @@ def get_annotators(df: DataFrame) -> str | list[str]:
 def get_labels(df: DataFrame) -> str | list[str]:
     """Return the label list of APLOSE DataFrame."""
     if df.empty:
-        return []
-    labels = sorted(set(df["annotation"]))
+        return None
+    labels = sorted(set(df["label"]))
     return labels if len(labels) > 1 else labels[0]
 
 
 def get_max_freq(df: DataFrame) -> float:
     """Return the maximum frequency of APLOSE DataFrame."""
     if df.empty:
-        return []
+        return None
     return df["max_frequency"].max()
 
 
 def get_max_time(df: DataFrame) -> float:
     """Return the maximum time of APLOSE DataFrame."""
     if df.empty:
-        return []
-    return df["end_time"].max()
+        return None
+    return Timedelta(df["end_time"].max(), "s")
 
 
 def get_dataset(df: DataFrame) -> str | list[str]:
     """Return dataset list  of APLOSE DataFrame."""
     if df.empty:
-        return []
+        return None
     datasets = sorted(set(df["dataset"]))
     return datasets if len(datasets) > 1 else datasets[0]
 
@@ -428,7 +445,7 @@ def _create_result_dataframe(
     label: str,
     annotator: str,
 ) -> DataFrame:
-    """Create result DataFrame for one annotator-label combination."""
+    """Create a result DataFrame for one annotator-label combination."""
     return DataFrame({
         "dataset": [dataset] * len(file_vector),
         "filename": file_vector,
@@ -436,7 +453,7 @@ def _create_result_dataframe(
         "end_time": [timebin_new.total_seconds()] * len(file_vector),
         "min_frequency": [0] * len(file_vector),
         "max_frequency": [max_freq] * len(file_vector),
-        "annotation": [label] * len(file_vector),
+        "label": [label] * len(file_vector),
         "annotator": [annotator] * len(file_vector),
         "start_datetime": start_datetime,
         "end_datetime": [t + timebin_new for t in start_datetime],
@@ -468,7 +485,7 @@ def _process_detection_combination(
     """Process detections for one annotator-label-dataset combination."""
     df_subset = df[
         (df["annotator"] == annotator)
-        & (df["annotation"] == label)
+        & (df["label"] == label)
         & (df["dataset"] == dataset)
     ]
 
@@ -577,7 +594,7 @@ def reshape_timebin(
 
     return (
         concat(results)
-        .sort_values(by=["start_datetime", "end_datetime", "annotator", "annotation"])
+        .sort_values(by=["start_datetime", "end_datetime", "annotator", "label"])
         .reset_index(drop=True)
     )
 
@@ -627,13 +644,13 @@ def ensure_no_invalid(invalid: list[str], label: str) -> None:
         raise ValueError(msg)
 
 
-def load_detections(filters: DetectionFilter) -> DataFrame:
+def load_detections(config: DataAploseConfig) -> DataFrame:
     """Load and filter an APLOSE-formatted detection file.
 
     Parameters
     ----------
-    filters : DetectionFilter
-        All selection / filtering options.
+    config : DataAploseConfig
+        Data configuration for loading and filtering detections.
 
     Returns
     -------
@@ -641,28 +658,24 @@ def load_detections(filters: DetectionFilter) -> DataFrame:
         Detections that match the selected filters.
 
     """
-    df = read_dataframe(filters.detection_file)
+    df = read_dataframe(config.detection_file)
 
     if df.empty:
         return df
 
-    if filters.box:
+    if config.type == "WEAK":
         df = filter_strong_detection(df)
-    df = filter_by_time(df, filters.begin, filters.end)
-    df = filter_by_annotator(df, annotator=filters.annotator)
-    df = filter_by_label(df, label=filters.annotation)
-    df = filter_by_freq(df, filters.f_min, filters.f_max)
-    df = filter_by_confidence(df, filters.confidence)
-    filename_ts = get_filename_timestamps(df, filters.filename_format)
+    df = filter_by_time(df, config.start_datetime, config.end_datetime)
+    df = filter_by_annotator(df, annotator=config.annotator)
+    df = filter_by_label(df, label=config.label)
+    df = filter_by_freq(df, config.min_frequency, config.max_frequency)
+    df = filter_by_confidence(df, config.confidence)
+    filename_ts = get_filename_timestamps(df, config.filename_format)
     df = reshape_timebin(
         df,
-        timebin_new=filters.timebin_new,
+        timebin_new=config.timebin_new,
         timestamp_audio=filename_ts,
     )
-
-    annotators = get_annotators(df)
-    if len(annotators) > 1 and filters.user_sel in {"union", "intersection"}:
-        df = intersection_or_union(df, user_sel=filters.user_sel)
 
     return df.sort_values(by=["start_datetime", "end_datetime"]).reset_index(drop=True)
 
@@ -698,7 +711,7 @@ def add_weak_detection(
     if not max_freq:
         max_freq = get_max_freq(df)
     if not max_time:
-        max_time = Timedelta(get_max_time(df), "s")
+        max_time = get_max_time(df)
 
     df["start_datetime"] = [
         strftime_osmose_format(start) for start in df["start_datetime"]
@@ -708,12 +721,12 @@ def add_weak_detection(
     for ant in annotators:
         for lbl in labels:
             filenames = (
-                df[(df["annotator"] == ant) & (df["annotation"] == lbl)]["filename"]
+                df[(df["annotator"] == ant) & (df["label"] == lbl)]["filename"]
                 .drop_duplicates()
                 .tolist()
             )
             for f in filenames:
-                test = df[(df["filename"] == f) & (df["annotation"] == lbl)]["type"]
+                test = df[(df["filename"] == f) & (df["label"] == lbl)]["type"]
                 if test.any():
                     start_datetime = strptime_from_text(
                         text=f,
@@ -732,7 +745,7 @@ def add_weak_detection(
                         "end_time": max_time.total_seconds(),
                         "min_frequency": 0,
                         "max_frequency": max_freq,
-                        "annotation": lbl,
+                        "label": lbl,
                         "annotator": ant,
                         "start_datetime": strftime_osmose_format(start_datetime),
                         "end_datetime": strftime_osmose_format(end_datetime),
@@ -746,7 +759,7 @@ def add_weak_detection(
 
 
 def intersection_or_union(df: DataFrame, user_sel: str) -> DataFrame:
-    """Compute intersection or union of annotations from multiple annotators."""
+    """Compute intersection or union of detections from multiple annotators."""
     annotators = get_annotators(df)
     if len(annotators) <= 1:
         msg = "Not enough annotators detected"
@@ -794,7 +807,7 @@ def intersection_or_union(df: DataFrame, user_sel: str) -> DataFrame:
 
     result = result.assign(annotator=annotator_name)
     result = result.assign(end_frequency=end_frequency)
-    result = result.assign(annotation=label_name)
+    result = result.assign(label=label_name)
     result = result.assign(dataset=dataset_name)
 
     return result

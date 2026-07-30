@@ -5,10 +5,10 @@ from __future__ import annotations
 import logging
 
 import numpy as np
-from pandas import DataFrame, DatetimeIndex, Timedelta
+from pandas import DataFrame, DatetimeIndex
 
-from post_processing.utils.core_utils import get_count
-from post_processing.utils.filtering_utils import (
+from disclose.utils.core import get_count
+from disclose.utils.filtering import (
     get_annotators,
     get_labels,
     get_max_time,
@@ -30,7 +30,7 @@ def detection_perf(
     Parameters
     ----------
     df: DataFrame
-        APLOSE formatted detection/annotation DataFrame
+        APLOSE formatted detection DataFrame
     ref: tuple[str, str]
         Tuple of annotator/detector pairs.
     time: DatetimeIndex
@@ -50,13 +50,13 @@ def detection_perf(
 
     labels = get_labels(df)
 
-    timebin = Timedelta(get_max_time(df), "s")
+    timebin = get_max_time(df)
     df_count = get_count(df, timebin, time)
 
     # reference annotator and label
     annotator1, label1 = ref
-    annotations1 = df[(df["annotator"] == annotator1) & (df["annotation"] == label1)]
-    if annotations1.empty:
+    detections1 = df[(df["annotator"] == annotator1) & (df["label"] == label1)]
+    if detections1.empty:
         msg = f"No detection found for {annotator1}/{label1}"
         raise ValueError(msg)
     vec1 = df_count[f"{label1}-{annotator1}"]
