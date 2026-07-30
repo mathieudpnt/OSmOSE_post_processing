@@ -16,12 +16,11 @@ from pandas import (
     Timedelta,
     Timestamp,
     concat,
-    date_range,
     read_csv,
     to_datetime,
 )
 
-from disclose.utils.core import get_count
+from disclose.utils.core import get_count, build_time_vector
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -474,7 +473,7 @@ def _normalize_timezones(df: DataFrame) -> DataFrame:
     return df
 
 
-def _process_annotator_label_pair(
+def _process_detection_combination(
     df: DataFrame,
     annotator: str,
     label: str,
@@ -483,16 +482,18 @@ def _process_annotator_label_pair(
     max_freq: float,
     dataset: str,
 ) -> DataFrame | None:
-    """Process detections for one annotator-label combination."""
-    df_subset = df[(df["annotator"] == annotator) & (df["label"] == label)]
+    """Process detections for one annotator-label-dataset combination."""
+    df_subset = df[
+        (df["annotator"] == annotator)
+        & (df["label"] == label)
+        & (df["dataset"] == dataset)
+    ]
 
     if df_subset.empty:
         return None
 
     # Create a time vector
-    t1 = min(df_subset["start_datetime"]).floor(timebin_new)
-    t2 = max(df_subset["end_datetime"]).ceil(timebin_new)
-    time_vector = date_range(start=t1, end=t2, freq=timebin_new)
+    time_vector = build_time_vector(df_subset, timebin_new)
 
     # Extract detection data
     ts_detect_beg = df_subset["start_datetime"].to_list()
@@ -570,24 +571,26 @@ def reshape_timebin(
     # Normalize timezones if needed
     df = _normalize_timezones(df)
 
-    # Process each annotator-label combination
+    # Process each annotator-label-dataset combination
     annotators = [annotators] if isinstance(annotators, str) else annotators
     labels = [labels] if isinstance(labels, str) else labels
+    dataset = [dataset] if isinstance(dataset, str) else dataset
 
     results = []
-    for ant in annotators:
-        for lbl in labels:
-            result = _process_annotator_label_pair(
-                df,
-                ant,
-                lbl,
-                timebin_new,
-                timestamp_audio,
-                max_freq,
-                dataset,
-            )
-            if result is not None:
-                results.append(result)
+    for ds in dataset:
+        for ant in annotators:
+            for lbl in labels:
+                result = _process_detection_combination(
+                    df,
+                    ant,
+                    lbl,
+                    timebin_new,
+                    timestamp_audio,
+                    max_freq,
+                    ds,
+                )
+                if result is not None:
+                    results.append(result)
 
     return (
         concat(results)

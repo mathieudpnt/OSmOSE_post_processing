@@ -588,6 +588,7 @@ class DataAplose:
                 time_range=dates,
                 show_rise_set=show_rise_set,
                 season=season,
+                effort=effort,
                 coordinates=self.coordinates,
             )
             return
