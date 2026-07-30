@@ -6,7 +6,7 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = "disclOSE"
+project = "disclose"
 copyright = "OSmOSE"
 author = "OSmOSE"
 release = "0.0.1"
@@ -29,6 +29,6 @@ html_logo = "../logo/osekit_small.png"
 html_title = "disclose"
 
 html_theme_options = {
-    "repository_url": "https://github.com/mathieudpnt/OSmOSE_post_processing",
+    "repository_url": "https://github.com/Project-OSmOSE/disclOSE",
     "use_repository_button": True,
 }

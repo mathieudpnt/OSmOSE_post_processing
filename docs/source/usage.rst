@@ -3,5 +3,4 @@
 
 .. _usage:
 
-In **OSmOSE_post_processing**, ...
-
+In **disclOSE**, ...
