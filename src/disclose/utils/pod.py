@@ -88,7 +88,7 @@ def pod2aplose(
         "min_frequency": [0] * len(df),
         "max_frequency": [0] * len(df),
         "label": [label] * len(df),
-        "annotator": ["FPOD"] * len(df),
+        "annotator": [annotator] * len(df),
         "start_datetime": [
             strftime_osmose_format(entry.floor(bin_size)) for entry in fpod_start_dt
         ],
