@@ -1,6 +1,6 @@
 [project]
 name = "disclose"
-version = "0.2.0"
+version = "0.3.0"
 description = "This repository is used to process passive acoustic data particularly marine mammals automatic detections and manual annotations according to OSmOSE project format."
 authors = [
     {name = "OSmOSE", email = "osmose@ensta-bretagne.fr"}

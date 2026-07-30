@@ -113,7 +113,7 @@ def histo(
 
     begin, end, bin_size = round_begin_end_timestamps(list(df.index), bin_size)
 
-    color = color or get_colors(df)
+    color = [color] if color is not None else get_colors(df)
 
     if len(df.columns) > 1 and legend:
         legend_labels = get_legend(labels, annotators)
@@ -386,19 +386,18 @@ def heatmap(
     ax.set_xlabel(f"Time ({bin_size_str} bin)")
 
 
-def overview(df: DataFrame, annotator: list[str] | None = None) -> None:
+def overview(df: DataFrame, annotator: str | list[str]) -> None:
     """Overview of an APLOSE formatted DataFrame.
 
     Parameters
     ----------
     df: DataFrame
         The Dataframe to analyse.
-    annotator: list[str]
+    annotator: str | list[str] | None
         List of annotators.
 
     """
-    if annotator is not None:
-        df = filter_by_annotator(df, annotator)
+    df = filter_by_annotator(df, annotator)
 
     summary_label = (
         df.groupby("label")["annotator"]  # noqa: PD010
