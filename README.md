@@ -1,7 +1,6 @@
 <!--suppress HtmlDeprecatedAttribute -->
-<div align='center'>
+<div align="center">
 
-# OSmOSE post-processing
 
 ![version](https://img.shields.io/badge/package_version-0.2.0-orange)
 ![PyPI status](https://img.shields.io/pypi/status/ansicolortags.svg)
@@ -9,10 +8,14 @@
 ![Open Source Love](https://img.shields.io/badge/open%20source-♡-red)
 ![Python 3.13](https://img.shields.io/badge/python-3.13-blue.svg)
 
+**disclOSE** : DISplay of acoustiC ResuLts meets Ocean Sound Explorers
+
 </div>
 
-This repository is used to process passive acoustic data, particularly marine mammals, automatic detections and manual annotations.
-All results and expected input data are to be formatted according [OSmOSE](https://github.com/Project-OSmOSE) convention.
+
+
+disclOSE is used to process passive acoustic data, particularly marine mammals, automatic detections and manual annotations.
+All results and expected input data are to be formatted according to [OSmOSE](https://github.com/Project-OSmOSE) convention.
 
 
 ## 🛠 Installation
@@ -21,7 +24,7 @@ Please refer to the [documentation](https://docs.astral.sh/uv/getting-started/in
 
 To download the repository, clone it from git:
    ```
-   git clone https://github.com/Project-OSmOSE/OSmOSE_post_processing.git
+   git clone https://github.com/Project-OSmOSE/disclOSE.git
    ```
 Then, you can pull the latest update:
    ```
@@ -41,4 +44,4 @@ Contributions are welcome! To contribute:
 5. Open a pull request 📝
 
 ## 📬  Contact
-💡 Have questions or ideas? Open an issue or reach out to [me](mailto:mathieu.dupont@ensta.fr)!
+💡 Have questions or ideas? Open an issue or reach out to [us](mailto:osmose@ensta-bretagne.fr)!
