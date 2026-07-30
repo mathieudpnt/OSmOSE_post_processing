@@ -19,17 +19,21 @@ from pandas import (
     Timestamp,
     concat,
     date_range,
+    cut,
+    read_csv,
+    NA,
 )
 from pandas.tseries import offsets
 
 from post_processing.dataclass.detection_filter import DetectionFilter
-from post_processing.utils.core_utils import get_count
+from post_processing.utils.core_utils import get_count, build_time_vector
 from post_processing.utils.filtering_utils import (
     get_annotators,
     get_dataset,
     get_labels,
     get_timezone,
     load_detections,
+    _build_detection_vector,
 )
 from post_processing.utils.metrics_utils import detection_perf
 from post_processing.utils.plot_utils import (
@@ -436,6 +440,7 @@ class DataAplose:
                 time_range=time,
                 show_rise_set=show_rise_set,
                 season=season,
+                effort=effort,
                 coordinates=self.coordinates,
             )
 
@@ -604,3 +609,33 @@ class DataAplose:
         self.annotators = get_annotators(self.df)
 
         return self
+
+    def add_dpm(self, filters: DetectionFilter) -> None:
+        """Add the detection per minute `DPM` column to DataFrame."""
+        df_dpm = read_csv(
+            filters.detection_file, parse_dates=["start_datetime", "end_datetime"]
+        )
+        self.df["dpm_count"] = NA
+        ts_detect_beg = df_dpm["start_datetime"].to_list()
+        ts_detect_end = df_dpm["end_datetime"].to_list()
+
+        for ann in self.annotators:
+            if ann.lower() in {"fpod", "cpod"}:
+                df_sel = self.df[(self.df["annotator"] == ann)]
+                time_vector = build_time_vector(df_sel, filters.timebin_new)
+                bins = list(time_vector) + [time_vector[-1] + filters.timebin_new]
+
+                detect_vec = _build_detection_vector(
+                    time_vector, ts_detect_beg, ts_detect_end
+                )
+                counts = (
+                    cut(ts_detect_beg, bins=bins, right=False)
+                    .value_counts()
+                    .sort_index()
+                )
+
+                dpm_values = [
+                    counts.iloc[i] for i, detected in enumerate(detect_vec) if detected
+                ]
+
+                self.df.loc[df_sel.index, "dpm_count"] = dpm_values

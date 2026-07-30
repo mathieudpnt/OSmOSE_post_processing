@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, Any
 import astral
 import easygui
 from astral.sun import sunrise, sunset
-from matplotlib import pyplot as plt
 from pandas import (
     DataFrame,
     DatetimeIndex,
@@ -27,6 +26,13 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     import matplotlib.pyplot as plt
+
+
+def build_time_vector(df: DataFrame, bin_size: Timedelta) -> DatetimeIndex:
+    """Build a time vector from a DataFrame and a frequency."""
+    t1 = min(df["start_datetime"]).floor(bin_size)
+    t2 = max(df["end_datetime"]).ceil(bin_size)
+    return date_range(start=t1, end=t2, freq=bin_size)
 
 
 def get_season(ts: Timestamp, *, northern: bool = True) -> tuple[str, int]:
