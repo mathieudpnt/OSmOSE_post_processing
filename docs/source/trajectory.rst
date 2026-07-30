@@ -3,5 +3,5 @@ Trajectory
 
 .. _trajectory:
 
-.. autoclass:: post_processing.dataclass.trajectory.Trajectory
+.. autoclass:: disclose.dataclass.trajectory.Trajectory
    :members:

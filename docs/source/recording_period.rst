@@ -3,5 +3,5 @@ RecordingPeriod
 
 .. _recording_period:
 
-.. autoclass:: post_processing.dataclass.recording_period.RecordingPeriod
+.. autoclass:: disclose.dataclass.recording_period.RecordingPeriod
    :members:
