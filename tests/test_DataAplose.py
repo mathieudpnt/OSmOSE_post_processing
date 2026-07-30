@@ -102,16 +102,16 @@ def test_change_tz(sample_df: DataFrame) -> None:
     data.change_tz(new_tz)
     start_dt = data.df["start_datetime"]
     end_dt = data.df["end_datetime"]
-    assert all(ts.tz.zone == new_tz for ts in start_dt), (
+    assert all(ts.tz.key == new_tz for ts in start_dt), (
         f"The detection start timestamps have to be in {new_tz} timezone"
     )
-    assert all(ts.tz.zone == new_tz for ts in end_dt), (
+    assert all(ts.tz.key == new_tz for ts in end_dt), (
         f"The detection end timestamps have to be in {new_tz} timezone"
     )
-    assert data.start_datetime.tz.zone == new_tz, (
+    assert data.start_datetime.tz.key == new_tz, (
         f"The begin value of the DataAplose has to be in {new_tz} timezone"
     )
-    assert data.end_datetime.tz.zone == new_tz, (
+    assert data.end_datetime.tz.key == new_tz, (
         f"The end value of the DataAplose has to be in {new_tz} timezone"
     )
 

@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 
 import pytest
-from pandas import Timedelta, read_csv, to_datetime, DataFrame, Timestamp
+from pandas import Timedelta, read_csv, to_datetime, DataFrame, Timestamp, IntervalIndex
 
 from disclose.dataclass.data_aplose_config import DataAploseConfig
 from disclose.dataclass.recording_period import RecordingPeriod
@@ -64,7 +64,7 @@ def test_recording_period_with_gaps(
 
     # Structural checks
     assert not counts.empty
-    assert counts.index.is_interval()
+    assert isinstance(counts.index, IntervalIndex)
     assert counts.min() >= 0
     assert counts.max() <= nb_timebin_origin_per_histo_x_bin_size
 
