@@ -68,7 +68,7 @@ def test_plot_detections_with_nav_data(
 
 def test_load_glider_nav() -> None:
     input_dir = (
-        Path(__file__).parent.parent / "user_case" / "resource" / "OHAGEODAMS_nav"
+        Path(__file__).parent.parent / "docs" / "source" / "_static" / "OHAGEODAMS_nav"
     )
     df = load_glider_nav(input_dir)
     assert isinstance(df, DataFrame)
@@ -98,7 +98,7 @@ def test_compute_acoustic_diversity(
 
 def test_export_gpx(nav_df: DataFrame, tmp_path: Path) -> None:
     out_file = tmp_path / "trace.gpx"
-    export_gpx(nav_df, tmp_path, "trace")
+    export_gpx(nav_df, tmp_path / "trace.gpx")
     assert out_file.exists()
     content = out_file.read_text()
     assert "<gpx" in content

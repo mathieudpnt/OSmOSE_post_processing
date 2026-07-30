@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import gzip
+from os import PathLike
 from typing import TYPE_CHECKING
 
 import gpxpy
@@ -352,7 +353,7 @@ def compute_acoustic_diversity(
     return df_acoustic_diversity
 
 
-def export_gpx(nav: DataFrame, output_dir: Path, output_file: str = "trace") -> None:
+def export_gpx(nav: DataFrame, path: PathLike) -> None:
     """Export a navigation DataFrame to a GPX file.
 
     Creates a GPX track from latitude, longitude, depth, and timestamp values
@@ -362,10 +363,8 @@ def export_gpx(nav: DataFrame, output_dir: Path, output_file: str = "trace") -> 
     ----------
     nav : DataFrame
         Navigation data with required columns: ["Lat", "Lon", "Depth", "Timestamp"].
-    output_dir : Path
-        Directory where the GPX file will be saved.
-    output_file : str, optional
-        Base name of the GPX file (default is "trace").
+    output_dir : PathLike
+        Output path of the export GPX file.
 
     """
     gpx = gpxpy.gpx.GPX()
@@ -391,6 +390,5 @@ def export_gpx(nav: DataFrame, output_dir: Path, output_file: str = "trace") -> 
     )
     gpx.waypoints.append(waypoint)
 
-    output_dir.mkdir(parents=True, exist_ok=True)
-    with (output_dir / (output_file + ".gpx")).open("w") as f:
+    with path.open("w") as f:
         f.write(gpx.to_xml())

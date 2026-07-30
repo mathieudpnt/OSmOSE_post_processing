@@ -11,7 +11,7 @@ from disclose.utils.visualisation import (
 
 def test_overview_runs_without_error(sample_df) -> None:
     try:
-        overview(sample_df)
+        overview(sample_df, sorted(set(sample_df["annotator"])))
     except ValueError:
         pytest.fail("test_detection_perf raised ValueError unexpectedly.")
 
