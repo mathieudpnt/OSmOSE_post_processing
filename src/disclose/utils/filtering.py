@@ -5,7 +5,7 @@ from __future__ import annotations
 import bisect
 import csv
 import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pytz
@@ -18,6 +18,7 @@ from pandas import (
     concat,
     read_csv,
     to_datetime,
+    Index,
 )
 
 from disclose.utils.core import get_count, build_time_vector
@@ -266,8 +267,8 @@ def read_dataframe(file: Path, rows: int | None = None) -> DataFrame:
 
     df = df.rename(
         columns={
-            "start_frequency": "max_frequency",
-            "end_frequency": "min_frequency",
+            "start_frequency": "min_frequency",
+            "end_frequency": "max_frequency",
             "annotation": "label",
             "is_box": "type",
             "score": "confidence",
@@ -305,7 +306,7 @@ def get_max_freq(df: DataFrame) -> float:
     return df["max_frequency"].max()
 
 
-def get_max_time(df: DataFrame) -> float:
+def get_max_time(df: DataFrame) -> None | Timedelta:
     """Return the maximum time of APLOSE DataFrame."""
     if df.empty:
         return None
@@ -373,7 +374,7 @@ def get_timezone(
     return list(timezones)
 
 
-def check_timestamp(df: DataFrame, timestamp_audio: list[Timestamp]) -> None:
+def check_timestamp(df: DataFrame, timestamp_audio: list[Timestamp] | None) -> None:
     """Check if a provided timestamp_audio list is correctly formated.
 
     Parameters
@@ -393,6 +394,11 @@ def check_timestamp(df: DataFrame, timestamp_audio: list[Timestamp]) -> None:
         raise ValueError(msg)
 
 
+def _to_naive_utc_ns(ts_list):
+    idx = to_datetime(Index(ts_list), utc=True)
+    return idx.tz_localize(None).values
+
+
 def _build_filename_vector(
     time_vector: list[Timestamp],
     ts_detect_beg: list[Timestamp],
@@ -400,21 +406,23 @@ def _build_filename_vector(
     filenames: list[str],
 ) -> list[str]:
     """Build the filename vector for each time bin."""
-    filename_vector = []
-    for ts in time_vector:
-        idx = bisect.bisect_left(ts_detect_beg, ts)
+    time_arr = _to_naive_utc_ns(time_vector)
+    detect_beg_arr = _to_naive_utc_ns(ts_detect_beg)
+    audio_arr = _to_naive_utc_ns(timestamp_audio)
+    filenames_arr = np.asarray(filenames)
 
-        if idx == 0:
-            filename_vector.append(filenames[0])
-        elif idx == len(ts_detect_beg):
-            filename_vector.append(filenames[-1])
-        else:
-            # Choose a filename based on timestamp_audio
-            filename_vector.append(
-                filenames[idx] if timestamp_audio[idx] <= ts else filenames[idx - 1],
-            )
+    idx = np.searchsorted(detect_beg_arr, time_arr, side="left")
 
-    return filename_vector
+    n = len(detect_beg_arr)
+    idx_clipped = np.clip(idx, 0, n - 1)
+
+    use_idx = audio_arr[idx_clipped] <= time_arr
+    chosen = np.where(use_idx, idx_clipped, idx_clipped - 1)
+
+    chosen = np.where(idx == 0, 0, chosen)
+    chosen = np.where(idx == n, n - 1, chosen)
+
+    return filenames_arr[chosen].tolist()
 
 
 def _build_detection_vector(
@@ -758,7 +766,9 @@ def add_weak_detection(
     return df.sort_values(by=["start_datetime", "annotator"]).reset_index(drop=True)
 
 
-def intersection_or_union(df: DataFrame, user_sel: str) -> DataFrame:
+def intersection_or_union(
+    df: DataFrame, user_sel: str, effort: Any | None = None
+) -> DataFrame:
     """Compute intersection or union of detections from multiple annotators."""
     annotators = get_annotators(df)
     if len(annotators) <= 1:
@@ -781,7 +791,7 @@ def intersection_or_union(df: DataFrame, user_sel: str) -> DataFrame:
         raise ValueError(msg)
 
     timebin = Timedelta(df["end_time"].iloc[0], "s")
-    df_count = get_count(df, timebin)
+    df_count = get_count(df=df, bin_size=timebin, effort=effort)
 
     if user_sel == "intersection":
         # Keep only time bins where ALL annotators detected something

@@ -27,6 +27,8 @@ from disclose.utils.filtering import (
     read_dataframe,
     reshape_timebin,
     intersection_or_union,
+    check_timestamp,
+    _normalize_timezones,
 )
 
 
@@ -163,6 +165,11 @@ def test_filter_by_annotator_invalid(sample_df: DataFrame) -> None:
         filter_by_annotator(sample_df, "BbJuni")
 
 
+def test_filter_by_annotator_empty_annotator(sample_df: DataFrame) -> None:
+    df = filter_by_annotator(sample_df, None)
+    assert df.equals(sample_df)
+
+
 # filter_by_label
 def test_filter_by_label_string(sample_df: DataFrame) -> None:
     df = filter_by_label(sample_df, "lbl1")
@@ -177,6 +184,11 @@ def test_filter_by_label_list(sample_df: DataFrame) -> None:
 def test_filter_by_label_invalid(sample_df: DataFrame) -> None:
     with pytest.raises(ValueError, match="not present in label, upload aborted"):
         filter_by_label(sample_df, "hihi")
+
+
+def test_filter_by_annotator_empty_label(sample_df: DataFrame) -> None:
+    df = filter_by_label(sample_df, None)
+    assert df.equals(sample_df)
 
 
 @pytest.mark.parametrize(
@@ -241,6 +253,31 @@ def test_filter_by_confidence_valid(sample_df: DataFrame) -> None:
 def test_filter_by_confidence_no_results(sample_df: DataFrame) -> None:
     df = filter_by_confidence(sample_df, 1)
     assert df.empty
+
+
+def test_filter_by_confidence_empty(sample_df: DataFrame) -> None:
+    df = filter_by_confidence(sample_df, None)
+    assert df.equals(sample_df)
+
+
+@pytest.mark.parametrize(
+    "conf, expected_msg",
+    [
+        pytest.param(
+            -0.5,
+            "confidence must be between 0 and 1, got -0.5.",
+            id="negative_conf",
+        ),
+        pytest.param(
+            10,
+            "confidence must be between 0 and 1, got 10.",
+            id="above_one_conf",
+        ),
+    ],
+)
+def test_filter_by_confidence_wrong_value(sample_df: DataFrame, conf, expected_msg):
+    with pytest.raises(ValueError, match=expected_msg):
+        filter_by_confidence(sample_df, conf)
 
 
 def test_filter_by_confidence_missing_column(sample_df: DataFrame) -> None:
@@ -345,6 +382,40 @@ def test_get_timezone_several(sample_df: DataFrame) -> None:
     assert len(tz) == 2
     assert pytz.UTC in tz
     assert pytz.FixedOffset(420) in tz
+
+
+# %% check_timestamp
+
+
+def test_check_timestamp_none(sample_df):
+    with pytest.raises(ValueError, match="`timestamp_wav` is empty"):
+        check_timestamp(sample_df, None)
+
+
+def test_check_timestamp_wrong_length(sample_df):
+    timestamp_audio = sample_df["start_datetime"][:-2]
+    with pytest.raises(
+        ValueError, match="`timestamp_wav` is not the same length as `df`"
+    ):
+        check_timestamp(sample_df, timestamp_audio)
+
+
+# %% normalize_timezone
+def test_normalize_timezone(sample_df: DataFrame) -> None:
+    sample1 = sample_df[:10]
+    sample2 = sample_df[10:]
+
+    sample1["start_datetime"] = sample_df["start_datetime"].dt.tz_convert(
+        "Europe/Paris"
+    )
+    sample1["end_datetime"] = sample_df["end_datetime"].dt.tz_convert("Europe/Paris")
+
+    sample2["start_datetime"] = sample_df["start_datetime"].dt.tz_convert("Asia/Tokyo")
+    sample2["end_datetime"] = sample_df["end_datetime"].dt.tz_convert("Asia/Tokyo")
+
+    df = _normalize_timezones(concat([sample1, sample2], ignore_index=True))
+
+    assert df.equals(sample_df)
 
 
 # %% read DataFrame
