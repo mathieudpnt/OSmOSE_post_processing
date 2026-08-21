@@ -271,7 +271,7 @@ def test_plot_scatter_heatmap_timeline(sample_df: DataFrame, mode: str) -> None:
     data = DataAplose(sample_df)
     data.lon = 0
     data.lat = 0
-    bin_size = frequencies.to_offset("1d")
+    bin_size = frequencies.to_offset("1D")
     fig, ax = plt.subplots()
     data.plot(
         mode=mode, ax=ax, annotator="ann1", label="lbl1", bin_size=bin_size, color="red"

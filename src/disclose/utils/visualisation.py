@@ -587,8 +587,8 @@ def timeline(
     ax.set_yticklabels(labels[::-1])
     ax.set_xlabel("Date")
     ax.set_xlim(
-        df["start_datetime"].min().floor("1d"),
-        df["end_datetime"].max().ceil("1d"),
+        df["start_datetime"].min().floor("1D"),
+        df["end_datetime"].max().ceil("1D"),
     )
 
 

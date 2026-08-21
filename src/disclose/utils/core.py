@@ -17,9 +17,11 @@ from pandas import (
     date_range,
     json_normalize,
     to_datetime,
+    Series,
 )
 from pandas.tseries import offsets
 from pandas.tseries.offsets import BaseOffset
+
 
 if TYPE_CHECKING:
     from datetime import tzinfo
@@ -335,7 +337,10 @@ def add_recording_period(
 
 
 def get_count(
-    df: DataFrame, bin_size: Timedelta | BaseOffset, time: DatetimeIndex | None = None
+    df: DataFrame,
+    bin_size: Timedelta | BaseOffset,
+    time: DatetimeIndex | None = None,
+    effort: Any | None = None,
 ) -> DataFrame:
     """Count observations per label and annotator.
 
@@ -350,6 +355,8 @@ def get_count(
         Width or frequency of bins.
     time: DatetimeIndex
         DatetimeIndex from a specified beginning to end
+    effort: Any | None
+        Recording periods reflecting the effort of observation.
 
     Returns
     -------
@@ -362,9 +369,28 @@ def get_count(
         msg = "`df` contains no data"
         raise ValueError(msg)
 
-    datetime_list = list(df["start_datetime"]) if time is None else time.to_list()
+    if effort is not None:
+        eff = Series(effort.counts.to_numpy(), index=effort.counts.index.left)
+        bin_activity = eff.resample(bin_size, closed="left", label="left").sum()
+        active_starts = bin_activity[bin_activity > 0].index
 
-    bins, bin_size = get_time_range_and_bin_size(datetime_list, bin_size)
+        if active_starts.empty:
+            msg = "`effort` contains no recording activity"
+            raise ValueError(msg)
+
+        # Build cut edges only from active bins (start and start + bin_size)
+        active_ends = active_starts + bin_size
+        bins = DatetimeIndex(sorted(set(active_starts) | set(active_ends)))
+
+        # Restrict events to the active window span (cheap pre-filter)
+        df = df[
+            (df["start_datetime"] >= active_starts.min())
+            & (df["start_datetime"] < active_ends.max())
+        ]
+    else:
+        datetime_list = list(df["start_datetime"]) if time is None else time.to_list()
+        bins, bin_size = get_time_range_and_bin_size(datetime_list, bin_size)
+        active_starts = bins[:-1]
 
     labels, annotators = get_labels_and_annotators(df)
 
@@ -373,7 +399,7 @@ def get_count(
         for label, annotator in zip(labels, annotators, strict=False)
     ]
 
-    counts_df = DataFrame(index=bins[:-1])
+    counts_df = DataFrame(index=active_starts)
     for i, series in enumerate(series_list):
         binned = cut(series, bins=bins, right=False)
         counts_df[f"{labels[i]}-{annotators[i]}"] = binned.value_counts().sort_index()
@@ -403,7 +429,7 @@ def get_labels_and_annotators(df: DataFrame) -> tuple[list, list]:
 
 
 def localize_timestamps(timestamps: list[Timestamp], tz: tzinfo) -> list[Timestamp]:
-    """Localise timestamps if necessary."""
+    """Localize timestamps if necessary."""
     localized = []
     for ts in timestamps:
         if ts.tzinfo is None or ts.tzinfo.utcoffset(ts) is None:
