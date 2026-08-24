@@ -53,7 +53,7 @@ def test_recording_period_with_gaps(
         "start_deployment",
         "end_deployment",
     ]:
-        df_planning[col] = to_datetime(df_planning[col], utc=True).dt.tz_convert(None)
+        df_planning[col] = to_datetime(df_planning[col], utc=True)
 
     df_planning["start"] = df_planning[["start_recording", "start_deployment"]].max(
         axis=1

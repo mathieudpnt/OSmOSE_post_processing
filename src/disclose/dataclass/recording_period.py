@@ -18,6 +18,7 @@ from pandas import (
     read_csv,
     to_datetime,
     DataFrame,
+    concat,
 )
 
 from disclose.dataclass.data_aplose_config import DataAploseConfig
@@ -100,18 +101,24 @@ class RecordingPeriod:
             freq=origin,
         )
 
-        # Initialise effort vector (0 = no recording, 1 = recording)
-        # Compare each timestamp to all intervals in a vectorised manner
-        effort = Series(0, index=time_index)
+        starts = df["effective_start_recording"]
+        ends = df["effective_end_recording"]
 
-        # Vectorised interval coverage
-        t_vals = time_index.to_numpy()[:, None]
-        start_vals = df["effective_start_recording"].to_numpy()
-        end_vals = df["effective_end_recording"].to_numpy()
+        # +1 at each start, -1 at each end
+        events = concat([
+            Series(1, index=starts),
+            Series(-1, index=ends),
+        ]).sort_index()
 
-        # Boolean matrix: True if the timestamp is within any recording interval
-        covered = (t_vals >= start_vals) & (t_vals < end_vals)
-        effort[:] = covered.any(axis=1).astype(int)
+        # combine events that fall on the exact same timestamp
+        events = events.groupby(level=0).sum()
+
+        # running count of "how many intervals are active" at each event time
+        coverage = events.cumsum()
+
+        # project onto your regular time_index: carry the last known coverage forward
+        effort = coverage.reindex(time_index, method="ffill").fillna(0)
+        effort = (effort > 0).astype(int)
 
         # Aggregate effort into user-defined bin_size
         counts = effort.resample(bin_size, closed="left", label="left").sum()
@@ -146,9 +153,9 @@ class RecordingPeriod:
             msg = "CSV is empty."
             raise ValueError(msg)
 
-        # Normalise timezones: convert to UTC, then remove tz info (naive)
+        # Normalize timezones: convert to UTC, then remove tz info (naive)
         for col in df.columns:
-            df[col] = to_datetime(df[col], utc=True).dt.tz_convert(None)
+            df[col] = to_datetime(df[col], utc=True)
 
         return df
 
