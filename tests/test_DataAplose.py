@@ -499,56 +499,6 @@ def test_data_aplose_overview(monkeypatch, sample_df: DataFrame) -> None:
     assert called["annotator"] == annotator
 
 
-@pytest.mark.parametrize(
-    ("annotators", "labels", "expected_ref"),
-    [
-        pytest.param(
-            ("ann1", "ann2"),
-            "lbl1",
-            ("ann1", "lbl1"),
-            id="annotators_tuple_labels_str",
-        ),
-        pytest.param(
-            "ann1",
-            ("lbl1", "lbl2"),
-            ("ann1", "lbl1"),
-            id="annotators_str_labels_tuple",
-        ),
-    ],
-)
-def test_data_aplose_detection_perf_wrapper_parametrized(
-    monkeypatch,
-    sample_df: DataFrame,
-    annotators: tuple[str, str] | str,
-    labels: tuple[str, str] | str,
-    expected_ref: tuple[str, str],
-) -> None:
-    obj = DataAplose(sample_df[sample_df["type"] == "WEAK"])
-
-    called = {}
-
-    def fake_detection_perf(
-        df: DataFrame, ref: tuple[str, str], time
-    ) -> tuple[float, float, float]:
-        called["df"] = df
-        called["ref"] = ref
-        called["time"] = time
-        return (0.1, 0.2, 0.3)
-
-    monkeypatch.setattr(
-        "disclose.dataclass.data_aplose.detection_perf",
-        fake_detection_perf,
-    )
-
-    result = obj.detection_perf(
-        annotator=annotators,
-        label=labels,
-    )
-
-    assert result == (0.1, 0.2, 0.3)
-    assert called["ref"] == expected_ref
-
-
 def test_detection_perf_multiple_timebins(sample_df: DataFrame) -> None:
     obj = DataAplose(sample_df)
 

@@ -500,10 +500,14 @@ class DataAplose:
             raise ValueError(msg)
         timebin = Timedelta(df_filtered["end_time"].iloc[0], "s")
 
+        if self.config.recording_file:
+            effort = RecordingPeriod.from_config(config=self.config, bin_size=timebin)
+
         return detection_perf(
             df=df_filtered,
             ref=ref,
             time=date_range(self.start_datetime, self.end_datetime, freq=timebin),
+            effort=effort,
         )
 
     def plot(
