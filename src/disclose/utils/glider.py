@@ -105,7 +105,7 @@ def plot_detections_with_nav_data(
     labels = df["label"].unique()
 
     for lbl in labels:
-        df_1label = df[(df["label"] == lbl) & (df["type"] == "BOX")]
+        df_1label = df[(df["label"] == lbl)]
 
         glider_timestamps_numeric = [int(ts.timestamp()) for ts in nav["Timestamp"]]
         detections_timestamps_numeric = [
