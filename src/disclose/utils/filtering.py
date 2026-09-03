@@ -244,10 +244,15 @@ def filter_by_confidence(df: DataFrame, confidence: float | None) -> DataFrame:
         raise ValueError(msg)
 
     if "confidence" not in df.columns:
-        msg = "'confidence' column not present if DataFrame."
-        raise ValueError(msg)
+        return df
 
     return df[df["confidence"] >= confidence]
+
+
+def drop_legacy_if_new_exists(df: DataFrame, legacy: str, new: str) -> DataFrame:
+    if legacy in df.columns and new in df.columns:
+        df = df.drop(columns=legacy)
+    return df
 
 
 def read_dataframe(file: Path, rows: int | None = None) -> DataFrame:
@@ -255,15 +260,19 @@ def read_dataframe(file: Path, rows: int | None = None) -> DataFrame:
     delimiter = find_delimiter(file)
 
     df = read_csv(
-        file,
+        filepath_or_buffer=file,
         sep=delimiter,
         parse_dates=["start_datetime", "end_datetime"],
         nrows=rows,
     )
 
-    # legacy update
-    if "is_box" in df.columns:
+    # Handle legacy columns
+    if "is_box" in df.columns and "type" not in df.columns:
         df["is_box"] = df["is_box"].map({0: "WEAK", 1: "BOX"})
+
+    df = drop_legacy_if_new_exists(df, legacy="is_box", new="type")
+    df = drop_legacy_if_new_exists(df, legacy="min_frequency", new="start_frequency")
+    df = drop_legacy_if_new_exists(df, legacy="max_frequency", new="end_frequency")
 
     df = df.rename(
         columns={
@@ -314,7 +323,7 @@ def get_max_time(df: DataFrame) -> None | Timedelta:
 
 
 def get_dataset(df: DataFrame) -> str | list[str]:
-    """Return dataset list  of APLOSE DataFrame."""
+    """Return dataset list of APLOSE DataFrame."""
     if df.empty:
         return None
     datasets = sorted(set(df["dataset"]))

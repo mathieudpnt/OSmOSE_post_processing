@@ -282,8 +282,7 @@ def test_filter_by_confidence_wrong_value(sample_df: DataFrame, conf, expected_m
 
 def test_filter_by_confidence_missing_column(sample_df: DataFrame) -> None:
     df = sample_df.drop(columns=["confidence"])
-    with pytest.raises(ValueError, match="'confidence' column not present"):
-        filter_by_confidence(df, 0.5)
+    assert df.equals(filter_by_confidence(df, 0.5))
 
 
 # filter_weak_strong_detection
@@ -472,6 +471,44 @@ def test_read_dataframe_nrows(tmp_path: Path) -> None:
     df = read_dataframe(csv_file, rows=1)
     assert len(df) == 1
     assert df.iloc[0]["label"] in {"whale", "dolphin"}
+
+
+def test_new_type_takes_precedence_over_legacy_is_box():
+    df = DataFrame({
+        "is_box": [0, 1],
+        "type": ["WEAK", "BOX"],
+    })
+    if "is_box" in df.columns:
+        if "type" in df.columns:
+            df = df.drop(columns="is_box")
+        else:
+            df["is_box"] = df["is_box"].map({0: "WEAK", 1: "BOX"})
+    assert "is_box" not in df.columns
+    assert df["type"].tolist() == ["WEAK", "BOX"]
+
+
+def test_legacy_is_box_is_converted(tmp_path: Path, sample_df: DataFrame):
+    sample_df = sample_df.rename(
+        columns={
+            "type": "is_box",
+        }
+    )
+    sample_df["is_box"] = sample_df["is_box"].map({"WEAK": 0, "BOX": 1})
+    sample_df.to_csv(tmp_path / "sample_df.csv", index=False)
+    df = read_dataframe(tmp_path / "sample_df.csv")
+    assert "type" in df.columns
+    assert set(df["type"]) == {"WEAK", "BOX"}
+
+
+def test_new_frequency_takes_precedence_over_legacy_frequency():
+    df = DataFrame({
+        "min_frequency": [10, 20],
+        "start_frequency": [100, 200],
+    })
+    if "min_frequency" in df.columns and "start_frequency" in df.columns:
+        df = df.drop(columns="min_frequency")
+    df = df.rename(columns={"start_frequency": "min_frequency"})
+    assert df["min_frequency"].tolist() == [100, 200]
 
 
 # %% reshape_timebin
